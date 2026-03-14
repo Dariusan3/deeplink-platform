@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -91,31 +91,44 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
         collapsed ? "w-[68px]" : "w-64"
       )}
     >
-      {/* Logo */}
-      <div className="flex items-center gap-3 px-4 h-16 border-b border-sidebar-border">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center shrink-0 shadow-md shadow-purple-500/20">
-          <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
-          </svg>
-        </div>
+      {/* Header */}
+      <div className={cn(
+        "flex items-center h-16 border-b border-sidebar-border transition-all duration-300",
+        collapsed ? "justify-center px-0" : "px-4 gap-3"
+      )}>
         {!collapsed && (
-          <span className="font-bold text-lg bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-            DeepLink
-          </span>
+          <div className="flex items-center gap-3 overflow-hidden animate-in fade-in slide-in-from-left-2 duration-300">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center shrink-0 shadow-md shadow-purple-500/20">
+              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
+              </svg>
+            </div>
+            <span className="font-bold text-lg bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent whitespace-nowrap">
+              DeepLink
+            </span>
+          </div>
         )}
         <Button
           variant="ghost"
           size="icon"
-          className={cn("ml-auto shrink-0 w-8 h-8 text-muted-foreground hover:text-foreground", collapsed && "ml-0")}
+          className={cn(
+            "transition-all duration-300 hover:bg-accent/80",
+            collapsed 
+              ? "w-10 h-10 rounded-xl bg-accent/30 text-purple-400 hover:scale-110 active:scale-95" 
+              : "ml-auto w-8 h-8 text-muted-foreground hover:text-foreground"
+          )}
           onClick={onToggle}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-            {collapsed ? (
+          {collapsed ? (
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-            ) : (
+            </svg>
+          ) : (
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-            )}
-          </svg>
+            </svg>
+          )}
         </Button>
       </div>
 
@@ -145,8 +158,8 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
 
           if (collapsed) {
             return (
-              <Tooltip key={item.name} delayDuration={0}>
-                <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
+              <Tooltip key={item.name}>
+                <TooltipTrigger render={linkContent} />
                 <TooltipContent side="right" className="font-medium">
                   {item.name}
                 </TooltipContent>
@@ -163,30 +176,29 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
       {/* User menu */}
       <div className="p-3">
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className={cn(
-                "w-full gap-3 h-auto py-2.5 px-3 justify-start hover:bg-accent/50",
-                collapsed && "justify-center px-2"
-              )}
-            >
-              <Avatar className="w-8 h-8 shrink-0">
-                <AvatarFallback className="bg-gradient-to-br from-purple-500/20 to-blue-500/20 text-sm font-medium">
-                  U
-                </AvatarFallback>
-              </Avatar>
-              {!collapsed && (
-                <div className="flex flex-col items-start text-left min-w-0">
-                  <span className="text-sm font-medium truncate w-full">User</span>
-                  <span className="text-xs text-muted-foreground truncate w-full">user@example.com</span>
-                </div>
-              )}
-            </Button>
+          <DropdownMenuTrigger
+            className={cn(
+              buttonVariants({ variant: "ghost" }),
+              "w-full gap-3 h-auto py-2.5 px-3 justify-start hover:bg-accent/50",
+              collapsed && "justify-center px-2"
+            )}
+            data-slot="button"
+          >
+            <Avatar className="w-8 h-8 shrink-0">
+              <AvatarFallback className="bg-gradient-to-br from-purple-500/20 to-blue-500/20 text-sm font-medium">
+                U
+              </AvatarFallback>
+            </Avatar>
+            {!collapsed && (
+              <div className="flex flex-col items-start text-left min-w-0">
+                <span className="text-sm font-medium truncate w-full">User</span>
+                <span className="text-xs text-muted-foreground truncate w-full">user@example.com</span>
+              </div>
+            )}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuItem asChild>
-              <Link href="/dashboard/settings">Settings</Link>
+            <DropdownMenuItem render={<Link href="/dashboard/settings" className="w-full" />}>
+              Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
@@ -203,12 +215,13 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
 export function MobileSidebar() {
   return (
     <Sheet>
-      <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="md:hidden">
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-          </svg>
-        </Button>
+      <SheetTrigger
+        className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "md:hidden")}
+        data-slot="button"
+      >
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+        </svg>
       </SheetTrigger>
       <SheetContent side="left" className="p-0 w-64">
         <Sidebar />

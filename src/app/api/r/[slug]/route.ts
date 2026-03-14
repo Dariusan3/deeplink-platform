@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import type { RedirectRule } from "@/types/database";
 
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+
 // Use service-level client for redirect lookups (no auth needed)
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const supabase = (supabaseUrl && !supabaseUrl.includes("your-supabase-url-here"))
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null;
 
 function detectDeviceType(userAgent: string): string {
   const ua = userAgent.toLowerCase();
@@ -60,6 +62,13 @@ export async function GET(
 ) {
   const { slug } = await params;
 
+  if (!supabase) {
+    return NextResponse.json(
+      { error: "Supabase not configured" },
+      { status: 500 }
+    );
+  }
+
   // Look up the link
   const { data: link, error } = await supabase
     .from("links")
@@ -105,20 +114,22 @@ export async function GET(
   }
 
   // Log click asynchronously (fire-and-forget)
-  supabase
-    .from("link_clicks")
-    .insert({
-      link_id: link.id,
-      ip_address: ip,
-      user_agent: userAgent,
-      country: country || null,
-      device_type: deviceType,
-      referer: referer || null,
-      matched_rule_index: matchedRuleIndex,
-    })
-    .then(() => {
-      // Click logged successfully
-    });
+  if (supabase) {
+    supabase
+      .from("link_clicks")
+      .insert({
+        link_id: link.id,
+        ip_address: ip,
+        user_agent: userAgent,
+        country: country || null,
+        device_type: deviceType,
+        referer: referer || null,
+        matched_rule_index: matchedRuleIndex,
+      })
+      .then(() => {
+        // Click logged successfully
+      });
+  }
 
   // 302 redirect
   return NextResponse.redirect(destinationUrl, { status: 302 });
