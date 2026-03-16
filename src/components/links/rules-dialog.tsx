@@ -97,14 +97,19 @@ export function RulesDialog({ link, trigger, open: controlledOpen, onOpenChange:
         throw new Error("All rules must have a destination URL");
       }
 
-      // Date range validation: Mandatory and Start < End
+      // Date range validation: Ensure valid if partially filled
       for (const rule of rules) {
-        if (!rule.conditions.time?.after || !rule.conditions.time?.before) {
-          throw new Error(`Rule #${rule.priority}: Both Start and End Window dates are mandatory for intelligent routing.`);
-        }
-        
-        if (new Date(rule.conditions.time.after) >= new Date(rule.conditions.time.before)) {
-          throw new Error(`Rule #${rule.priority}: Start Window must be earlier than End Window`);
+        const hasTimeStart = !!rule.conditions.time?.after;
+        const hasTimeEnd = !!rule.conditions.time?.before;
+
+        if (hasTimeStart || hasTimeEnd) {
+          if (!hasTimeStart || !hasTimeEnd) {
+            throw new Error(`Rule #${rule.priority}: Both Start and End Window dates are required if defining a time window.`);
+          }
+          
+          if (new Date(rule.conditions.time!.after!) >= new Date(rule.conditions.time!.before!)) {
+            throw new Error(`Rule #${rule.priority}: Start Window must be earlier than End Window.`);
+          }
         }
       }
 
