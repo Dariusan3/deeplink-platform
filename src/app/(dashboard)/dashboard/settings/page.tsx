@@ -9,71 +9,73 @@ import { Separator } from "@/components/ui/separator";
 
 export default function SettingsPage() {
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <Header title="Settings" />
+    <div className="flex flex-col gap-8 p-4 md:p-6 max-w-4xl mx-auto w-full">
+      <Header title="System Configuration" />
       
-      <div className="max-w-4xl space-y-8">
+      <div className="space-y-10">
         {/* Profile Section */}
-        <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle>Profile</CardTitle>
-            <CardDescription>Manage your public information and account details</CardDescription>
+        <Card className="glass-card bg-white/[0.01] border-white/5 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[#00D26A]/20 to-transparent" />
+          <CardHeader className="pt-8 px-8">
+            <CardTitle className="text-xl font-black tracking-tight text-white uppercase tracking-[0.05em]">Identity Control</CardTitle>
+            <CardDescription className="text-sm font-medium text-neutral-500">Global account parameters and credentials</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input id="name" placeholder="John Doe" className="bg-background/50" />
+          <CardContent className="px-8 pb-10 space-y-8">
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="space-y-3">
+                <Label htmlFor="name" className="text-[10px] font-black uppercase tracking-widest text-neutral-500 ml-1">Legal Name</Label>
+                <Input id="name" placeholder="John Doe" className="h-12 bg-white/[0.02] border-white/10 rounded-xl focus:border-[#00D26A] focus:ring-[#00D26A]/20 transition-all font-medium" />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
-                <Input id="email" type="email" placeholder="john@example.com" disabled className="bg-background/20" />
+              <div className="space-y-3">
+                <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest text-neutral-500 ml-1">Routing Address</Label>
+                <Input id="email" type="email" placeholder="john@example.com" disabled className="h-12 bg-white/[0.01] border-white/5 text-neutral-500 rounded-xl font-medium cursor-not-allowed" />
               </div>
             </div>
-            <Button className="bg-gradient-to-r from-purple-600 to-blue-600">
-              Save Changes
+            <Button className="btn-primary-pulse h-12 px-10 rounded-xl text-black font-black uppercase tracking-widest text-xs">
+              Commit Changes
             </Button>
           </CardContent>
         </Card>
 
         {/* Preferences Section */}
-        <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle>Preferences</CardTitle>
-            <CardDescription>Customize your platform experience</CardDescription>
+        <Card className="glass-card bg-white/[0.01] border-white/5 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[#00D26A]/20 to-transparent" />
+          <CardHeader className="pt-8 px-8">
+            <CardTitle className="text-xl font-black tracking-tight text-white uppercase tracking-[0.05em]">Logic Engine</CardTitle>
+            <CardDescription className="text-sm font-medium text-neutral-500">Neural redirection behavior and alerts</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Direct Redirects</p>
-                <p className="text-sm text-muted-foreground">Skip the transition page for all links</p>
+          <CardContent className="px-8 pb-10 space-y-6">
+            <div className="flex items-center justify-between group">
+              <div className="space-y-1">
+                <p className="font-black text-white tracking-tight">Direct Pathing</p>
+                <p className="text-xs text-neutral-500 font-medium">Bypass transition layers for all active links</p>
               </div>
-              <div className="w-11 h-6 bg-purple-500/20 rounded-full relative p-1 cursor-pointer">
-                <div className="w-4 h-4 bg-purple-400 rounded-full ml-auto shadow-sm shadow-purple-400/50" />
+              <div className="w-12 h-6 bg-[#00D26A] rounded-full relative p-1 cursor-pointer shadow-[0_0_15px_rgba(0,210,106,0.2)]">
+                <div className="w-4 h-4 bg-white rounded-full ml-auto shadow-sm" />
               </div>
             </div>
-            <Separator className="bg-border/30" />
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Email Notifications</p>
-                <p className="text-sm text-muted-foreground">Weekly reports and performance alerts</p>
+            <Separator className="bg-white/5" />
+            <div className="flex items-center justify-between group">
+              <div className="space-y-1">
+                <p className="font-black text-white tracking-tight">Intelligence Feeds</p>
+                <p className="text-xs text-neutral-500 font-medium">Automatic performance telemetry and anomaly reports</p>
               </div>
-              <div className="w-11 h-6 bg-muted rounded-full relative p-1 cursor-pointer">
-                 <div className="w-4 h-4 bg-background rounded-full shadow-sm" />
+              <div className="w-12 h-6 bg-white/5 rounded-full relative p-1 cursor-pointer border border-white/10">
+                 <div className="w-4 h-4 bg-neutral-600 rounded-full" />
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Danger Zone */}
-        <Card className="border-destructive/20 bg-destructive/5 overflow-hidden">
-          <CardHeader>
-            <CardTitle className="text-destructive">Danger Zone</CardTitle>
-            <CardDescription>Irreversible actions for your account</CardDescription>
+        <Card className="bg-red-500/[0.02] border-red-500/20 rounded-2xl overflow-hidden">
+          <CardHeader className="pt-8 px-8">
+            <CardTitle className="text-xl font-black tracking-tight text-red-500 uppercase tracking-[0.05em]">Destructive Termination</CardTitle>
+            <CardDescription className="text-sm font-medium text-red-900/40">Irreversible operational shutdown</CardDescription>
           </CardHeader>
-          <CardContent>
-            <Button variant="destructive" className="bg-destructive/10 text-destructive hover:bg-destructive/20 border-destructive/20">
-              Delete Account
+          <CardContent className="px-8 pb-8">
+            <Button variant="destructive" className="h-11 px-8 rounded-xl font-black uppercase text-[10px] tracking-[0.2em] bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all border border-red-500/30">
+              Purge All Data
             </Button>
           </CardContent>
         </Card>

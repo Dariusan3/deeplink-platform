@@ -1,73 +1,83 @@
+"use client";
+
 import { Header } from "@/components/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-const stats = [
-  {
-    title: "Total Links",
-    value: "0",
-    change: "+0%",
-    icon: (
-      <svg className="w-5 h-5 text-purple-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
-      </svg>
-    ),
-  },
-  {
-    title: "Total Clicks",
-    value: "0",
-    change: "+0%",
-    icon: (
-      <svg className="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672ZM12 2.25V4.5m5.834.166-1.591 1.591M20.25 10.5H18M7.757 14.743l-1.59 1.59M6 10.5H3.75m4.007-4.243-1.59-1.59" />
-      </svg>
-    ),
-  },
-  {
-    title: "Active Teams",
-    value: "0",
-    change: "",
-    icon: (
-      <svg className="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
-      </svg>
-    ),
-  },
-  {
-    title: "Click Rate",
-    value: "0%",
-    change: "",
-    icon: (
-      <svg className="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
-      </svg>
-    ),
-  },
-];
+import { Button } from "@/components/ui/button";
+import { useLinks } from "@/hooks/use-links";
+import { useTeam } from "@/hooks/use-team";
+import { useEffect, useState } from "react";
+import { Link as LinkIcon, MousePointer2, Users, TrendingUp, Sparkles } from "lucide-react";
+import Link from "next/link";
 
 export default function DashboardPage() {
+  const { links, loading: linksLoading } = useLinks();
+  const { teams } = useTeam();
+  
+  const stats = [
+    {
+      title: "Total Links",
+      value: linksLoading ? "..." : links.length.toString(),
+      change: links.length > 0 ? `+${links.length}` : "0",
+      icon: <LinkIcon className="w-5 h-5" />,
+    },
+    {
+      title: "Total Clicks",
+      value: "0",
+      change: "+0%",
+      icon: <MousePointer2 className="w-5 h-5" />,
+    },
+    {
+      title: "Active Teams",
+      value: teams.length.toString(),
+      change: "",
+      icon: <Users className="w-5 h-5" />,
+    },
+    {
+      title: "Click Rate",
+      value: "0%",
+      change: "",
+      icon: <TrendingUp className="w-5 h-5" />,
+    },
+  ];
+
   return (
     <>
-      <Header title="Dashboard" />
+      <Header title="Intelligence Hub" />
       <div className="p-4 md:p-6 space-y-6">
         {/* Stats grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {stats.map((stat) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {stats.map((stat, index) => (
             <Card
               key={stat.title}
-              className="border-border/50 bg-card/50 backdrop-blur-sm hover:bg-card/80 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/5"
+              className="glass-card bg-white/[0.01] hover:bg-white/[0.03] transition-all duration-500 group relative overflow-hidden"
             >
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+              {/* Card Accent */}
+              <div className="absolute top-0 left-0 w-1 h-full bg-[#00D26A]/20 group-hover:bg-[#00D26A] transition-all duration-500" />
+              
+              <CardHeader className="flex flex-row items-center justify-between pb-2 pt-6">
+                <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500">
                   {stat.title}
                 </CardTitle>
-                <div className="p-2 rounded-lg bg-accent/50">{stat.icon}</div>
+                <div className="p-2 rounded-xl bg-[#00D26A]/10 text-[#00D26A] shadow-[0_0_15px_rgba(0,210,106,0.1)] group-hover:scale-110 transition-transform duration-500">
+                  {stat.icon}
+                </div>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
+              <CardContent className="pb-6">
+                <div className="text-4xl font-black tracking-tight text-white mb-1">{stat.value}</div>
                 {stat.change && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {stat.change} from last week
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold text-[#39FF14] bg-[#39FF14]/10 px-2 py-0.5 rounded-full">
+                      {stat.change}
+                    </span>
+                    <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-tight">
+                      Growth
+                    </span>
+                  </div>
+                )}
+                {!stat.change && (
+                  <span className="text-[10px] font-bold text-neutral-600 uppercase tracking-wide">
+                    Live Status
+                  </span>
                 )}
               </CardContent>
             </Card>
@@ -75,21 +85,30 @@ export default function DashboardPage() {
         </div>
 
         {/* Recent activity placeholder */}
-        <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle className="text-lg">Recent Activity</CardTitle>
+        <Card className="glass-card bg-white/[0.01] border-white/5 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[#00D26A]/20 to-transparent" />
+          <CardHeader className="pt-8 px-8">
+            <CardTitle className="text-xl font-black tracking-tight text-white flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-[#00D26A]" />
+              Advanced Intelligence
+            </CardTitle>
+            <p className="text-sm text-neutral-500 font-medium">Real-time link performance and anomalies</p>
           </CardHeader>
-          <CardContent>
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="w-16 h-16 rounded-full bg-accent/50 flex items-center justify-center mb-4">
-                <svg className="w-8 h-8 text-muted-foreground" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
-                </svg>
+          <CardContent className="px-8 pb-10">
+            <div className="flex flex-col items-center justify-center py-16 text-center border border-dashed border-white/5 rounded-2xl bg-white/[0.01]">
+              <div className="w-20 h-20 rounded-3xl bg-[#00D26A]/5 flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(0,210,106,0.05)] border border-[#00D26A]/10">
+                <LinkIcon className="w-10 h-10 text-[#00D26A]/40" />
               </div>
-              <h3 className="font-medium mb-1">No links yet</h3>
-              <p className="text-sm text-muted-foreground max-w-sm">
-                Create your first deeplink to start tracking clicks and managing redirects.
+              <h3 className="text-lg font-black text-white mb-2">System Ready</h3>
+              <p className="text-sm text-neutral-500 max-w-sm font-medium leading-relaxed">
+                Connect your first high-performance link to activate <br />
+                the AI Monitoring Engine.
               </p>
+              <Link href="/dashboard/links">
+                <Button className="mt-8 btn-secondary-glass rounded-xl px-8 font-black uppercase text-xs tracking-widest h-11">
+                  Generate Secure Link
+                </Button>
+              </Link>
             </div>
           </CardContent>
         </Card>

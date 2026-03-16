@@ -98,13 +98,13 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
       )}>
         {!collapsed && (
           <div className="flex items-center gap-3 overflow-hidden animate-in fade-in slide-in-from-left-2 duration-300">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center shrink-0 shadow-md shadow-purple-500/20">
-              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+            <div className="w-9 h-9 rounded-xl bg-[#00D26A]/10 border border-[#00D26A]/20 flex items-center justify-center shrink-0 shadow-[0_0_20px_rgba(0,210,106,0.1)]">
+              <svg className="w-5 h-5 text-[#00D26A]" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
               </svg>
             </div>
-            <span className="font-bold text-lg bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent whitespace-nowrap">
-              DeepLink
+            <span className="font-black text-xl text-white tracking-tighter">
+              Deep<span className="text-[#00D26A]">Link</span>
             </span>
           </div>
         )}
@@ -112,10 +112,10 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
           variant="ghost"
           size="icon"
           className={cn(
-            "transition-all duration-300 hover:bg-accent/80",
+            "transition-all duration-300 hover:bg-[#00D26A]/10 hover:text-[#00D26A]",
             collapsed 
-              ? "w-10 h-10 rounded-xl bg-accent/30 text-purple-400 hover:scale-110 active:scale-95" 
-              : "ml-auto w-8 h-8 text-muted-foreground hover:text-foreground"
+              ? "w-10 h-10 rounded-xl bg-[#00D26A]/5 text-[#00D26A] hover:scale-110 active:scale-95" 
+              : "ml-auto w-8 h-8 text-neutral-500 hover:text-white"
           )}
           onClick={onToggle}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -141,17 +141,17 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
               key={item.name}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition-all duration-300",
                 isActive
-                  ? "bg-gradient-to-r from-purple-500/15 to-blue-500/10 text-purple-300 shadow-sm"
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
+                  ? "bg-[#00D26A]/10 text-[#00D26A] shadow-[inset_0_0_12px_rgba(0,210,106,0.05)]"
+                  : "text-neutral-500 hover:text-neutral-200 hover:bg-white/[0.03]",
                 collapsed && "justify-center px-2"
               )}
             >
-              <span className={cn("shrink-0", isActive && "text-purple-400")}>{item.icon}</span>
+              <span className={cn("shrink-0 transition-colors duration-300", isActive ? "text-[#00D26A]" : "group-hover:text-neutral-300")}>{item.icon}</span>
               {!collapsed && <span>{item.name}</span>}
               {isActive && !collapsed && (
-                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-purple-400 shadow-sm shadow-purple-400/50" />
+                <div className="ml-auto w-1 h-1 rounded-full bg-[#39FF14] shadow-[0_0_8px_rgba(57,255,20,0.8)]" />
               )}
             </Link>
           );
@@ -159,7 +159,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
           if (collapsed) {
             return (
               <Tooltip key={item.name}>
-                <TooltipTrigger render={linkContent} />
+                <TooltipTrigger id={`sidebar-tooltip-trigger-${item.name.toLowerCase()}`} render={linkContent} />
                 <TooltipContent side="right" className="font-medium">
                   {item.name}
                 </TooltipContent>
@@ -177,16 +177,21 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
       <div className="p-3">
         <DropdownMenu>
           <DropdownMenuTrigger
-            className={cn(
-              buttonVariants({ variant: "ghost" }),
-              "w-full gap-3 h-auto py-2.5 px-3 justify-start hover:bg-accent/50",
-              collapsed && "justify-center px-2"
-            )}
+            id="sidebar-user-menu-trigger"
             data-slot="button"
+            render={
+              <button
+                className={cn(
+                  buttonVariants({ variant: "ghost" }),
+                  "w-full gap-3 h-auto py-2.5 px-3 justify-start hover:bg-accent/50",
+                  collapsed && "justify-center px-2"
+                )}
+              />
+            }
           >
-            <Avatar className="w-8 h-8 shrink-0">
-              <AvatarFallback className="bg-gradient-to-br from-purple-500/20 to-blue-500/20 text-sm font-medium">
-                U
+            <Avatar className="w-8 h-8 shrink-0 rounded-lg overflow-hidden border border-[#00D26A]/20">
+              <AvatarFallback className="bg-[#00D26A]/10 text-[#00D26A] text-xs font-black">
+                US
               </AvatarFallback>
             </Avatar>
             {!collapsed && (
@@ -197,11 +202,18 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
             )}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuItem render={<Link href="/dashboard/settings" className="w-full" />}>
+            <DropdownMenuItem 
+              nativeButton={false} 
+              render={<Link href="/dashboard/settings" className="w-full" />}
+            >
               Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
+            <DropdownMenuItem 
+              nativeButton={true} 
+              onClick={handleSignOut} 
+              className="text-destructive focus:text-destructive"
+            >
               Sign out
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -216,8 +228,13 @@ export function MobileSidebar() {
   return (
     <Sheet>
       <SheetTrigger
-        className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "md:hidden")}
+        id="mobile-sidebar-trigger"
         data-slot="button"
+        render={
+          <button
+            className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "md:hidden")}
+          />
+        }
       >
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />

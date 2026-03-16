@@ -14,9 +14,21 @@ function DropdownMenuPortal({ ...props }: MenuPrimitive.Portal.Props) {
   return <MenuPrimitive.Portal data-slot="dropdown-menu-portal" {...props} />
 }
 
-function DropdownMenuTrigger({ ...props }: MenuPrimitive.Trigger.Props) {
-  return <MenuPrimitive.Trigger data-slot="dropdown-menu-trigger" {...props} />
-}
+const DropdownMenuTrigger = React.forwardRef<
+  HTMLButtonElement,
+  MenuPrimitive.Trigger.Props
+>(({ id, ...props }, ref) => {
+  const generatedId = React.useId()
+  return (
+    <MenuPrimitive.Trigger
+      ref={ref}
+      id={id ?? generatedId}
+      data-slot="dropdown-menu-trigger"
+      {...props}
+    />
+  )
+})
+DropdownMenuTrigger.displayName = "DropdownMenuTrigger"
 
 function DropdownMenuContent({
   align = "start",
@@ -73,17 +85,16 @@ function DropdownMenuLabel({
   )
 }
 
-function DropdownMenuItem({
-  className,
-  inset,
-  variant = "default",
-  ...props
-}: MenuPrimitive.Item.Props & {
-  inset?: boolean
-  variant?: "default" | "destructive"
-}) {
+const DropdownMenuItem = React.forwardRef<
+  HTMLButtonElement,
+  MenuPrimitive.Item.Props & {
+    inset?: boolean
+    variant?: "default" | "destructive"
+  }
+>(({ className, inset, variant = "default", ...props }, ref) => {
   return (
     <MenuPrimitive.Item
+      ref={ref}
       data-slot="dropdown-menu-item"
       data-inset={inset}
       data-variant={variant}
@@ -94,22 +105,22 @@ function DropdownMenuItem({
       {...props}
     />
   )
-}
+})
+DropdownMenuItem.displayName = "DropdownMenuItem"
 
 function DropdownMenuSub({ ...props }: MenuPrimitive.SubmenuRoot.Props) {
   return <MenuPrimitive.SubmenuRoot data-slot="dropdown-menu-sub" {...props} />
 }
 
-function DropdownMenuSubTrigger({
-  className,
-  inset,
-  children,
-  ...props
-}: MenuPrimitive.SubmenuTrigger.Props & {
-  inset?: boolean
-}) {
+const DropdownMenuSubTrigger = React.forwardRef<
+  HTMLButtonElement,
+  MenuPrimitive.SubmenuTrigger.Props & {
+    inset?: boolean
+  }
+>(({ className, inset, children, ...props }, ref) => {
   return (
     <MenuPrimitive.SubmenuTrigger
+      ref={ref}
       data-slot="dropdown-menu-sub-trigger"
       data-inset={inset}
       className={cn(
@@ -122,7 +133,8 @@ function DropdownMenuSubTrigger({
       <ChevronRightIcon className="ml-auto" />
     </MenuPrimitive.SubmenuTrigger>
   )
-}
+})
+DropdownMenuSubTrigger.displayName = "DropdownMenuSubTrigger"
 
 function DropdownMenuSubContent({
   align = "start",
@@ -145,17 +157,15 @@ function DropdownMenuSubContent({
   )
 }
 
-function DropdownMenuCheckboxItem({
-  className,
-  children,
-  checked,
-  inset,
-  ...props
-}: MenuPrimitive.CheckboxItem.Props & {
-  inset?: boolean
-}) {
+const DropdownMenuCheckboxItem = React.forwardRef<
+  HTMLButtonElement,
+  MenuPrimitive.CheckboxItem.Props & {
+    inset?: boolean
+  }
+>(({ className, children, checked, inset, ...props }, ref) => {
   return (
     <MenuPrimitive.CheckboxItem
+      ref={ref}
       data-slot="dropdown-menu-checkbox-item"
       data-inset={inset}
       className={cn(
@@ -177,7 +187,8 @@ function DropdownMenuCheckboxItem({
       {children}
     </MenuPrimitive.CheckboxItem>
   )
-}
+})
+DropdownMenuCheckboxItem.displayName = "DropdownMenuCheckboxItem"
 
 function DropdownMenuRadioGroup({ ...props }: MenuPrimitive.RadioGroup.Props) {
   return (
@@ -188,16 +199,15 @@ function DropdownMenuRadioGroup({ ...props }: MenuPrimitive.RadioGroup.Props) {
   )
 }
 
-function DropdownMenuRadioItem({
-  className,
-  children,
-  inset,
-  ...props
-}: MenuPrimitive.RadioItem.Props & {
-  inset?: boolean
-}) {
+const DropdownMenuRadioItem = React.forwardRef<
+  HTMLButtonElement,
+  MenuPrimitive.RadioItem.Props & {
+    inset?: boolean
+  }
+>(({ className, children, inset, ...props }, ref) => {
   return (
     <MenuPrimitive.RadioItem
+      ref={ref}
       data-slot="dropdown-menu-radio-item"
       data-inset={inset}
       className={cn(
@@ -218,7 +228,8 @@ function DropdownMenuRadioItem({
       {children}
     </MenuPrimitive.RadioItem>
   )
-}
+})
+DropdownMenuRadioItem.displayName = "DropdownMenuRadioItem"
 
 function DropdownMenuSeparator({
   className,

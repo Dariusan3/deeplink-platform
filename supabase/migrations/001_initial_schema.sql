@@ -225,8 +225,8 @@ CREATE POLICY "links_select_member" ON public.links
 
 -- Allow anonymous read for redirect lookups
 CREATE POLICY "links_select_redirect" ON public.links
-  FOR SELECT USING (is_active = true)
-  TO anon;
+  FOR SELECT TO anon
+  USING (is_active = true);
 
 CREATE POLICY "links_insert_editor" ON public.links
   FOR INSERT WITH CHECK (

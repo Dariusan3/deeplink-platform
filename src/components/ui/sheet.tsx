@@ -11,13 +11,29 @@ function Sheet({ ...props }: SheetPrimitive.Root.Props) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />
 }
 
-function SheetTrigger({ ...props }: SheetPrimitive.Trigger.Props) {
-  return <SheetPrimitive.Trigger data-slot="sheet-trigger" {...props} />
-}
+const SheetTrigger = React.forwardRef<
+  HTMLButtonElement,
+  SheetPrimitive.Trigger.Props
+>(({ id, ...props }, ref) => {
+  const generatedId = React.useId()
+  return (
+    <SheetPrimitive.Trigger
+      ref={ref}
+      id={id ?? generatedId}
+      data-slot="sheet-trigger"
+      {...props}
+    />
+  )
+})
+SheetTrigger.displayName = "SheetTrigger"
 
-function SheetClose({ ...props }: SheetPrimitive.Close.Props) {
-  return <SheetPrimitive.Close data-slot="sheet-close" {...props} />
-}
+const SheetClose = React.forwardRef<
+  HTMLButtonElement,
+  SheetPrimitive.Close.Props
+>((props, ref) => {
+  return <SheetPrimitive.Close ref={ref} data-slot="sheet-close" {...props} />
+})
+SheetClose.displayName = "SheetClose"
 
 function SheetPortal({ ...props }: SheetPrimitive.Portal.Props) {
   return <SheetPrimitive.Portal data-slot="sheet-portal" {...props} />
@@ -62,6 +78,7 @@ function SheetContent({
         {showCloseButton && (
           <SheetPrimitive.Close
             data-slot="sheet-close"
+            nativeButton={true}
             render={
               <Button
                 variant="ghost"
