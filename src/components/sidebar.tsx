@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -18,6 +19,9 @@ import {
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useTeam } from "@/hooks/use-team";
+import { useUser } from "@/hooks/use-user";
+import { CreateTeamDialog } from "@/components/teams/create-team-dialog";
 
 const navigation = [
   {
@@ -39,6 +43,25 @@ const navigation = [
     ),
   },
   {
+    name: "QR Codes",
+    href: "/dashboard/qr-codes",
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75ZM6.75 16.5h.75v.75h-.75v-.75ZM16.5 6.75h.75v.75h-.75v-.75ZM13.5 13.5h.75v.75h-.75v-.75ZM13.5 19.5h.75v.75h-.75v-.75ZM19.5 13.5h.75v.75h-.75v-.75ZM19.5 19.5h.75v.75h-.75v-.75ZM16.5 16.5h.75v.75h-.75v-.75Z" />
+      </svg>
+    ),
+  },
+  {
+    name: "Collections",
+    href: "/dashboard/collections",
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
+      </svg>
+    ),
+  },
+  {
     name: "Teams",
     href: "/dashboard/teams",
     icon: (
@@ -53,6 +76,15 @@ const navigation = [
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+      </svg>
+    ),
+  },
+  {
+    name: "Developer API",
+    href: "/dashboard/developer",
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" />
       </svg>
     ),
   },
@@ -77,6 +109,17 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
+  const { teams, activeTeam, setActiveTeam } = useTeam();
+  const { user, profile } = useUser();
+
+  const displayName = profile?.full_name || user?.user_metadata?.full_name || "User";
+  const displayEmail = profile?.email || user?.email || "user@example.com";
+  const initials = displayName
+    .split(" ")
+    .map((n: string) => n.charAt(0))
+    .join("")
+    .toUpperCase()
+    .slice(0, 2) || "U";
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -132,6 +175,88 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
         </Button>
       </div>
 
+      {/* Team Switcher */}
+      <div className="px-3 py-4 border-b border-sidebar-border">
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            id="sidebar-team-switcher-trigger"
+            render={
+              <button
+                className={cn(
+                  "flex items-center gap-3 w-full p-2 rounded-xl transition-all duration-300 hover:bg-white/[0.03] group",
+                  collapsed ? "justify-center" : "justify-start"
+                )}
+              >
+                <div className="w-8 h-8 rounded-lg bg-[#00D26A]/10 border border-[#00D26A]/20 flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(0,210,106,0.1)] group-hover:bg-[#00D26A]/20 transition-all">
+                  <span className="text-xs font-black text-[#00D26A]">
+                    {activeTeam?.name?.charAt(0).toUpperCase() || "T"}
+                  </span>
+                </div>
+                {!collapsed && (
+                  <div className="flex flex-col items-start min-w-0 flex-1">
+                    <span className="text-xs font-black text-white truncate max-w-[140px]">
+                      {activeTeam?.name || "Select Team"}
+                    </span>
+                    <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">
+                      Active Unit
+                    </span>
+                  </div>
+                )}
+                {!collapsed && (
+                  <svg className="w-4 h-4 text-neutral-600 group-hover:text-neutral-400 transition-colors" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                  </svg>
+                )}
+              </button>
+            }
+          />
+          <DropdownMenuContent align="start" className="w-64 glass-card bg-black/95 border-white/5 shadow-2xl p-2">
+            <div className="px-2 py-1.5 mb-2">
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500">
+                Switch Operational Units
+              </span>
+            </div>
+            {teams.map((team) => (
+              <DropdownMenuItem
+                key={team.id}
+                onClick={() => setActiveTeam(team)}
+                className={cn(
+                  "flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all mb-1",
+                  activeTeam?.id === team.id 
+                    ? "bg-[#00D26A]/10 text-[#00D26A]" 
+                    : "text-neutral-400 hover:text-white hover:bg-white/5"
+                )}
+              >
+                <div className={cn(
+                  "w-6 h-6 rounded flex items-center justify-center text-[10px] font-black border",
+                  activeTeam?.id === team.id 
+                    ? "bg-[#00D26A]/10 border-[#00D26A]/20" 
+                    : "bg-white/5 border-white/5"
+                )}>
+                  {team.name.charAt(0).toUpperCase()}
+                </div>
+                <span className="text-xs font-bold">{team.name}</span>
+                {activeTeam?.id === team.id && (
+                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#39FF14] shadow-[0_0_8px_rgba(57,255,20,0.8)]" />
+                )}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator className="bg-white/5 my-2" />
+            <CreateTeamDialog 
+              trigger={
+                <DropdownMenuItem
+                  onSelect={(e) => e.preventDefault()}
+                  className="flex items-center gap-3 p-2 rounded-lg cursor-pointer text-[#00D26A] hover:bg-[#00D26A]/10 font-bold text-xs"
+                >
+                  <Plus className="w-4 h-4" />
+                  Establish New Team
+                </DropdownMenuItem>
+              }
+            />
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {navigation.map((item) => {
@@ -159,7 +284,10 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
           if (collapsed) {
             return (
               <Tooltip key={item.name}>
-                <TooltipTrigger id={`sidebar-tooltip-trigger-${item.name.toLowerCase()}`} render={linkContent} />
+                <TooltipTrigger 
+                  id={`sidebar-tooltip-trigger-${item.name.toLowerCase()}`} 
+                  render={linkContent} 
+                />
                 <TooltipContent side="right" className="font-medium">
                   {item.name}
                 </TooltipContent>
@@ -191,13 +319,13 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
           >
             <Avatar className="w-8 h-8 shrink-0 rounded-lg overflow-hidden border border-[#00D26A]/20">
               <AvatarFallback className="bg-[#00D26A]/10 text-[#00D26A] text-xs font-black">
-                US
+                {initials}
               </AvatarFallback>
             </Avatar>
             {!collapsed && (
               <div className="flex flex-col items-start text-left min-w-0">
-                <span className="text-sm font-medium truncate w-full">User</span>
-                <span className="text-xs text-muted-foreground truncate w-full">user@example.com</span>
+                <span className="text-sm font-medium truncate w-full">{displayName}</span>
+                <span className="text-xs text-muted-foreground truncate w-full">{displayEmail}</span>
               </div>
             )}
           </DropdownMenuTrigger>
@@ -209,10 +337,11 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
               Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem 
-              nativeButton={true} 
-              onClick={handleSignOut} 
+            <DropdownMenuItem
+              nativeButton={true}
+              onClick={handleSignOut}
               className="text-destructive focus:text-destructive"
+              render={<button className="w-full text-left" />}
             >
               Sign out
             </DropdownMenuItem>
@@ -230,6 +359,7 @@ export function MobileSidebar() {
       <SheetTrigger
         id="mobile-sidebar-trigger"
         data-slot="button"
+        nativeButton={true}
         render={
           <button
             className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "md:hidden")}

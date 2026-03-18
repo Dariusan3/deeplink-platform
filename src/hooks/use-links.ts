@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Database } from "@/types/database";
 import { useUser } from "./use-user";
@@ -38,6 +38,13 @@ export function useLinks() {
     }
     setLoading(false);
   }, [activeTeam, supabase]);
+
+  useEffect(() => {
+    if (activeTeam?.id) {
+      setLinks([]);
+      fetchLinks();
+    }
+  }, [activeTeam?.id, fetchLinks]);
 
   const createLink = useCallback(async (payload: Omit<LinkInsert, "id" | "created_at" | "updated_at" | "created_by" | "team_id">) => {
     if (!user || !activeTeam) throw new Error("Authentication required");

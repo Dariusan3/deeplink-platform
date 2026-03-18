@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /Users/osadicidarius/Documents/projects/deeplink-platform -name .env* -o -name supabase.json -o -name firebase.config.*)",
+      "Bash(npm run:*)",
+      "Bash(npm install:*)",
+      "WebSearch"
+    ]
+  }
+}

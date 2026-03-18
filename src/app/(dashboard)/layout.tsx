@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { UsageBanner } from "@/components/dashboard/usage-banner";
 
 export default function DashboardLayout({
   children,
@@ -25,6 +26,7 @@ export default function DashboardLayout({
 
         {/* Main content */}
         <main className="flex-1 overflow-y-auto relative z-0">
+          <UsageBanner />
           {children}
         </main>
       </div>

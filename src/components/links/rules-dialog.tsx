@@ -130,6 +130,7 @@ export function RulesDialog({ link, trigger, open: controlledOpen, onOpenChange:
       {trigger !== null && (
         <DialogTrigger
           id={`rules-dialog-trigger-${link.id}`}
+          nativeButton={false}
           render={
             trigger ? (trigger as React.ReactElement) : (
               <Button variant="outline" size="sm" className="h-8 rounded-lg border-white/5 bg-white/[0.02] text-[10px] font-black uppercase tracking-widest hover:bg-[#00D26A]/10 hover:text-[#39FF14] hover:border-[#00D26A]/20 transition-all">

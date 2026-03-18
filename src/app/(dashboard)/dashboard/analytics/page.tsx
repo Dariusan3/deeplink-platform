@@ -1,52 +1,85 @@
 "use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from "react";
 import { Header } from "@/components/header";
+import { useAnalytics } from "@/hooks/use-analytics";
+import { ClicksChart } from "@/components/analytics/clicks-chart";
+import { TopLinks } from "@/components/analytics/top-links";
+import { GeoBreakdown } from "@/components/analytics/geo-breakdown";
+import { DeviceBreakdown } from "@/components/analytics/device-breakdown";
+import { ReferrerSources } from "@/components/analytics/referrer-sources";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+type TimeRange = "7d" | "14d" | "30d" | "90d";
 
 export default function AnalyticsPage() {
-  return (
-    <div className="flex flex-col gap-8 p-4 md:p-6 max-w-7xl mx-auto w-full">
-      <Header title="Deep Analytics" />
-      
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {[
-          { title: "Traffic Sources", desc: "Originating domain analysis" },
-          { title: "Device Distribution", desc: "Hardware vs OS breakdown" },
-          { title: "Geographic Reach", desc: "Global presence mapping" },
-        ].map((item, i) => (
-          <Card key={i} className="glass-card bg-white/[0.01] border-white/5 relative overflow-hidden group">
-            <div className="absolute top-0 left-0 w-1 h-full bg-[#00D26A]/10 group-hover:bg-[#00D26A] transition-all duration-500" />
-            <CardHeader className="pt-6 px-6">
-              <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500">{item.title}</CardTitle>
-              <CardDescription className="text-sm font-medium text-neutral-400">{item.desc}</CardDescription>
-            </CardHeader>
-            <CardContent className="h-[200px] flex items-center justify-center text-neutral-600 font-black text-xs uppercase tracking-widest border-t border-white/5 mt-4 bg-white/[0.01]">
-              Neural Engine Syncing...
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+  const [timeRange, setTimeRange] = useState<TimeRange>("30d");
+  const { dailyClicks, geoData, deviceData, referrerData, topLinks, totalClicks, loading } =
+    useAnalytics(timeRange);
 
-      <Card className="glass-card bg-white/[0.01] border-white/5 relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[#00D26A]/20 to-transparent" />
-        <CardHeader className="pt-8 px-8">
-          <CardTitle className="text-xl font-black tracking-tight text-white">Live Performance Stream</CardTitle>
-          <CardDescription className="text-sm font-medium text-neutral-500">Comprehensive real-time link breakdown</CardDescription>
-        </CardHeader>
-        <CardContent className="px-8 pb-10 pt-4">
-          <div className="rounded-2xl border border-dashed border-white/5 bg-white/[0.01] p-12 text-center">
-            <div className="mx-auto w-12 h-12 rounded-xl bg-[#00D26A]/5 flex items-center justify-center mb-4 text-[#00D26A]/30">
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
-              </svg>
-            </div>
-            <p className="text-sm text-neutral-500 font-bold uppercase tracking-widest leading-loose">
-              Awaiting data signals. <br />
-              Deploy a link to begin telemetry collection.
+  const ranges: { value: TimeRange; label: string }[] = [
+    { value: "7d", label: "7 Days" },
+    { value: "14d", label: "14 Days" },
+    { value: "30d", label: "30 Days" },
+    { value: "90d", label: "90 Days" },
+  ];
+
+  return (
+    <>
+      <Header title="Deep Analytics" />
+      <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
+        {/* Header with time range selector */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h2 className="text-3xl font-black tracking-tighter text-white uppercase italic">
+              Statistics
+            </h2>
+            <p className="text-[10px] text-[#00D26A] font-black uppercase tracking-[0.2em] opacity-80">
+              Comprehensive Link Performance Data
             </p>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+          <div className="flex gap-1 bg-white/[0.02] border border-white/5 rounded-xl p-1">
+            {ranges.map((r) => (
+              <Button
+                key={r.value}
+                variant="ghost"
+                size="sm"
+                onClick={() => setTimeRange(r.value)}
+                className={cn(
+                  "h-8 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                  timeRange === r.value
+                    ? "bg-[#00D26A]/10 text-[#00D26A]"
+                    : "text-neutral-500 hover:text-white hover:bg-white/[0.03]"
+                )}
+              >
+                {r.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-24">
+            <div className="w-8 h-8 border-2 border-[#00D26A]/30 border-t-[#00D26A] rounded-full animate-spin" />
+          </div>
+        ) : (
+          <>
+            {/* Clicks over time chart */}
+            <ClicksChart data={dailyClicks} totalClicks={totalClicks} />
+
+            {/* 3-column grid: Top Links, Geo, Device */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <TopLinks data={topLinks} />
+              <GeoBreakdown data={geoData} totalClicks={totalClicks} />
+              <DeviceBreakdown data={deviceData} totalClicks={totalClicks} />
+            </div>
+
+            {/* Referrer sources */}
+            <ReferrerSources data={referrerData} />
+          </>
+        )}
+      </div>
+    </>
   );
 }

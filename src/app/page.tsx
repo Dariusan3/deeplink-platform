@@ -30,6 +30,9 @@ export default function HomePage() {
             </span>
           </div>
           <div className="flex items-center gap-4">
+            <Button render={<Link href="/pricing" />} nativeButton={false} variant="ghost" className="text-sm font-semibold text-neutral-400 hover:text-[#00D26A] hover:bg-transparent transition-colors">
+              Pricing
+            </Button>
             <Button render={<Link href="/login" />} nativeButton={false} variant="ghost" className="text-sm font-semibold text-neutral-400 hover:text-[#00D26A] hover:bg-transparent transition-colors">
               Sign in
             </Button>

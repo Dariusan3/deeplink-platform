@@ -49,6 +49,51 @@ export type Database = {
           },
         ]
       }
+      collections: {
+        Row: {
+          id: string
+          team_id: string
+          name: string
+          description: string | null
+          color: string | null
+          created_at: string
+          created_by: string
+        }
+        Insert: {
+          id?: string
+          team_id: string
+          name: string
+          description?: string | null
+          color?: string | null
+          created_at?: string
+          created_by: string
+        }
+        Update: {
+          id?: string
+          team_id?: string
+          name?: string
+          description?: string | null
+          color?: string | null
+          created_at?: string
+          created_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collections_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collections_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ig_integrations: {
         Row: {
           access_token: string
@@ -139,6 +184,7 @@ export type Database = {
       }
       links: {
         Row: {
+          collection_id: string | null
           created_at: string
           created_by: string
           destination_url: string
@@ -151,6 +197,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          collection_id?: string | null
           created_at?: string
           created_by: string
           destination_url: string
@@ -163,6 +210,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          collection_id?: string | null
           created_at?: string
           created_by?: string
           destination_url?: string
@@ -288,6 +336,104 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      team_settings: {
+        Row: {
+          id: string
+          team_id: string
+          show_link_creation_confirmation: boolean
+          timezone: string
+          default_domain: string
+          show_app_tap_to_continue: boolean
+          show_branding: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          team_id: string
+          show_link_creation_confirmation?: boolean
+          timezone?: string
+          default_domain?: string
+          show_app_tap_to_continue?: boolean
+          show_branding?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          team_id?: string
+          show_link_creation_confirmation?: boolean
+          timezone?: string
+          default_domain?: string
+          show_app_tap_to_continue?: boolean
+          show_branding?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_settings_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: true
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_keys: {
+        Row: {
+          id: string
+          team_id: string
+          user_id: string
+          name: string
+          key_hash: string
+          key_prefix: string
+          last_used_at: string | null
+          expires_at: string | null
+          is_active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          team_id: string
+          user_id: string
+          name?: string
+          key_hash: string
+          key_prefix: string
+          last_used_at?: string | null
+          expires_at?: string | null
+          is_active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          team_id?: string
+          user_id?: string
+          name?: string
+          key_hash?: string
+          key_prefix?: string
+          last_used_at?: string | null
+          expires_at?: string | null
+          is_active?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_keys_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_keys_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       weekly_reports: {
         Row: {

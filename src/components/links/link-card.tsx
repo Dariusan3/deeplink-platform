@@ -7,14 +7,18 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import {
   Copy,
+  Check,
   ExternalLink,
   MoreVertical,
   BarChart3,
   Settings2,
   Trash2,
   RefreshCw,
+  Globe,
+  QrCode,
 } from "lucide-react";
 import { toast } from "sonner";
+import { QrDialog } from "@/components/qr/qr-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,6 +42,8 @@ interface LinkCardProps {
   onToggleActive: (id: string, active: boolean) => void;
   onDelete: (id: string) => void;
   onResetClicks: (id: string) => void;
+  selected?: boolean;
+  onToggleSelect?: () => void;
 }
 
 export function LinkCard({
@@ -45,17 +51,30 @@ export function LinkCard({
   onToggleActive,
   onDelete,
   onResetClicks,
+  selected,
+  onToggleSelect,
 }: LinkCardProps) {
   const router = useRouter();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showRules, setShowRules] = useState(false);
+  const [showQr, setShowQr] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [faviconError, setFaviconError] = useState(false);
+
+  let hostname = "";
+  try {
+    hostname = new URL(link.destination_url).hostname.replace("www.", "");
+  } catch {}
+
   const shortUrl =
     typeof window !== "undefined" ? `${window.location.host}/${link.slug}` : "";
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(shortUrl);
+    setCopied(true);
     toast.success("Link copied to clipboard!");
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleDelete = () => {
@@ -71,8 +90,35 @@ export function LinkCard({
 
         <CardContent className="p-6">
           <div className="flex items-start justify-between gap-4">
+            {/* Selection checkbox */}
+            {onToggleSelect && (
+              <button
+                onClick={onToggleSelect}
+                className={cn(
+                  "shrink-0 w-5 h-5 rounded border flex items-center justify-center transition-all mt-1",
+                  selected
+                    ? "bg-[#00D26A] border-[#00D26A] text-black"
+                    : "border-white/10 hover:border-white/30 text-transparent"
+                )}
+              >
+                {selected && <Check className="w-3 h-3" />}
+              </button>
+            )}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3 mb-1">
+                {/* Favicon */}
+                <div className="w-7 h-7 rounded-lg bg-white/[0.05] flex items-center justify-center shrink-0 overflow-hidden">
+                  {hostname && !faviconError ? (
+                    <img
+                      src={`https://www.google.com/s2/favicons?domain=${hostname}&sz=32`}
+                      alt=""
+                      className="w-4 h-4"
+                      onError={() => setFaviconError(true)}
+                    />
+                  ) : (
+                    <Globe className="w-3.5 h-3.5 text-neutral-500" />
+                  )}
+                </div>
                 <h3 className="text-lg font-black text-white truncate">
                   {link.title || "Untitled Link"}
                 </h3>
@@ -88,14 +134,22 @@ export function LinkCard({
                 </div>
               </div>
 
-              <div
-                className="flex items-center gap-2 group/url cursor-pointer mb-4"
-                onClick={copyToClipboard}
-              >
-                <span className="text-sm font-bold text-[#00D26A] truncate">
-                  {shortUrl}
-                </span>
-                <Copy className="w-3.5 h-3.5 text-neutral-500 group-hover/url:text-[#39FF14] transition-colors" />
+              <div className="flex items-center gap-2 mb-4">
+                <div
+                  className="flex items-center gap-2 group/url cursor-pointer min-w-0"
+                  onClick={copyToClipboard}
+                >
+                  <span className="text-sm font-bold text-[#00D26A] truncate">
+                    {shortUrl}
+                  </span>
+                </div>
+                <button
+                  onClick={copyToClipboard}
+                  className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-md bg-white/[0.03] border border-white/5 hover:bg-[#00D26A]/10 hover:border-[#00D26A]/20 text-neutral-400 hover:text-[#00D26A] transition-all text-[10px] font-bold"
+                >
+                  {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                  {copied ? "Copied" : "Copy"}
+                </button>
               </div>
 
               <div className="flex items-center gap-6">
@@ -174,6 +228,15 @@ export function LinkCard({
                       Edit Rules
                     </DropdownMenuItem>
                     <DropdownMenuItem
+                      className="text-xs font-bold gap-2 focus:bg-[#00D26A]/10 focus:text-[#00D26A]"
+                      onClick={() => {
+                        setTimeout(() => setShowQr(true), 0);
+                      }}
+                    >
+                      <QrCode className="w-3.5 h-3.5" />
+                      Generate QR
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
                       onClick={() => setShowResetConfirm(true)}
                       className="text-neutral-400 hover:text-amber-500 transition-colors"
                     >
@@ -248,6 +311,13 @@ export function LinkCard({
         open={showRules}
         onOpenChange={setShowRules}
         trigger={null}
+      />
+
+      <QrDialog
+        open={showQr}
+        onOpenChange={setShowQr}
+        shortUrl={shortUrl}
+        title={link.title || link.slug}
       />
 
       {/* Reset Clicks Confirmation Dialog */}
