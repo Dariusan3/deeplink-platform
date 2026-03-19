@@ -88,12 +88,11 @@ export function DeleteTeamDialog({ team, trigger, nativeButton }: DeleteTeamDial
           </Button>
           <Button
             type="button"
-            variant="outline"
             disabled={loading}
             onClick={() => setOpen(false)}
-            className="w-full border-white/10 hover:bg-white/5 font-black uppercase text-xs tracking-[0.2em] rounded-xl h-12"
+            className="w-full bg-white/4 border border-white/10 hover:bg-white/8 hover:border-white/20 text-neutral-300 hover:text-white font-black uppercase text-xs tracking-[0.2em] rounded-xl h-12 transition-all"
           >
-            Abort
+            Cancel
           </Button>
         </DialogFooter>
       </DialogContent>

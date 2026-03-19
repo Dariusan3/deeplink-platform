@@ -4,7 +4,14 @@
       "Bash(find /Users/osadicidarius/Documents/projects/deeplink-platform -name .env* -o -name supabase.json -o -name firebase.config.*)",
       "Bash(npm run:*)",
       "Bash(npm install:*)",
-      "WebSearch"
+      "WebSearch",
+      "Skill(claude-api)",
+      "Skill(claude-api:*)",
+      "mcp__supabase__list_projects",
+      "mcp__supabase__list_migrations",
+      "mcp__supabase__apply_migration",
+      "mcp__supabase__get_project",
+      "mcp__supabase__get_logs"
     ]
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef, ReactNode } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Database } from "@/types/database";
 import { useUserContext } from "./user-provider";
@@ -24,50 +24,58 @@ export function TeamProvider({ children }: { children: ReactNode }) {
   const [teams, setTeams] = useState<Team[]>([]);
   const [activeTeam, setActiveTeam] = useState<Team | null>(null);
   const [loading, setLoading] = useState(true);
-  const supabase = createClient();
+  // Stable supabase instance — avoids re-creating on every render which would
+  // cause fetchTeams to get a new reference and trigger duplicate team creation
+  const supabase = useMemo(() => createClient(), []);
+  // Guard against concurrent fetchTeams calls (prevents duplicate team inserts)
+  const isFetchingRef = useRef(false);
 
   const fetchTeams = useCallback(async () => {
     if (!user) return;
+    // Prevent concurrent executions that would create duplicate teams
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
 
-    const { data, error } = await supabase
-      .from("teams")
-      .select("*, team_members!inner(user_id)")
-      .eq("team_members.user_id", user.id);
-
-    if (error) {
-      console.error("Error fetching teams:", error.message || error);
-      setLoading(false);
-      return;
-    }
-
-    if (data && data.length > 0) {
-      setTeams(data as Team[]);
-      const storedTeamId = localStorage.getItem("active_team_id");
-      const foundTeam = data.find((t) => t.id === storedTeamId);
-      setActiveTeam((foundTeam as Team) || (data[0] as Team));
-    } else {
-      // Auto-create personal team logic removed from here and moved to a separate flow if needed
-      // Or we can keep it for first-time users
-      const newTeamName = `${user.email?.split("@")[0]}'s Team`;
-      const slug = nameToSlug(newTeamName);
-
-      const { data: newTeam, error: createError } = await supabase
+    try {
+      const { data, error } = await supabase
         .from("teams")
-        .insert({ name: newTeamName, slug, created_by: user.id })
-        .select()
-        .single();
+        .select("*, team_members!inner(user_id)")
+        .eq("team_members.user_id", user.id);
 
-      if (newTeam) {
-        await supabase.from("team_members").insert({
-          team_id: newTeam.id,
-          user_id: user.id,
-          role: "owner",
-        });
-        setTeams([newTeam]);
-        setActiveTeam(newTeam);
+      if (error) {
+        console.error("Error fetching teams:", error.message || error);
+        return;
       }
+
+      if (data && data.length > 0) {
+        setTeams(data as Team[]);
+        const storedTeamId = localStorage.getItem("active_team_id");
+        const foundTeam = data.find((t) => t.id === storedTeamId);
+        setActiveTeam((foundTeam as Team) || (data[0] as Team));
+      } else {
+        const newTeamName = `${user.email?.split("@")[0]}'s Team`;
+        const slug = nameToSlug(newTeamName);
+
+        const { data: newTeam } = await supabase
+          .from("teams")
+          .insert({ name: newTeamName, slug, created_by: user.id })
+          .select()
+          .single();
+
+        if (newTeam) {
+          await supabase.from("team_members").insert({
+            team_id: newTeam.id,
+            user_id: user.id,
+            role: "owner",
+          });
+          setTeams([newTeam]);
+          setActiveTeam(newTeam);
+        }
+      }
+    } finally {
+      setLoading(false);
+      isFetchingRef.current = false;
     }
-    setLoading(false);
   }, [user, supabase]);
 
   const nameToSlug = (name: string) => 

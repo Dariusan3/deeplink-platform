@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Database } from "@/types/database";
 import { useUser } from "./use-user";
@@ -12,7 +12,7 @@ export function useLinks() {
   const { activeTeam } = useTeam();
   const [links, setLinks] = useState<Link[]>([]);
   const [loading, setLoading] = useState(false);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const fetchLinks = useCallback(async (explicitTeamId?: string) => {
     // Try explicit ID, then activeTeam, then localStorage as absolute last resort for speed
@@ -41,7 +41,6 @@ export function useLinks() {
 
   useEffect(() => {
     if (activeTeam?.id) {
-      setLinks([]);
       fetchLinks();
     }
   }, [activeTeam?.id, fetchLinks]);

@@ -8,6 +8,7 @@ import { TopLinks } from "@/components/analytics/top-links";
 import { GeoBreakdown } from "@/components/analytics/geo-breakdown";
 import { DeviceBreakdown } from "@/components/analytics/device-breakdown";
 import { ReferrerSources } from "@/components/analytics/referrer-sources";
+import { WeeklyReport } from "@/components/analytics/weekly-report";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -77,6 +78,16 @@ export default function AnalyticsPage() {
 
             {/* Referrer sources */}
             <ReferrerSources data={referrerData} />
+
+            {/* AI Weekly Intelligence Report */}
+            <WeeklyReport analyticsData={{
+              totalClicks,
+              topLinks: topLinks.slice(0, 5),
+              topCountries: geoData.slice(0, 5),
+              deviceSplit: deviceData,
+              topReferrers: referrerData.slice(0, 5),
+              dailyTrend: dailyClicks.slice(-7),
+            }} />
           </>
         )}
       </div>

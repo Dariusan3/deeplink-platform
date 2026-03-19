@@ -80,13 +80,15 @@ export default function HomePage() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
                 </svg>
               </Button>
-              <Button
-                variant="outline"
-                size="lg"
-                className="btn-secondary-glass h-14 px-10 text-lg border-[#00D26A]/30"
-              >
-                Documentation
-              </Button>
+              <Link href="/dashboard/developer">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="btn-secondary-glass h-14 px-10 text-lg border-[#00D26A]/30"
+                >
+                  Documentation
+                </Button>
+              </Link>
             </div>
 
             {/* Click Journey Visualization */}
@@ -386,20 +388,80 @@ export default function HomePage() {
       </main>
 
       {/* Footer */}
-      <footer className="py-12 relative">
-        <div className="glow-divider max-w-6xl mx-auto mb-12 opacity-30" />
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-6 text-sm text-neutral-500 font-medium">
-          <div className="flex items-center gap-2">
-            <span className="text-white font-bold opacity-80">DeepLink</span>
-            <span>— The future of smart links.</span>
+      <footer className="py-12 border-t border-white/5">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
+            {/* Brand */}
+            <div className="col-span-2 md:col-span-1">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-7 h-7 rounded-lg bg-linear-to-br from-[#00D26A] to-[#00FF87] flex items-center justify-center">
+                  <svg className="w-4 h-4 text-black" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
+                  </svg>
+                </div>
+                <span className="font-black text-lg text-white">DeepLink</span>
+              </div>
+              <p className="text-xs text-neutral-500 font-medium leading-relaxed">
+                Open all links directly in mobile apps with deep links.
+              </p>
+            </div>
+
+            {/* Solutions */}
+            <div>
+              <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#00D26A] mb-4 border-b border-[#00D26A]/20 pb-2 inline-block">Solutions</h5>
+              <ul className="space-y-2 text-sm text-neutral-500 font-medium">
+                <li><Link href="#" className="hover:text-white transition-colors">YouTube Links</Link></li>
+                <li><Link href="#" className="hover:text-white transition-colors">Amazon Affiliates</Link></li>
+                <li><Link href="#" className="hover:text-white transition-colors">Music &amp; Podcasts</Link></li>
+                <li><Link href="#" className="hover:text-white transition-colors">Instagram Links</Link></li>
+              </ul>
+            </div>
+
+            {/* Features */}
+            <div>
+              <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#00D26A] mb-4 border-b border-[#00D26A]/20 pb-2 inline-block">Features</h5>
+              <ul className="space-y-2 text-sm text-neutral-500 font-medium">
+                <li><Link href="#" className="hover:text-white transition-colors">App Opener</Link></li>
+                <li><Link href="#" className="hover:text-white transition-colors">Deep Link Generator</Link></li>
+                <li><Link href="#" className="hover:text-white transition-colors">Link Retargeting</Link></li>
+                <li><Link href="/dashboard/qr-codes" className="hover:text-white transition-colors">QR Code Generator</Link></li>
+              </ul>
+            </div>
+
+            {/* Resources */}
+            <div>
+              <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#00D26A] mb-4 border-b border-[#00D26A]/20 pb-2 inline-block">Resources</h5>
+              <ul className="space-y-2 text-sm text-neutral-500 font-medium">
+                <li><Link href="/dashboard/developer" className="hover:text-white transition-colors">API Documentation</Link></li>
+                <li><Link href="#" className="hover:text-white transition-colors">Chrome Extension</Link></li>
+                <li>
+                  <span className="inline-flex items-center gap-1.5">
+                    <Link href="#" className="hover:text-white transition-colors">Mobile App</Link>
+                    <span className="text-[8px] font-black bg-[#00D26A]/10 text-[#00D26A] px-1.5 py-0.5 rounded-full border border-[#00D26A]/20">Soon</span>
+                  </span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Info */}
+            <div>
+              <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#00D26A] mb-4 border-b border-[#00D26A]/20 pb-2 inline-block">Info</h5>
+              <ul className="space-y-2 text-sm text-neutral-500 font-medium">
+                <li><Link href="#" className="hover:text-white transition-colors">How it works</Link></li>
+                <li><Link href="#" className="hover:text-white transition-colors">Features</Link></li>
+                <li><Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link></li>
+              </ul>
+            </div>
           </div>
-          <div className="flex gap-8">
-            <Link href="#" className="hover:text-[#00D26A] transition-colors">Documentation</Link>
-            <Link href="#" className="hover:text-[#00D26A] transition-colors">Privacy Policy</Link>
-            <Link href="#" className="hover:text-[#00D26A] transition-colors">Terms of Service</Link>
-          </div>
-          <div className="text-neutral-600">
-            © 2026 DeepLink Platform.
+
+          <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-neutral-600 font-medium">
+            <span>&copy; 2026 DeepLink Platform.</span>
+            <div className="flex gap-6">
+              <Link href="#" className="hover:text-white transition-colors">Privacy policy</Link>
+              <Link href="#" className="hover:text-white transition-colors">Terms and conditions</Link>
+              <Link href="/dashboard/developer" className="hover:text-white transition-colors">Developer API</Link>
+              <Link href="#" className="hover:text-white transition-colors">Contact</Link>
+            </div>
           </div>
         </div>
       </footer>

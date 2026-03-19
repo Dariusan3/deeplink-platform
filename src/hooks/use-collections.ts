@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "./use-user";
 import { useTeam } from "./use-team";
@@ -17,7 +17,7 @@ export function useCollections() {
   const { activeTeam } = useTeam();
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(false);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const fetchCollections = useCallback(async () => {
     const teamId = activeTeam?.id;
@@ -44,7 +44,6 @@ export function useCollections() {
 
   useEffect(() => {
     if (activeTeam?.id) {
-      setCollections([]);
       fetchCollections();
     }
   }, [activeTeam?.id, fetchCollections]);

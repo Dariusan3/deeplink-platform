@@ -10,6 +10,7 @@ import { QuickCreate } from "@/components/dashboard/quick-create";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { DashboardLinks } from "@/components/dashboard/dashboard-links";
 import { Link as LinkIcon, MousePointer2, Users, TrendingUp } from "lucide-react";
+import { AnomalyAlert } from "@/components/dashboard/anomaly-alert";
 
 export default function DashboardPage() {
   const { links, loading: linksLoading } = useLinks();
@@ -95,6 +96,9 @@ export default function DashboardPage() {
             </Card>
           ))}
         </div>
+
+        {/* AI Anomaly Alerts */}
+        <AnomalyAlert />
 
         {/* Quick Create Link */}
         <QuickCreate />
