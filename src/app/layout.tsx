@@ -19,9 +19,6 @@ export const metadata: Metadata = {
     "Create intelligent deeplinks that route users dynamically based on geo, device, and time. Built for teams who need precision control over every click.",
 };
 
-import { UserProvider } from "@/providers/user-provider";
-import { TeamProvider } from "@/providers/team-provider";
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -32,12 +29,8 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <UserProvider>
-          <TeamProvider>
-            {children}
-            <Toaster theme="dark" position="bottom-right" closeButton />
-          </TeamProvider>
-        </UserProvider>
+        {children}
+        <Toaster theme="dark" position="bottom-right" closeButton />
       </body>
     </html>
   );
