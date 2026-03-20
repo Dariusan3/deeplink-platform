@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTeam } from "./use-team";
 import { useLinks } from "./use-links";
@@ -20,7 +20,7 @@ export function useUsage(): UsageData {
   const { links } = useLinks();
   const [monthlyClicks, setMonthlyClicks] = useState(0);
   const [loading, setLoading] = useState(true);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const fetchUsage = useCallback(async () => {
     const linkIds = links.map((l) => l.id);

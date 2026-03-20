@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Header } from "@/components/header";
 import { Label } from "@/components/ui/label";
@@ -94,7 +94,7 @@ function Toggle({
 export default function SettingsPage() {
   const { settings, loading, updateSettings } = useSettings();
   const { user, profile, refreshProfile } = useUser();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [activeTab, setActiveTab] = useState<SettingsTab>("link-settings");
   const [saving, setSaving] = useState(false);
 

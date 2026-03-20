@@ -11,7 +11,10 @@
       "mcp__supabase__list_migrations",
       "mcp__supabase__apply_migration",
       "mcp__supabase__get_project",
-      "mcp__supabase__get_logs"
+      "mcp__supabase__get_logs",
+      "Bash(EXIT_CODE=$?)",
+      "Bash(echo \"EXIT CODE: $EXIT_CODE\")",
+      "Bash(git add:*)"
     ]
   }
 }

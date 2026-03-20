@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTeam } from "./use-team";
 import { useLinks } from "./use-links";
@@ -43,7 +43,7 @@ export function useAnalytics(timeRange: TimeRange = "30d") {
   const [topLinks, setTopLinks] = useState<TopLinkData[]>([]);
   const [totalClicks, setTotalClicks] = useState(0);
   const [loading, setLoading] = useState(true);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const daysMap: Record<TimeRange, number> = { "7d": 7, "14d": 14, "30d": 30, "90d": 90 };
 

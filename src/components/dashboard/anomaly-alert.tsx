@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { AlertTriangle, TrendingDown, TrendingUp, X, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLinks } from "@/hooks/use-links";
@@ -20,7 +20,7 @@ export function AnomalyAlert() {
   const [dismissed, setDismissed] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const { links } = useLinks();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const checkAnomalies = useCallback(async () => {
     if (links.length === 0) { setLoading(false); return; }
