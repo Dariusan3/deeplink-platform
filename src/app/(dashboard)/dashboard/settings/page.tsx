@@ -11,7 +11,8 @@ import { useSettings } from "@/hooks/use-settings";
 import { useUser } from "@/hooks/use-user";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import { Settings2, Link2, Monitor, Save, Loader2 } from "lucide-react";
+import { Settings2, Link2, Monitor, Save, Loader2, Unplug, ExternalLink, Plug } from "lucide-react";
+import { useInstagram } from "@/hooks/use-instagram";
 import { cn } from "@/lib/utils";
 
 const TIMEZONES = [
@@ -34,7 +35,7 @@ const TIMEZONES = [
   "Pacific/Auckland",
 ];
 
-type SettingsTab = "link-settings" | "display" | "redirect";
+type SettingsTab = "link-settings" | "display" | "redirect" | "integrations";
 
 const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
   {
@@ -51,6 +52,11 @@ const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
     id: "redirect",
     label: "Link Redirect Page",
     icon: <Settings2 className="w-4 h-4" />,
+  },
+  {
+    id: "integrations",
+    label: "Integrations",
+    icon: <Plug className="w-4 h-4" />,
   },
 ];
 
@@ -100,6 +106,7 @@ export default function SettingsPage() {
   const { settings, loading, updateSettings } = useSettings();
   const { user, profile, refreshProfile } = useUser();
   const supabase = useMemo(() => createClient(), []);
+  const { integration: igIntegration, isConnected: igConnected, disconnect: igDisconnect, loading: igLoading } = useInstagram();
   const [activeTab, setActiveTab] = useState<SettingsTab>("link-settings");
   const [saving, setSaving] = useState(false);
 
@@ -437,6 +444,103 @@ export default function SettingsPage() {
                           )}
                           Save Settings
                         </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Integrations Tab */}
+                {activeTab === "integrations" && (
+                  <Card className="glass-card bg-white/[0.01] border-white/5 relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[#00D26A]/20 to-transparent" />
+                    <CardHeader className="pt-8 px-8">
+                      <CardTitle className="text-xl font-black tracking-tight text-white flex items-center gap-2">
+                        <Plug className="w-5 h-5 text-[#00D26A]" />
+                        Integrations
+                      </CardTitle>
+                      <CardDescription className="text-sm font-medium text-neutral-500">
+                        Connect external platforms to track your full marketing funnel
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="px-8 pb-8 space-y-6">
+                      {/* Instagram Integration */}
+                      <div className="p-5 rounded-xl bg-white/[0.01] border border-white/5 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-amber-500/20 border border-purple-500/20 flex items-center justify-center">
+                              <svg className="w-5 h-5 text-pink-400" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/>
+                              </svg>
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-white">Instagram</p>
+                              <p className="text-[10px] text-neutral-500 font-medium">
+                                Track profile views &amp; funnel performance
+                              </p>
+                            </div>
+                          </div>
+
+                          {igLoading ? (
+                            <Loader2 className="w-4 h-4 text-neutral-500 animate-spin" />
+                          ) : igConnected ? (
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-black text-[#00D26A] bg-[#00D26A]/10 px-2 py-1 rounded-full border border-[#00D26A]/20">
+                                @{igIntegration?.ig_username}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={igDisconnect}
+                                className="h-8 text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-500 hover:bg-red-500/10"
+                              >
+                                <Unplug className="w-3 h-3 mr-1" />
+                                Disconnect
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              onClick={() => {
+                                const clientId = process.env.NEXT_PUBLIC_IG_APP_ID;
+                                if (!clientId) {
+                                  toast.error("Instagram App ID not configured. Set NEXT_PUBLIC_IG_APP_ID in your environment.");
+                                  return;
+                                }
+                                const redirectUri = `${window.location.origin}/api/ig/callback`;
+                                const authUrl = `https://api.instagram.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=user_profile,user_media&response_type=code`;
+                                window.location.href = authUrl;
+                              }}
+                              className="h-9 px-5 rounded-xl bg-gradient-to-r from-purple-500 via-pink-500 to-amber-500 text-white font-black uppercase text-[10px] tracking-widest hover:opacity-90 transition-opacity"
+                            >
+                              <ExternalLink className="w-3 h-3 mr-2" />
+                              Connect Instagram
+                            </Button>
+                          )}
+                        </div>
+
+                        {igConnected && (
+                          <div className="pt-3 border-t border-white/5">
+                            <p className="text-[10px] text-neutral-500 font-medium">
+                              Instagram profile views will appear on your dashboard funnel.
+                              Data syncs automatically via the Instagram Graph API.
+                            </p>
+                          </div>
+                        )}
+
+                        {!igConnected && !igLoading && (
+                          <div className="pt-3 border-t border-white/5">
+                            <p className="text-[10px] text-neutral-500 font-medium leading-relaxed">
+                              Connect your Instagram Business or Creator account to see profile views
+                              alongside your link clicks — track your full funnel from IG profile visit to link click.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Placeholder for future integrations */}
+                      <div className="p-5 rounded-xl border border-dashed border-white/10 text-center">
+                        <p className="text-xs text-neutral-600 font-bold">
+                          More integrations coming soon — TikTok, YouTube, X (Twitter)
+                        </p>
                       </div>
                     </CardContent>
                   </Card>

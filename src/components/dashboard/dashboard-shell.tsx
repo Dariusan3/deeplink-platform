@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { UsageBanner } from "@/components/dashboard/usage-banner";
+import { FloatingChat } from "@/components/dashboard/floating-chat";
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -25,6 +26,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           <UsageBanner />
           {children}
         </main>
+
+        {/* Floating AI Chat */}
+        <FloatingChat />
       </div>
     </TooltipProvider>
   );
