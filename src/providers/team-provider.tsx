@@ -50,7 +50,7 @@ export function TeamProvider({ children }: { children: ReactNode }) {
       if (data && data.length > 0) {
         setTeams(data as Team[]);
         const storedTeamId = localStorage.getItem("active_team_id");
-        const foundTeam = data.find((t) => t.id === storedTeamId);
+        const foundTeam = data.find((t: Team) => t.id === storedTeamId);
         setActiveTeam((foundTeam as Team) || (data[0] as Team));
       } else {
         const newTeamName = `${user.email?.split("@")[0]}'s Team`;

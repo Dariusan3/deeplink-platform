@@ -78,7 +78,7 @@ export function useAnalytics(timeRange: TimeRange = "30d") {
       return;
     }
 
-    const clicks = data || [];
+    const clicks = (data || []) as { clicked_at: string; country: string | null; device_type: string | null; referer: string | null; link_id: string }[];
     setTotalClicks(clicks.length);
 
     // Daily clicks

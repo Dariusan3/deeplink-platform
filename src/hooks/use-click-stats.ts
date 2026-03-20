@@ -77,7 +77,7 @@ export function useClickStats(): ClickStats {
     const todayStr = new Date().toISOString().split("T")[0];
     let todayCount = 0;
 
-    (data || []).forEach((click) => {
+    ((data || []) as { clicked_at: string }[]).forEach((click) => {
       const dateStr = click.clicked_at.split("T")[0];
       countsByDate[dateStr] = (countsByDate[dateStr] || 0) + 1;
       if (dateStr === todayStr) todayCount++;
