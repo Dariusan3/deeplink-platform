@@ -482,6 +482,83 @@ export type Database = {
           },
         ]
       }
+      affiliate_queue: {
+        Row: {
+          id: string
+          user_id: string
+          referral_code: string
+          position: number | null
+          total_earnings: number
+          total_referrals: number
+          joined_at: string
+          is_active: boolean
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          referral_code: string
+          position?: number | null
+          total_earnings?: number
+          total_referrals?: number
+          joined_at?: string
+          is_active?: boolean
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          referral_code?: string
+          position?: number | null
+          total_earnings?: number
+          total_referrals?: number
+          joined_at?: string
+          is_active?: boolean
+        }
+        Relationships: []
+      }
+      affiliate_referrals: {
+        Row: {
+          id: string
+          referrer_id: string
+          referred_user_id: string | null
+          referred_email: string | null
+          status: string
+          commission_amount: number
+          created_at: string
+          converted_at: string | null
+          paid_at: string | null
+        }
+        Insert: {
+          id?: string
+          referrer_id: string
+          referred_user_id?: string | null
+          referred_email?: string | null
+          status?: string
+          commission_amount?: number
+          created_at?: string
+          converted_at?: string | null
+          paid_at?: string | null
+        }
+        Update: {
+          id?: string
+          referrer_id?: string
+          referred_user_id?: string | null
+          referred_email?: string | null
+          status?: string
+          commission_amount?: number
+          created_at?: string
+          converted_at?: string | null
+          paid_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_referrals_referrer_id_fkey"
+            columns: ["referrer_id"]
+            isOneToOne: false
+            referencedRelation: "affiliate_queue"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
