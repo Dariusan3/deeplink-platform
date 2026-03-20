@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useLinks } from "@/hooks/use-links";
+import { useCollections } from "@/hooks/use-collections";
 import { LinkCard } from "./link-card";
 import { LinkToolbar, StatusFilter } from "./link-toolbar";
 import { Card } from "@/components/ui/card";
@@ -11,6 +12,7 @@ import { toast } from "sonner";
 
 export function LinkList() {
   const { links, loading, updateLink, deleteLink, resetClicks } = useLinks();
+  const { collections, moveLinksToCollection } = useCollections();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -146,6 +148,8 @@ export function LinkList() {
               onResetClicks={(id) => resetClicks(id)}
               selected={selectedIds.has(link.id)}
               onToggleSelect={() => handleToggleSelect(link.id)}
+              collections={collections.map((c) => ({ id: c.id, name: c.name }))}
+              onMoveToCollection={(linkId, collectionId) => moveLinksToCollection([linkId], collectionId)}
             />
           ))}
         </div>

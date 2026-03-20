@@ -58,23 +58,28 @@ function Toggle({
   checked,
   onChange,
   premium,
+  disabled,
 }: {
   checked: boolean;
   onChange: (val: boolean) => void;
   premium?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <div className="flex items-center gap-2">
       {premium && (
-        <span className="text-[9px] font-black uppercase tracking-widest bg-[#00D26A]/10 text-[#00D26A] px-2 py-0.5 rounded-full border border-[#00D26A]/20">
+        <span className="text-[9px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full border border-amber-500/20">
           Premium
         </span>
       )}
       <button
         type="button"
-        onClick={() => onChange(!checked)}
+        onClick={() => !disabled && onChange(!checked)}
         className={cn(
-          "relative w-12 h-6 rounded-full transition-all duration-300 cursor-pointer",
+          "relative w-12 h-6 rounded-full transition-all duration-300",
+          disabled
+            ? "opacity-40 cursor-not-allowed"
+            : "cursor-pointer",
           checked
             ? "bg-[#00D26A] shadow-[0_0_15px_rgba(0,210,106,0.3)]"
             : "bg-white/5 border border-white/10"
@@ -416,7 +421,7 @@ export default function SettingsPage() {
                             Display &quot;Powered by DeepLink&quot; on the redirect page
                           </p>
                         </div>
-                        <Toggle checked={showBranding} onChange={setShowBranding} premium />
+                        <Toggle checked={true} onChange={() => toast.error("Upgrade to Premium to disable branding")} premium disabled />
                       </div>
 
                       <div className="flex justify-end">

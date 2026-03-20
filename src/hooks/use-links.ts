@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Database } from "@/types/database";
 import { useUser } from "./use-user";
@@ -13,11 +13,12 @@ export function useLinks() {
   const [links, setLinks] = useState<Link[]>([]);
   const [loading, setLoading] = useState(false);
   const supabase = useMemo(() => createClient(), []);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const fetchLinks = useCallback(async (explicitTeamId?: string) => {
     // Try explicit ID, then activeTeam, then localStorage as absolute last resort for speed
     const teamId = explicitTeamId || activeTeam?.id || (typeof window !== 'undefined' ? localStorage.getItem("active_team_id") : null);
-    
+
     if (!teamId) return;
     setLoading(true);
 
@@ -44,6 +45,40 @@ export function useLinks() {
       fetchLinks();
     }
   }, [activeTeam?.id, fetchLinks]);
+
+  // Realtime subscription for links
+  useEffect(() => {
+    const teamId = activeTeam?.id;
+    if (!teamId) return;
+
+    // Clean up previous subscription
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+    }
+
+    const channel = supabase
+      .channel(`links-realtime-${teamId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "links",
+          filter: `team_id=eq.${teamId}`,
+        },
+        () => {
+          // Refetch on any change to get accurate click counts
+          fetchLinks();
+        }
+      )
+      .subscribe();
+
+    channelRef.current = channel;
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [activeTeam?.id, supabase, fetchLinks]);
 
   const createLink = useCallback(async (payload: Omit<LinkInsert, "id" | "created_at" | "updated_at" | "created_by" | "team_id">) => {
     if (!user || !activeTeam) throw new Error("Authentication required");

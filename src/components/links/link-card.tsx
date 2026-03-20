@@ -16,6 +16,8 @@ import {
   RefreshCw,
   Globe,
   QrCode,
+  FolderOpen,
+  FolderMinus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { QrDialog } from "@/components/qr/qr-dialog";
@@ -37,6 +39,11 @@ import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+interface CollectionOption {
+  id: string;
+  name: string;
+}
+
 interface LinkCardProps {
   link: LinkType;
   onToggleActive: (id: string, active: boolean) => void;
@@ -44,6 +51,8 @@ interface LinkCardProps {
   onResetClicks: (id: string) => void;
   selected?: boolean;
   onToggleSelect?: () => void;
+  collections?: CollectionOption[];
+  onMoveToCollection?: (linkId: string, collectionId: string | null) => void;
 }
 
 export function LinkCard({
@@ -53,6 +62,8 @@ export function LinkCard({
   onResetClicks,
   selected,
   onToggleSelect,
+  collections,
+  onMoveToCollection,
 }: LinkCardProps) {
   const router = useRouter();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -236,6 +247,41 @@ export function LinkCard({
                       <QrCode className="w-3.5 h-3.5" />
                       Generate QR
                     </DropdownMenuItem>
+                    {/* Move to Collection */}
+                    {collections && collections.length > 0 && onMoveToCollection && (
+                      <>
+                        <div className="h-px bg-white/5 my-1" />
+                        <div className="px-2 py-1.5">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-neutral-600">
+                            Move to Collection
+                          </span>
+                        </div>
+                        {link.collection_id && (
+                          <DropdownMenuItem
+                            className="text-xs font-bold gap-2 focus:bg-amber-500/10 focus:text-amber-400"
+                            onClick={() => onMoveToCollection(link.id, null)}
+                          >
+                            <FolderMinus className="w-3.5 h-3.5" />
+                            Remove from Collection
+                          </DropdownMenuItem>
+                        )}
+                        {collections.map((col) => (
+                          <DropdownMenuItem
+                            key={col.id}
+                            className={cn(
+                              "text-xs font-bold gap-2 focus:bg-[#00D26A]/10 focus:text-[#00D26A]",
+                              link.collection_id === col.id && "text-[#00D26A]"
+                            )}
+                            onClick={() => onMoveToCollection(link.id, col.id)}
+                            disabled={link.collection_id === col.id}
+                          >
+                            <FolderOpen className="w-3.5 h-3.5" />
+                            {col.name}
+                          </DropdownMenuItem>
+                        ))}
+                        <div className="h-px bg-white/5 my-1" />
+                      </>
+                    )}
                     <DropdownMenuItem
                       onClick={() => setShowResetConfirm(true)}
                       className="text-neutral-400 hover:text-amber-500 transition-colors"
