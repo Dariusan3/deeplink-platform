@@ -140,6 +140,30 @@ export function TeamProvider({ children }: { children: ReactNode }) {
     }
   }, [user, userLoading, fetchTeams]);
 
+  // Realtime subscription for teams
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`teams-realtime-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "teams",
+        },
+        () => {
+          fetchTeams();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, supabase, fetchTeams]);
+
   useEffect(() => {
     if (activeTeam) {
       localStorage.setItem("active_team_id", activeTeam.id);

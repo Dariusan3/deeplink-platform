@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "./use-user";
 import { useTeam } from "./use-team";
@@ -47,6 +47,32 @@ export function useCollections() {
       fetchCollections();
     }
   }, [activeTeam?.id, fetchCollections]);
+
+  // Realtime subscription for collections
+  useEffect(() => {
+    const teamId = activeTeam?.id;
+    if (!teamId) return;
+
+    const channel = supabase
+      .channel(`collections-realtime-${teamId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "collections",
+          filter: `team_id=eq.${teamId}`,
+        },
+        () => {
+          fetchCollections();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [activeTeam?.id, supabase, fetchCollections]);
 
   const createCollection = useCallback(
     async (name: string, description?: string, color?: string) => {

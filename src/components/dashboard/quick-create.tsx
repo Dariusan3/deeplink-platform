@@ -17,10 +17,16 @@ export function QuickCreate() {
   const { createLink } = useLinks();
   const { activeTeam } = useTeam();
 
+  const isValidUrl = (u: string) => /^https?:\/\/.+\..+/.test(u.trim());
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!url.trim()) {
       toast.error("Please paste a URL first");
+      return;
+    }
+    if (!isValidUrl(url)) {
+      toast.error("Please enter a valid URL (e.g. https://example.com)");
       return;
     }
 

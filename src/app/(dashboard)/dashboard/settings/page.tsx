@@ -370,7 +370,7 @@ export default function SettingsPage() {
                         <CardTitle className="text-xl font-black tracking-tight text-red-500 uppercase tracking-[0.05em]">
                           Danger Zone
                         </CardTitle>
-                        <CardDescription className="text-sm font-medium text-red-900/40">
+                        <CardDescription className="text-sm font-medium text-neutral-400">
                           Irreversible actions — proceed with caution
                         </CardDescription>
                       </CardHeader>

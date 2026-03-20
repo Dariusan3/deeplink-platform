@@ -32,10 +32,18 @@ export function CreateLinkDialog() {
     toast.success("Magic slug generated!");
   };
 
+  const isValidUrl = (url: string) => {
+    return /^https?:\/\/.+\..+/.test(url.trim());
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!destinationUrl) {
       toast.error("Destination URL is required");
+      return;
+    }
+    if (!isValidUrl(destinationUrl)) {
+      toast.error("Please enter a valid URL (e.g. https://example.com)");
       return;
     }
 
