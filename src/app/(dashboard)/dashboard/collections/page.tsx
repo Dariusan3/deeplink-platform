@@ -14,6 +14,7 @@ import {
   ExternalLink,
   FolderMinus,
   Globe,
+  Target,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
@@ -27,7 +28,7 @@ import {
 import { toast } from "sonner";
 
 export default function CollectionsPage() {
-  const { collections, loading, deleteCollection, moveLinksToCollection } =
+  const { collections, loading, deleteCollection, updateCollection, moveLinksToCollection } =
     useCollections();
   const { links } = useLinks();
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -91,6 +92,63 @@ export default function CollectionsPage() {
               )}
             </div>
           </div>
+
+          {/* Click Goal Settings */}
+          <Card className="glass-card bg-white/[0.01] border-white/5">
+            <CardContent className="p-5">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 rounded-xl bg-[#00D26A]/10 text-[#00D26A]">
+                  <Target className="w-4 h-4" />
+                </div>
+                <h3 className="text-sm font-black text-white uppercase tracking-wide">
+                  Click Goal
+                </h3>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="Target clicks"
+                  value={activeCollection.click_goal ?? ""}
+                  onChange={(e) => {
+                    const val = e.target.value ? parseInt(e.target.value) : null;
+                    updateCollection(activeCollection.id, {
+                      click_goal: val,
+                      click_goal_period: activeCollection.click_goal_period || "daily",
+                    });
+                  }}
+                  className="w-32 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm font-bold placeholder:text-neutral-600 focus:outline-none focus:border-[#00D26A]/50"
+                />
+                <select
+                  value={activeCollection.click_goal_period || "daily"}
+                  onChange={(e) =>
+                    updateCollection(activeCollection.id, {
+                      click_goal: activeCollection.click_goal,
+                      click_goal_period: e.target.value,
+                    })
+                  }
+                  className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm font-bold focus:outline-none focus:border-[#00D26A]/50 [&>option]:bg-black"
+                >
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+                {activeCollection.click_goal && activeCollection.click_goal > 0 && (
+                  <button
+                    onClick={() =>
+                      updateCollection(activeCollection.id, {
+                        click_goal: null,
+                        click_goal_period: null,
+                      })
+                    }
+                    className="text-xs font-bold text-neutral-500 hover:text-red-400 transition-colors"
+                  >
+                    Remove goal
+                  </button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
           {collectionLinks.length === 0 ? (
             <Card className="glass-card bg-white/[0.01] border-white/5 border-dashed relative overflow-hidden">

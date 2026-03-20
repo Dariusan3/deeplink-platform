@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Header } from "@/components/header";
 import { useAnalytics } from "@/hooks/use-analytics";
+import { useCollections } from "@/hooks/use-collections";
 import { ClicksChart } from "@/components/analytics/clicks-chart";
 import { TopLinks } from "@/components/analytics/top-links";
 import { GeoBreakdown } from "@/components/analytics/geo-breakdown";
@@ -11,19 +12,23 @@ import { ReferrerSources } from "@/components/analytics/referrer-sources";
 import { WeeklyReport } from "@/components/analytics/weekly-report";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { FolderOpen } from "lucide-react";
 
-type TimeRange = "7d" | "14d" | "30d" | "90d";
+type TimeRange = "7d" | "14d" | "30d" | "90d" | "all";
 
 export default function AnalyticsPage() {
   const [timeRange, setTimeRange] = useState<TimeRange>("30d");
+  const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
+  const { collections } = useCollections();
   const { dailyClicks, geoData, deviceData, referrerData, topLinks, totalClicks, loading } =
-    useAnalytics(timeRange);
+    useAnalytics(timeRange, selectedCollection);
 
   const ranges: { value: TimeRange; label: string }[] = [
     { value: "7d", label: "7 Days" },
     { value: "14d", label: "14 Days" },
     { value: "30d", label: "30 Days" },
     { value: "90d", label: "90 Days" },
+    { value: "all", label: "All Time" },
   ];
 
   return (
@@ -37,26 +42,48 @@ export default function AnalyticsPage() {
               Statistics
             </h2>
             <p className="text-[10px] text-[#00D26A] font-black uppercase tracking-[0.2em] opacity-80">
-              Comprehensive Link Performance Data
+              {selectedCollection
+                ? `Collection: ${collections.find((c) => c.id === selectedCollection)?.name || "Unknown"}`
+                : "Comprehensive Link Performance Data"}
             </p>
           </div>
-          <div className="flex gap-1 bg-white/[0.02] border border-white/5 rounded-xl p-1">
-            {ranges.map((r) => (
-              <Button
-                key={r.value}
-                variant="ghost"
-                size="sm"
-                onClick={() => setTimeRange(r.value)}
-                className={cn(
-                  "h-8 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
-                  timeRange === r.value
-                    ? "bg-[#00D26A]/10 text-[#00D26A]"
-                    : "text-neutral-500 hover:text-white hover:bg-white/[0.03]"
-                )}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Collection filter */}
+            <div className="relative">
+              <select
+                value={selectedCollection || ""}
+                onChange={(e) => setSelectedCollection(e.target.value || null)}
+                className="h-8 pl-8 pr-3 rounded-lg bg-white/[0.02] border border-white/5 text-[10px] font-black uppercase tracking-widest text-neutral-400 focus:outline-none focus:border-[#00D26A]/30 appearance-none cursor-pointer [&>option]:bg-black [&>option]:text-white"
               >
-                {r.label}
-              </Button>
-            ))}
+                <option value="">All Links</option>
+                {collections.map((col) => (
+                  <option key={col.id} value={col.id}>
+                    {col.name}
+                  </option>
+                ))}
+              </select>
+              <FolderOpen className="w-3.5 h-3.5 text-neutral-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+
+            {/* Time range */}
+            <div className="flex gap-1 bg-white/[0.02] border border-white/5 rounded-xl p-1">
+              {ranges.map((r) => (
+                <Button
+                  key={r.value}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setTimeRange(r.value)}
+                  className={cn(
+                    "h-8 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                    timeRange === r.value
+                      ? "bg-[#00D26A]/10 text-[#00D26A]"
+                      : "text-neutral-500 hover:text-white hover:bg-white/[0.03]"
+                  )}
+                >
+                  {r.label}
+                </Button>
+              ))}
+            </div>
           </div>
         </div>
 

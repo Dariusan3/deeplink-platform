@@ -44,6 +44,18 @@ function evaluateConditions(
     const now = context.now;
     if (conditions.time.after && now < new Date(conditions.time.after)) return false;
     if (conditions.time.before && now > new Date(conditions.time.before)) return false;
+    if (conditions.time.daysOfWeek && conditions.time.daysOfWeek.length > 0) {
+      if (!conditions.time.daysOfWeek.includes(now.getDay())) return false;
+    }
+    if (conditions.time.hourStart !== undefined && conditions.time.hourEnd !== undefined) {
+      const hour = now.getHours();
+      if (conditions.time.hourStart <= conditions.time.hourEnd) {
+        if (hour < conditions.time.hourStart || hour >= conditions.time.hourEnd) return false;
+      } else {
+        // Overnight range (e.g. 22 → 6)
+        if (hour < conditions.time.hourStart && hour >= conditions.time.hourEnd) return false;
+      }
+    }
   }
   return true;
 }

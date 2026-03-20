@@ -31,9 +31,9 @@ export interface TopLinkData {
   count: number;
 }
 
-type TimeRange = "7d" | "14d" | "30d" | "90d";
+type TimeRange = "7d" | "14d" | "30d" | "90d" | "all";
 
-export function useAnalytics(timeRange: TimeRange = "30d") {
+export function useAnalytics(timeRange: TimeRange = "30d", collectionId?: string | null) {
   const { activeTeam } = useTeam();
   const { links } = useLinks();
   const [dailyClicks, setDailyClicks] = useState<DailyClickData[]>([]);
@@ -45,10 +45,14 @@ export function useAnalytics(timeRange: TimeRange = "30d") {
   const [loading, setLoading] = useState(true);
   const supabase = useMemo(() => createClient(), []);
 
-  const daysMap: Record<TimeRange, number> = { "7d": 7, "14d": 14, "30d": 30, "90d": 90 };
+  const daysMap: Record<string, number> = { "7d": 7, "14d": 14, "30d": 30, "90d": 90 };
 
   const fetchAnalytics = useCallback(async () => {
-    const linkIds = links.map((l) => l.id);
+    // Filter links by collection if specified
+    const filteredLinks = collectionId
+      ? links.filter((l) => l.collection_id === collectionId)
+      : links;
+    const linkIds = filteredLinks.map((l) => l.id);
     if (linkIds.length === 0) {
       setDailyClicks([]);
       setGeoData([]);
@@ -61,16 +65,20 @@ export function useAnalytics(timeRange: TimeRange = "30d") {
     }
 
     setLoading(true);
-    const days = daysMap[timeRange];
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - (days - 1));
-    startDate.setHours(0, 0, 0, 0);
-
-    const { data, error } = await supabase
+    let query = supabase
       .from("link_clicks")
       .select("clicked_at, country, device_type, referer, link_id")
-      .in("link_id", linkIds)
-      .gte("clicked_at", startDate.toISOString());
+      .in("link_id", linkIds);
+
+    if (timeRange !== "all") {
+      const days = daysMap[timeRange];
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - (days - 1));
+      startDate.setHours(0, 0, 0, 0);
+      query = query.gte("clicked_at", startDate.toISOString());
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error("Error fetching analytics:", error.message);
@@ -88,11 +96,27 @@ export function useAnalytics(timeRange: TimeRange = "30d") {
       byDate[d] = (byDate[d] || 0) + 1;
     });
     const dailyArr: DailyClickData[] = [];
-    for (let i = days - 1; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const ds = d.toISOString().split("T")[0];
-      dailyArr.push({ date: ds, count: byDate[ds] || 0 });
+    if (timeRange === "all" && clicks.length > 0) {
+      // For "all", build from earliest click to today
+      const allDates = Object.keys(byDate).sort();
+      const earliest = new Date(allDates[0] + "T00:00:00");
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const diffDays = Math.ceil((today.getTime() - earliest.getTime()) / (1000 * 60 * 60 * 24));
+      for (let i = diffDays; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        const ds = d.toISOString().split("T")[0];
+        dailyArr.push({ date: ds, count: byDate[ds] || 0 });
+      }
+    } else {
+      const days = daysMap[timeRange] || 30;
+      for (let i = days - 1; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const ds = d.toISOString().split("T")[0];
+        dailyArr.push({ date: ds, count: byDate[ds] || 0 });
+      }
     }
     setDailyClicks(dailyArr);
 
@@ -155,7 +179,7 @@ export function useAnalytics(timeRange: TimeRange = "30d") {
     setTopLinks(topArr);
 
     setLoading(false);
-  }, [links, timeRange, supabase]);
+  }, [links, timeRange, collectionId, supabase]);
 
   useEffect(() => {
     fetchAnalytics();

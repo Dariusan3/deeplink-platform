@@ -31,19 +31,39 @@ export async function POST(request: NextRequest) {
 
   const systemPrompt = `You are the AI Brain — a powerful analytics advisor for a smart deep link management platform called DeepLink.
 
-You have access to the following live analytics data for this team:
-${analyticsContext ? JSON.stringify(analyticsContext, null, 2) : "No analytics data available yet."}
+You have access to the following live data for team "${analyticsContext?.teamName || "Unknown"}":
+
+ANALYTICS (last 30 days):
+${analyticsContext ? JSON.stringify({
+  totalClicks: analyticsContext.totalClicks,
+  totalLinks: analyticsContext.totalLinks,
+  activeLinks: analyticsContext.activeLinks,
+  topLinks: analyticsContext.topLinks,
+  topCountries: analyticsContext.topCountries,
+  deviceSplit: analyticsContext.deviceSplit,
+  topReferrers: analyticsContext.topReferrers,
+  dailyTrend: analyticsContext.dailyTrend,
+}, null, 2) : "No analytics data available yet."}
+
+ALL LINKS:
+${analyticsContext?.links ? JSON.stringify(analyticsContext.links, null, 2) : "No links yet."}
+
+COLLECTIONS:
+${analyticsContext?.collections ? JSON.stringify(analyticsContext.collections, null, 2) : "No collections yet."}
 
 Your role:
+- Answer questions about SPECIFIC links by slug/title, or SPECIFIC collections by name
 - Analyze link performance, traffic patterns, geo/device distribution, and referrers
+- Compare collections and their link performance
+- Track click goals — tell the user if they're on track or behind
 - Detect anomalies and unusual patterns
 - Suggest strategic optimizations (best posting times, top-performing link types, audience targeting)
 - Forecast trends based on historical data
-- Answer questions about the user's links, clicks, and campaigns
 
 Be concise, data-driven, and actionable. Format responses with markdown. Use bullet points for lists.
 When you see patterns, explain WHY they matter and WHAT to do about them.
-Always refer to actual numbers from the analytics data when available.`;
+Always refer to actual numbers from the analytics data when available.
+When asked about a specific link or collection, reference it by name and give detailed insights.`;
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({

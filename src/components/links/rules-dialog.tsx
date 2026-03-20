@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Settings2, Plus, Trash2, Globe, Laptop, Clock, ArrowRight } from "lucide-react";
+import { Settings2, Plus, Trash2, Globe, Laptop, Clock, ArrowRight, Calendar, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,6 +19,9 @@ import { useLinks } from "@/hooks/use-links";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
+
 interface RulesDialogProps {
   link: Link;
   trigger?: React.ReactNode;
@@ -33,15 +36,20 @@ export function RulesDialog({ link, trigger, open: controlledOpen, onOpenChange:
   const [rules, setRules] = useState<RedirectRule[]>(
     (link.redirect_rules as unknown as RedirectRule[]) || []
   );
+  const [clickGoal, setClickGoal] = useState<number | null>(link.click_goal ?? null);
+  const [clickGoalPeriod, setClickGoalPeriod] = useState(link.click_goal_period || "daily");
   const [loading, setLoading] = useState(false);
   const { updateLink } = useLinks();
 
-  // Sync rules state when link updates or dialog opens
   useEffect(() => {
     if (open) {
       setRules((link.redirect_rules as unknown as RedirectRule[]) || []);
+      setClickGoal(link.click_goal ?? null);
+      setClickGoalPeriod(link.click_goal_period || "daily");
     }
-  }, [link.redirect_rules, open]);
+  }, [link.redirect_rules, link.click_goal, link.click_goal_period, open]);
+
+  const isValidUrl = (url: string) => /^https?:\/\/.+\..+/.test(url.trim());
 
   const handleAddRule = () => {
     const newRule: RedirectRule = {
@@ -57,7 +65,6 @@ export function RulesDialog({ link, trigger, open: controlledOpen, onOpenChange:
 
   const handleRemoveRule = (index: number) => {
     const newRules = rules.filter((_, i) => i !== index);
-    // Re-prioritize
     setRules(newRules.map((r, i) => ({ ...r, priority: i + 1 })));
   };
 
@@ -69,54 +76,60 @@ export function RulesDialog({ link, trigger, open: controlledOpen, onOpenChange:
     });
   };
 
-  // Helper to convert ISO UTC to local datetime-local format
   const toLocalValue = (iso?: string) => {
     if (!iso) return "";
     try {
       const date = new Date(iso);
       if (isNaN(date.getTime())) return "";
-      
-      // Offset correction to get YYYY-MM-DDTHH:mm in local time
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, "0");
       const day = String(date.getDate()).padStart(2, "0");
       const hours = String(date.getHours()).padStart(2, "0");
       const minutes = String(date.getMinutes()).padStart(2, "0");
-      
       return `${year}-${month}-${day}T${hours}:${minutes}`;
     } catch {
       return "";
     }
   };
 
+  const formatHour = (h: number) => {
+    if (h === 0) return "12 AM";
+    if (h < 12) return `${h} AM`;
+    if (h === 12) return "12 PM";
+    return `${h - 12} PM`;
+  };
+
   const handleSave = async () => {
     setLoading(true);
     try {
-      // Basic validation
-      if (rules.some(r => !r.destination_url)) {
-        throw new Error("All rules must have a destination URL");
+      for (const rule of rules) {
+        if (!rule.destination_url) {
+          throw new Error(`Rule #${rule.priority}: Destination URL is required`);
+        }
+        if (!isValidUrl(rule.destination_url)) {
+          throw new Error(`Rule #${rule.priority}: Please enter a valid URL (e.g. https://example.com)`);
+        }
       }
 
-      // Date range validation: Ensure valid if partially filled
       for (const rule of rules) {
         const hasTimeStart = !!rule.conditions.time?.after;
         const hasTimeEnd = !!rule.conditions.time?.before;
-
         if (hasTimeStart || hasTimeEnd) {
           if (!hasTimeStart || !hasTimeEnd) {
-            throw new Error(`Rule #${rule.priority}: Both Start and End Window dates are required if defining a time window.`);
+            throw new Error(`Rule #${rule.priority}: Both Start and End dates are required for date range.`);
           }
-          
           if (new Date(rule.conditions.time!.after!) >= new Date(rule.conditions.time!.before!)) {
-            throw new Error(`Rule #${rule.priority}: Start Window must be earlier than End Window.`);
+            throw new Error(`Rule #${rule.priority}: Start date must be earlier than End date.`);
           }
         }
       }
 
       await updateLink(link.id, {
         redirect_rules: rules as any,
+        click_goal: clickGoal,
+        click_goal_period: clickGoalPeriod,
       });
-      toast.success("Redirect rules updated successfully");
+      toast.success("Redirect rules saved");
       setOpen(false);
     } catch (error: any) {
       toast.error(error.message || "Failed to update rules");
@@ -146,80 +159,117 @@ export function RulesDialog({ link, trigger, open: controlledOpen, onOpenChange:
             <div className="p-2 rounded-lg bg-[#00D26A]/10 text-[#00D26A]">
               <Settings2 className="w-5 h-5" />
             </div>
-            Logic Engine: {link.title || link.slug}
+            Smart Routing: {link.title || link.slug}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6 py-6">
+          {/* Default destination info */}
+          <div className="p-4 rounded-xl bg-white/2 border border-white/5">
+            <p className="text-[9px] font-black uppercase tracking-widest text-neutral-500 mb-1">Default Destination (no rules match)</p>
+            <p className="text-sm font-medium text-white truncate">{link.destination_url}</p>
+          </div>
+
+          {/* Click Goal */}
+          <div className="p-4 rounded-xl bg-white/2 border border-white/5 space-y-3">
+            <Label className="text-[9px] font-black uppercase tracking-widest text-neutral-500 flex items-center gap-2">
+              <Target className="w-3 h-3 text-[#00D26A]" /> Click Goal
+            </Label>
+            <div className="flex items-center gap-3">
+              <Input
+                type="number"
+                min={0}
+                placeholder="e.g. 70"
+                className="bg-white/3 border-white/5 rounded-xl h-10 text-sm w-32"
+                value={clickGoal ?? ""}
+                onChange={(e) => setClickGoal(e.target.value ? Number(e.target.value) : null)}
+              />
+              <span className="text-xs text-neutral-500 font-bold">clicks per</span>
+              <select
+                value={clickGoalPeriod}
+                onChange={(e) => setClickGoalPeriod(e.target.value)}
+                className="h-10 px-3 rounded-xl bg-white/3 border border-white/5 text-white text-xs font-medium outline-none focus:border-[#00D26A]/50 appearance-none cursor-pointer"
+              >
+                <option value="daily" className="bg-neutral-900">Day</option>
+                <option value="weekly" className="bg-neutral-900">Week</option>
+                <option value="monthly" className="bg-neutral-900">Month</option>
+              </select>
+            </div>
+            <p className="text-[9px] text-neutral-600">
+              Get notified on dashboard if this link doesn&apos;t reach the target
+            </p>
+          </div>
+
           {rules.length === 0 ? (
             <div className="text-center py-10 border border-dashed border-white/5 rounded-2xl bg-white/[0.01]">
               <p className="text-xs text-neutral-500 font-bold uppercase tracking-widest">
-                No advanced logic active.
+                No routing rules active
               </p>
-              <Button 
-                variant="ghost" 
+              <p className="text-xs text-neutral-600 mt-1 max-w-sm mx-auto">
+                Add rules to route visitors to different destinations based on location, device, time of day, or schedule.
+              </p>
+              <Button
+                variant="ghost"
                 onClick={handleAddRule}
                 className="mt-4 text-[#00D26A] hover:bg-[#00D26A]/10 text-[10px] font-black uppercase tracking-[0.2em]"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Initialize First Rule
+                Add First Rule
               </Button>
             </div>
           ) : (
             <div className="space-y-4">
               {rules.map((rule, idx) => (
-                <div 
-                  key={idx} 
+                <div
+                  key={idx}
                   className="p-6 rounded-2xl border border-white/5 bg-white/[0.02] relative group/rule"
                 >
                   <div className="absolute -top-3 -left-2 px-3 py-1 bg-black border border-white/10 rounded-lg text-[10px] font-black text-[#00D26A] uppercase tracking-widest z-10">
                     Rule #{rule.priority}
                   </div>
 
-                  <button 
+                  <button
                     onClick={() => handleRemoveRule(idx)}
                     className="absolute top-4 right-4 p-2 text-neutral-600 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all opacity-0 group-hover/rule:opacity-100"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
 
-                  <div className="grid gap-6">
-                    {/* Conditions */}
+                  <div className="grid gap-5">
+                    {/* Row 1: Geo + Device */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Geo Selection Placeholder */}
                       <div className="space-y-2">
                         <Label className="text-[9px] font-black uppercase tracking-widest text-neutral-500 flex items-center gap-2">
-                          <Globe className="w-3 h-3 text-[#00D26A]" /> Geo Target
+                          <Globe className="w-3 h-3 text-[#00D26A]" /> Country
                         </Label>
-                        <Input 
-                          placeholder="Countries (e.g. US, RO, GB)" 
-                          className="bg-white/[0.03] border-white/5 rounded-xl h-10 text-xs"
+                        <Input
+                          placeholder="e.g. US, RO, GB, DE"
+                          className="bg-white/3 border-white/5 rounded-xl h-10 text-xs"
                           value={rule.conditions.geo?.countries?.join(", ") || ""}
                           onChange={(e) => {
                             const countries = e.target.value.split(",").map(c => c.trim().toUpperCase()).filter(c => c.length > 0);
-                            handleUpdateRule(idx, { 
-                              conditions: { ...rule.conditions, geo: { countries } } 
+                            handleUpdateRule(idx, {
+                              conditions: { ...rule.conditions, geo: { countries } }
                             });
                           }}
                         />
                       </div>
 
-                      {/* Device Selection */}
                       <div className="space-y-2">
                         <Label className="text-[9px] font-black uppercase tracking-widest text-neutral-500 flex items-center gap-2">
-                          <Laptop className="w-3 h-3 text-[#00D26A]" /> Hardware
+                          <Laptop className="w-3 h-3 text-[#00D26A]" /> Device
                         </Label>
-                        <div className="flex gap-4 p-2 bg-white/[0.03] border border-white/5 rounded-xl h-10">
+                        <div className="flex gap-4 p-2.5 bg-white/3 border border-white/5 rounded-xl h-10">
                           {["mobile", "tablet", "desktop"].map((type) => (
-                            <div key={type} className="flex items-center space-x-2">
-                               <Checkbox 
+                            <div key={type} className="flex items-center space-x-1.5">
+                               <Checkbox
                                  id={`rule-${idx}-${type}`}
                                  checked={rule.conditions.device?.types?.includes(type as any)}
                                  onCheckedChange={(checked: boolean) => {
                                    const currentTypes = rule.conditions.device?.types || [];
-                                   const newTypes = checked 
+                                   const newTypes = checked
                                      ? [...currentTypes, type] as any
-                                     : currentTypes.filter(t => t !== type);
+                                     : currentTypes.filter((t: string) => t !== type);
                                    handleUpdateRule(idx, {
                                      conditions: { ...rule.conditions, device: { types: newTypes } }
                                    });
@@ -233,55 +283,136 @@ export function RulesDialog({ link, trigger, open: controlledOpen, onOpenChange:
                           ))}
                         </div>
                       </div>
+                    </div>
 
-                      {/* Time Selection */}
-                      <div className="space-y-3 md:col-span-2">
-                        <Label className="text-[9px] font-black uppercase tracking-widest text-[#39FF14] flex items-center gap-2">
-                          <Clock className="w-3 h-3" /> Intelligent Time Window
-                        </Label>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="space-y-1.5">
-                            <span className="text-[8px] font-black text-neutral-500 uppercase tracking-[0.2em] ml-1 flex items-center gap-1">
-                              Start of Window <span className="text-[#00D26A] text-[10px]">*</span>
-                            </span>
-                            <div className="relative group/date">
-                              <Input 
-                                type="datetime-local"
-                                className="bg-white/[0.03] border-white/5 rounded-xl h-11 text-[11px] w-full px-4 focus:border-[#00D26A]/50 focus:ring-1 focus:ring-[#00D26A]/20 transition-all font-mono"
-                                value={toLocalValue(rule.conditions.time?.after)}
-                                onChange={(e) => {
-                                  const dateVal = e.target.value ? new Date(e.target.value).toISOString() : undefined;
-                                  handleUpdateRule(idx, {
-                                    conditions: { 
-                                      ...rule.conditions, 
-                                      time: { ...rule.conditions.time, after: dateVal } 
-                                    }
-                                  });
-                                }}
-                              />
-                            </div>
-                          </div>
-                          <div className="space-y-1.5">
-                            <span className="text-[8px] font-black text-neutral-500 uppercase tracking-[0.2em] ml-1 flex items-center gap-1">
-                              End of Window <span className="text-[#00D26A] text-[10px]">*</span>
-                            </span>
-                            <div className="relative group/date">
-                              <Input 
-                                type="datetime-local"
-                                className="bg-white/[0.03] border-white/5 rounded-xl h-11 text-[11px] w-full px-4 focus:border-[#00D26A]/50 focus:ring-1 focus:ring-[#00D26A]/20 transition-all font-mono"
-                                value={toLocalValue(rule.conditions.time?.before)}
-                                onChange={(e) => {
-                                  const dateVal = e.target.value ? new Date(e.target.value).toISOString() : undefined;
-                                  handleUpdateRule(idx, {
-                                    conditions: { 
-                                      ...rule.conditions, 
-                                      time: { ...rule.conditions.time, before: dateVal } 
-                                    }
-                                  });
-                                }}
-                              />
-                            </div>
-                          </div>
+                    {/* Row 2: Day of Week */}
+                    <div className="space-y-2">
+                      <Label className="text-[9px] font-black uppercase tracking-widest text-neutral-500 flex items-center gap-2">
+                        <Calendar className="w-3 h-3 text-[#00D26A]" /> Days of Week
+                      </Label>
+                      <div className="flex gap-2">
+                        {DAYS.map((day, dayIdx) => {
+                          const isActive = rule.conditions.time?.daysOfWeek?.includes(dayIdx);
+                          return (
+                            <button
+                              key={day}
+                              type="button"
+                              onClick={() => {
+                                const current = rule.conditions.time?.daysOfWeek || [];
+                                const next = isActive
+                                  ? current.filter((d) => d !== dayIdx)
+                                  : [...current, dayIdx];
+                                handleUpdateRule(idx, {
+                                  conditions: {
+                                    ...rule.conditions,
+                                    time: { ...rule.conditions.time, daysOfWeek: next.length > 0 ? next : undefined },
+                                  },
+                                });
+                              }}
+                              className={cn(
+                                "flex-1 h-9 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border",
+                                isActive
+                                  ? "bg-[#00D26A]/15 border-[#00D26A]/30 text-[#00D26A]"
+                                  : "bg-white/2 border-white/5 text-neutral-600 hover:text-neutral-300 hover:border-white/10"
+                              )}
+                            >
+                              {day}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Row 3: Time of Day */}
+                    <div className="space-y-2">
+                      <Label className="text-[9px] font-black uppercase tracking-widest text-neutral-500 flex items-center gap-2">
+                        <Clock className="w-3 h-3 text-[#00D26A]" /> Time of Day
+                      </Label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest">From</span>
+                          <select
+                            value={rule.conditions.time?.hourStart ?? ""}
+                            onChange={(e) => {
+                              const val = e.target.value === "" ? undefined : Number(e.target.value);
+                              handleUpdateRule(idx, {
+                                conditions: {
+                                  ...rule.conditions,
+                                  time: { ...rule.conditions.time, hourStart: val },
+                                },
+                              });
+                            }}
+                            className="w-full h-10 px-3 rounded-xl bg-white/3 border border-white/5 text-white text-xs font-medium outline-none focus:border-[#00D26A]/50 appearance-none cursor-pointer"
+                          >
+                            <option value="" className="bg-neutral-900">Any</option>
+                            {HOURS.map((h) => (
+                              <option key={h} value={h} className="bg-neutral-900">{formatHour(h)}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest">To</span>
+                          <select
+                            value={rule.conditions.time?.hourEnd ?? ""}
+                            onChange={(e) => {
+                              const val = e.target.value === "" ? undefined : Number(e.target.value);
+                              handleUpdateRule(idx, {
+                                conditions: {
+                                  ...rule.conditions,
+                                  time: { ...rule.conditions.time, hourEnd: val },
+                                },
+                              });
+                            }}
+                            className="w-full h-10 px-3 rounded-xl bg-white/3 border border-white/5 text-white text-xs font-medium outline-none focus:border-[#00D26A]/50 appearance-none cursor-pointer"
+                          >
+                            <option value="" className="bg-neutral-900">Any</option>
+                            {HOURS.map((h) => (
+                              <option key={h} value={h} className="bg-neutral-900">{formatHour(h)}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Row 4: Date Range (optional) */}
+                    <div className="space-y-2">
+                      <Label className="text-[9px] font-black uppercase tracking-widest text-neutral-500 flex items-center gap-2">
+                        <Clock className="w-3 h-3 text-[#39FF14]" /> Date Range (optional)
+                      </Label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest">Start</span>
+                          <Input
+                            type="datetime-local"
+                            className="bg-white/3 border-white/5 rounded-xl h-10 text-[11px] font-mono"
+                            value={toLocalValue(rule.conditions.time?.after)}
+                            onChange={(e) => {
+                              const dateVal = e.target.value ? new Date(e.target.value).toISOString() : undefined;
+                              handleUpdateRule(idx, {
+                                conditions: {
+                                  ...rule.conditions,
+                                  time: { ...rule.conditions.time, after: dateVal }
+                                }
+                              });
+                            }}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest">End</span>
+                          <Input
+                            type="datetime-local"
+                            className="bg-white/3 border-white/5 rounded-xl h-10 text-[11px] font-mono"
+                            value={toLocalValue(rule.conditions.time?.before)}
+                            onChange={(e) => {
+                              const dateVal = e.target.value ? new Date(e.target.value).toISOString() : undefined;
+                              handleUpdateRule(idx, {
+                                conditions: {
+                                  ...rule.conditions,
+                                  time: { ...rule.conditions.time, before: dateVal }
+                                }
+                              });
+                            }}
+                          />
                         </div>
                       </div>
                     </div>
@@ -291,36 +422,44 @@ export function RulesDialog({ link, trigger, open: controlledOpen, onOpenChange:
                       <Label className="text-[9px] font-black uppercase tracking-widest text-neutral-500 flex items-center gap-2">
                         <ArrowRight className="w-3 h-3 text-[#39FF14]" /> Redirect To
                       </Label>
-                      <Input 
-                        placeholder="https://app.example.com/download" 
-                        className="bg-white/[0.03] border-[#00D26A]/20 focus:border-[#00D26A] rounded-xl h-11 font-medium text-sm"
+                      <Input
+                        placeholder="https://app.example.com/download"
+                        className={cn(
+                          "bg-white/3 rounded-xl h-11 font-medium text-sm",
+                          rule.destination_url && !isValidUrl(rule.destination_url)
+                            ? "border-red-500/40 focus:border-red-500/60"
+                            : "border-[#00D26A]/20 focus:border-[#00D26A]"
+                        )}
                         value={rule.destination_url}
                         onChange={(e) => handleUpdateRule(idx, { destination_url: e.target.value })}
                       />
+                      {rule.destination_url && !isValidUrl(rule.destination_url) && (
+                        <p className="text-[9px] font-bold text-red-400">Must be a valid URL starting with http:// or https://</p>
+                      )}
                     </div>
                   </div>
                 </div>
               ))}
 
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={handleAddRule}
                 className="w-full border-dashed border-white/10 hover:border-[#00D26A]/40 hover:bg-[#00D26A]/5 h-12 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500 hover:text-[#00D26A]"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Stack New Intelligence Rule
+                Add Another Rule
               </Button>
             </div>
           )}
         </div>
 
         <DialogFooter className="pt-6 border-t border-white/5">
-          <Button 
-            onClick={handleSave} 
+          <Button
+            onClick={handleSave}
             disabled={loading}
             className="btn-primary-pulse h-12 px-10 rounded-xl text-black font-black uppercase tracking-widest text-xs"
           >
-            {loading ? "Optimizing Logic..." : "Commit Infrastructure"}
+            {loading ? "Saving..." : "Save Rules"}
           </Button>
         </DialogFooter>
       </DialogContent>

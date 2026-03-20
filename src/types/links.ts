@@ -19,6 +19,8 @@ export interface RedirectRule {
       after?: string;
       before?: string;
       daysOfWeek?: number[];
+      hourStart?: number;
+      hourEnd?: number;
     };
   };
   destination_url: string;

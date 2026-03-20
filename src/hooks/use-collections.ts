@@ -117,6 +117,26 @@ export function useCollections() {
     [supabase]
   );
 
+  const updateCollection = useCallback(
+    async (id: string, updates: { click_goal?: number | null; click_goal_period?: string | null }) => {
+      const { error } = await supabase
+        .from("collections")
+        .update(updates)
+        .eq("id", id);
+
+      if (error) {
+        toast.error("Failed to update collection");
+        throw error;
+      }
+
+      setCollections((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
+      );
+      toast.success("Collection updated");
+    },
+    [supabase]
+  );
+
   const moveLinksToCollection = useCallback(
     async (linkIds: string[], collectionId: string | null) => {
       for (const linkId of linkIds) {
@@ -146,6 +166,7 @@ export function useCollections() {
     fetchCollections,
     createCollection,
     deleteCollection,
+    updateCollection,
     moveLinksToCollection,
   };
 }

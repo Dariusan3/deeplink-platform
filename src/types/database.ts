@@ -56,6 +56,8 @@ export type Database = {
           name: string
           description: string | null
           color: string | null
+          click_goal: number | null
+          click_goal_period: string | null
           created_at: string
           created_by: string
         }
@@ -65,6 +67,8 @@ export type Database = {
           name: string
           description?: string | null
           color?: string | null
+          click_goal?: number | null
+          click_goal_period?: string | null
           created_at?: string
           created_by: string
         }
@@ -74,6 +78,8 @@ export type Database = {
           name?: string
           description?: string | null
           color?: string | null
+          click_goal?: number | null
+          click_goal_period?: string | null
           created_at?: string
           created_by?: string
         }
@@ -184,6 +190,8 @@ export type Database = {
       }
       links: {
         Row: {
+          click_goal: number | null
+          click_goal_period: string | null
           collection_id: string | null
           created_at: string
           created_by: string
@@ -197,6 +205,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          click_goal?: number | null
+          click_goal_period?: string | null
           collection_id?: string | null
           created_at?: string
           created_by: string
@@ -210,6 +220,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          click_goal?: number | null
+          click_goal_period?: string | null
           collection_id?: string | null
           created_at?: string
           created_by?: string

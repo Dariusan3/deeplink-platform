@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { useAnalytics } from "@/hooks/use-analytics";
 import { useTeam } from "@/hooks/use-team";
 import { useLinks } from "@/hooks/use-links";
-import { Send, Sparkles, Zap, TrendingUp, BarChart3, Globe, Cpu, RotateCcw } from "lucide-react";
+import { useCollections } from "@/hooks/use-collections";
+import { Send, Sparkles, Zap, TrendingUp, BarChart3, Globe, Cpu, RotateCcw, FolderOpen, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Message {
@@ -16,7 +17,9 @@ interface Message {
 
 const SUGGESTED_PROMPTS = [
   { icon: <TrendingUp className="w-4 h-4" />, text: "Which link is performing best and why?" },
+  { icon: <FolderOpen className="w-4 h-4" />, text: "Compare my collections — which one gets the most clicks?" },
   { icon: <Globe className="w-4 h-4" />, text: "What countries drive the most traffic?" },
+  { icon: <Target className="w-4 h-4" />, text: "Am I on track to hit my click goals?" },
   { icon: <BarChart3 className="w-4 h-4" />, text: "When should I post for maximum clicks?" },
   { icon: <Zap className="w-4 h-4" />, text: "Detect any anomalies in my traffic" },
   { icon: <Cpu className="w-4 h-4" />, text: "What device types are my audience using?" },
@@ -32,6 +35,7 @@ export default function BrainPage() {
 
   const { activeTeam } = useTeam();
   const { links } = useLinks();
+  const { collections } = useCollections();
   const { dailyClicks, geoData, deviceData, referrerData, topLinks, totalClicks } = useAnalytics("30d");
 
   useEffect(() => {
@@ -48,7 +52,28 @@ export default function BrainPage() {
     topReferrers: referrerData.slice(0, 5),
     dailyTrend: dailyClicks.slice(-14),
     teamName: activeTeam?.name,
-  }), [totalClicks, links, topLinks, geoData, deviceData, referrerData, dailyClicks, activeTeam]);
+    // Full links data for specific link questions
+    links: links.map((l) => ({
+      slug: l.slug,
+      title: l.title,
+      destination: l.destination_url,
+      active: l.is_active,
+      collectionId: l.collection_id,
+      clickGoal: l.click_goal,
+      clickGoalPeriod: l.click_goal_period,
+      createdAt: l.created_at,
+    })),
+    // Collections data
+    collections: collections.map((c) => ({
+      id: c.id,
+      name: c.name,
+      description: c.description,
+      color: c.color,
+      linkCount: c.link_count || 0,
+      clickGoal: c.click_goal,
+      clickGoalPeriod: c.click_goal_period,
+    })),
+  }), [totalClicks, links, topLinks, geoData, deviceData, referrerData, dailyClicks, activeTeam, collections]);
 
   const sendMessage = async (userText: string) => {
     if (!userText.trim() || streaming) return;
@@ -146,7 +171,7 @@ export default function BrainPage() {
             </div>
             <div>
               <p className="text-xs font-black text-white">AI Brain — Analytics Advisor</p>
-              <p className="text-[10px] text-neutral-500">Powered by Claude Opus 4.6 · 30-day context loaded</p>
+              <p className="text-[10px] text-neutral-500">Powered by Llama 3.3 · Links, collections &amp; analytics loaded</p>
             </div>
           </div>
           {messages.length > 0 && (
@@ -173,16 +198,17 @@ export default function BrainPage() {
                 </div>
                 <h2 className="text-2xl font-black text-white">What do you want to know?</h2>
                 <p className="text-sm text-neutral-400">
-                  Ask anything about your links, traffic patterns, top performers, or audience insights.
-                  I have your last 30 days of analytics loaded.
+                  Ask about specific links, collections, click goals, traffic patterns, or audience insights.
+                  I have your full team context loaded — links, collections, and 30 days of analytics.
                 </p>
               </div>
 
               {/* Stats summary */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
                   { label: "Total Clicks", value: totalClicks.toLocaleString() },
                   { label: "Active Links", value: links.filter((l) => l.is_active).length },
+                  { label: "Collections", value: collections.length },
                   { label: "Countries", value: geoData.length },
                 ].map((stat) => (
                   <div key={stat.label} className="glass-card p-4 rounded-xl text-center">

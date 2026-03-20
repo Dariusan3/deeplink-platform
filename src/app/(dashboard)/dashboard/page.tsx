@@ -11,6 +11,7 @@ import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { DashboardLinks } from "@/components/dashboard/dashboard-links";
 import { Link as LinkIcon, MousePointer2, Users, TrendingUp } from "lucide-react";
 import { AnomalyAlert } from "@/components/dashboard/anomaly-alert";
+import { GoalTracker } from "@/components/dashboard/goal-tracker";
 
 export default function DashboardPage() {
   const { links, loading: linksLoading } = useLinks();
@@ -96,6 +97,9 @@ export default function DashboardPage() {
             </Card>
           ))}
         </div>
+
+        {/* Click Goal Alerts */}
+        <GoalTracker />
 
         {/* AI Anomaly Alerts */}
         <AnomalyAlert />
