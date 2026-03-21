@@ -14,6 +14,149 @@ export type Database = {
   }
   public: {
     Tables: {
+      ab_tests: {
+        Row: {
+          id: string
+          team_id: string
+          name: string
+          slug: string
+          status: string
+          variant_a_name: string
+          variant_a_url: string
+          variant_a_visits: number
+          variant_a_conversions: number
+          variant_b_name: string
+          variant_b_url: string
+          variant_b_visits: number
+          variant_b_conversions: number
+          auto_optimize: boolean
+          min_conversions: number
+          threshold_percent: number
+          winner: string | null
+          winner_selected_at: string | null
+          variant_a_revenue: number
+          variant_b_revenue: number
+          cost_per_click: number
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          team_id: string
+          name: string
+          slug: string
+          status?: string
+          variant_a_name?: string
+          variant_a_url: string
+          variant_a_visits?: number
+          variant_a_conversions?: number
+          variant_b_name?: string
+          variant_b_url: string
+          variant_b_visits?: number
+          variant_b_conversions?: number
+          auto_optimize?: boolean
+          min_conversions?: number
+          threshold_percent?: number
+          winner?: string | null
+          winner_selected_at?: string | null
+          variant_a_revenue?: number
+          variant_b_revenue?: number
+          cost_per_click?: number
+          created_by: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          team_id?: string
+          name?: string
+          slug?: string
+          status?: string
+          variant_a_name?: string
+          variant_a_url?: string
+          variant_a_visits?: number
+          variant_a_conversions?: number
+          variant_b_name?: string
+          variant_b_url?: string
+          variant_b_visits?: number
+          variant_b_conversions?: number
+          auto_optimize?: boolean
+          min_conversions?: number
+          threshold_percent?: number
+          winner?: string | null
+          winner_selected_at?: string | null
+          variant_a_revenue?: number
+          variant_b_revenue?: number
+          cost_per_click?: number
+          created_by?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ab_tests_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ab_tests_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ab_test_events: {
+        Row: {
+          id: string
+          test_id: string
+          variant: string
+          event_type: string
+          revenue: number | null
+          ip_address: string | null
+          user_agent: string | null
+          country: string | null
+          device_type: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          test_id: string
+          variant: string
+          event_type: string
+          revenue?: number | null
+          ip_address?: string | null
+          user_agent?: string | null
+          country?: string | null
+          device_type?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          test_id?: string
+          variant?: string
+          event_type?: string
+          revenue?: number | null
+          ip_address?: string | null
+          user_agent?: string | null
+          country?: string | null
+          device_type?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ab_test_events_test_id_fkey"
+            columns: ["test_id"]
+            isOneToOne: false
+            referencedRelation: "ab_tests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       business_brain: {
         Row: {
           content: Json | null

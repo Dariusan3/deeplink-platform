@@ -67,6 +67,19 @@ export async function GET(
   const { slug } = await params;
   if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
 
+  // Check A/B tests first
+  const { data: abTest } = await supabase
+    .from("ab_tests")
+    .select("*")
+    .eq("slug", slug)
+    .in("status", ["running", "completed"])
+    .limit(1)
+    .maybeSingle();
+
+  if (abTest) {
+    return handleABTest(request, abTest);
+  }
+
   const { data: link, error } = await supabase
     .from("links")
     .select("id, destination_url, redirect_rules, is_active")
@@ -116,4 +129,75 @@ export async function GET(
   }
 
   return NextResponse.redirect(finalDestination, { status: 302 });
+}
+
+// A/B Test redirect handler
+async function handleABTest(request: NextRequest, test: any) {
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const userAgent = request.headers.get("user-agent") || "";
+  const country = request.headers.get("x-vercel-ip-country") || request.headers.get("cf-ipcountry") || null;
+  const deviceType = detectDeviceType(userAgent);
+
+  let variant: "a" | "b";
+  let destinationUrl: string;
+
+  // If winner already selected, redirect 100% to winner
+  if (test.winner) {
+    variant = test.winner as "a" | "b";
+    destinationUrl = variant === "a" ? test.variant_a_url : test.variant_b_url;
+  } else {
+    // Fair 50/50 split using crypto random
+    const randomBytes = new Uint8Array(1);
+    crypto.getRandomValues(randomBytes);
+    variant = randomBytes[0] < 128 ? "a" : "b";
+    destinationUrl = variant === "a" ? test.variant_a_url : test.variant_b_url;
+
+    // Auto-optimization check
+    if (test.auto_optimize) {
+      const totalConversions = test.variant_a_conversions + test.variant_b_conversions;
+      if (totalConversions >= test.min_conversions) {
+        const rateA = test.variant_a_visits > 0 ? test.variant_a_conversions / test.variant_a_visits : 0;
+        const rateB = test.variant_b_visits > 0 ? test.variant_b_conversions / test.variant_b_visits : 0;
+        const threshold = test.threshold_percent / 100;
+
+        if (rateA > 0 && rateB > 0) {
+          if (rateA > rateB * (1 + threshold)) {
+            // A wins
+            supabase!.from("ab_tests").update({
+              winner: "a",
+              winner_selected_at: new Date().toISOString(),
+              status: "completed",
+            }).eq("id", test.id).then(() => {});
+          } else if (rateB > rateA * (1 + threshold)) {
+            // B wins
+            supabase!.from("ab_tests").update({
+              winner: "b",
+              winner_selected_at: new Date().toISOString(),
+              status: "completed",
+            }).eq("id", test.id).then(() => {});
+          }
+        }
+      }
+    }
+  }
+
+  // Track visit event and increment counter
+  const visitCol = variant === "a" ? "variant_a_visits" : "variant_b_visits";
+  const currentVisits = variant === "a" ? test.variant_a_visits : test.variant_b_visits;
+
+  supabase!.from("ab_test_events").insert({
+    test_id: test.id,
+    variant,
+    event_type: "visit",
+    ip_address: ip,
+    user_agent: userAgent,
+    country,
+    device_type: deviceType,
+  }).then(() => {});
+
+  supabase!.from("ab_tests").update({
+    [visitCol]: currentVisits + 1,
+  }).eq("id", test.id).then(() => {});
+
+  return NextResponse.redirect(ensureAbsoluteUrl(destinationUrl), { status: 302 });
 }
