@@ -3,53 +3,69 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Check, X, ChevronDown, Gift, Building2, Link2, Image, BarChart3, Shuffle, QrCode, Globe, Smartphone, Languages, CalendarOff, Shield, Tag, ShoppingCart } from "lucide-react";
+import { Check, ChevronDown, Gift, Building2, Link2, Image, BarChart3, Shuffle, QrCode, Globe, Smartphone, Languages, CalendarOff, Shield, Tag, ShoppingCart, Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type BillingPeriod = "monthly" | "yearly";
 
 const plans = [
   {
-    name: "Small",
-    description: "For content creators",
-    monthlyPrice: 19,
-    yearlyPrice: 14,
-    features: [
-      { name: "Links & Clicks", value: "Unlimited" },
-      { name: "Analytics", value: "90 days" },
-      { name: "Branded Domains", value: "-" },
-      { name: "Team Members", value: "-" },
-      { name: "Custom Aliases", value: false },
-    ],
+    name: "STARTER",
+    description: "Pentru antreprenori solo care vor sa inceapa inteligent.",
+    monthlyPrice: 89,
+    yearlyPrice: 67,
     popular: false,
+    cta: "Incepe cu Starter",
+    features: [
+      { text: "Link-uri nelimitate cu tracking complet", bold: true },
+      "Smart routing — 2 conditii per link (device, locatie)",
+      "QR codes dinamice — pana la 20",
+      "AI Brain — chat pe statistici",
+      "Raport lunar automat pe email",
+      "3 useri inclusi",
+      "50.000 click-uri / luna",
+      "Integrari Instagram, TikTok, WhatsApp",
+    ],
   },
   {
-    name: "Medium",
-    description: "For growing businesses",
-    monthlyPrice: 49,
-    yearlyPrice: 36,
-    features: [
-      { name: "Links & Clicks", value: "Unlimited" },
-      { name: "Analytics", value: "1 year" },
-      { name: "Branded Domains", value: "1" },
-      { name: "Team Members", value: "-" },
-      { name: "Custom Aliases", value: true },
-    ],
+    name: "GROWTH",
+    description: "Pentru business-uri care scaleaza si vor control total.",
+    monthlyPrice: 189,
+    yearlyPrice: 142,
     popular: true,
+    cta: "Alege Growth",
+    features: [
+      { text: "Tot din Starter, plus:", bold: true },
+      { text: "Smart routing avansat — device + locatie + ora + sursa simultan", bold: true },
+      { text: "A/B testing automat pe link-uri si QR codes", hot: true },
+      { text: "AI Brain proactiv — te alerteaza fara sa il intrebi", bold: true },
+      "Rapoarte saptamanale, nu lunar",
+      "Link-uri cu scadenta si redirect automat",
+      "10 useri inclusi",
+      "250.000 click-uri / luna",
+      "White-label partial + Stripe, Shopify, Calendly",
+      { text: "Competitor tracking — 3 competitori monitorizati", bold: true },
+    ],
   },
   {
-    name: "Large",
-    description: "For agencies & teams",
-    monthlyPrice: 99,
-    yearlyPrice: 74,
-    features: [
-      { name: "Links & Clicks", value: "Unlimited" },
-      { name: "Analytics", value: "3 years" },
-      { name: "Branded Domains", value: "3" },
-      { name: "Team Members", value: "3" },
-      { name: "Custom Aliases", value: true },
-    ],
+    name: "AGENCY",
+    description: "Pentru agentii si antreprenori cu mai multe branduri sau clienti.",
+    monthlyPrice: 389,
+    yearlyPrice: 292,
     popular: false,
+    cta: "Alege Agency",
+    features: [
+      { text: "Tot din Growth, plus:", bold: true },
+      { text: "Multi-brand — pana la 10 branduri separate in acelasi cont", bold: true },
+      { text: "Client access — clientii vad doar dashboardul lor", bold: true },
+      { text: "White-label complet — platforma apare cu brandul tau", hot: true },
+      { text: "Rapoarte PDF branded generate automat pentru clienti", bold: true },
+      { text: "AI Brain antrenat per brand/client", bold: true },
+      "Useri nelimitati",
+      "1.000.000 click-uri / luna",
+      "Competitor tracking nelimitat",
+      "Support prioritar — raspuns in 4 ore",
+    ],
   },
 ];
 
@@ -90,12 +106,8 @@ const faqs = [
     a: "Your links will continue to work on the free plan (500 clicks/month). If you exceed the free tier limit, links will be paused until the next month or until you upgrade.",
   },
   {
-    q: "What happens when I go over the clicks limit in the free plan?",
-    a: "When you reach 500 clicks in a month, your links will display a friendly upgrade page instead of redirecting. They'll resume normal operation when your monthly limit resets.",
-  },
-  {
-    q: "What happens when I delete my account?",
-    a: "All your data, links, and analytics will be permanently deleted. This action cannot be undone. We recommend exporting your data before deleting your account.",
+    q: "What is the affiliate program?",
+    a: "Refer paying users and earn recurring commissions: 10% for 1 active referral, 20% for 2-5 active referrals, and 30% for 5-10 active referrals. The percentage is based on how many active (paying) users you currently have referred.",
   },
 ];
 
@@ -134,8 +146,35 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
   );
 }
 
+type FeatureItem = string | { text: string; bold?: boolean; hot?: boolean };
+
+function FeatureList({ features }: { features: FeatureItem[] }) {
+  return (
+    <ul className="space-y-3">
+      {features.map((f, i) => {
+        const text = typeof f === "string" ? f : f.text;
+        const isBold = typeof f !== "string" && f.bold;
+        const isHot = typeof f !== "string" && f.hot;
+        return (
+          <li key={i} className="flex items-start gap-2.5">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#00D26A] mt-2 shrink-0" />
+            <span className={cn("text-sm leading-relaxed", isBold ? "font-bold text-white" : "text-neutral-400")}>
+              {text}
+              {isHot && (
+                <span className="inline-flex items-center ml-2 text-[10px] font-black bg-orange-500/10 text-orange-400 px-2 py-0.5 rounded-full border border-orange-500/20">
+                  <Flame className="w-3 h-3 mr-0.5" /> top
+                </span>
+              )}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 export default function PricingPage() {
-  const [billing, setBilling] = useState<BillingPeriod>("yearly");
+  const [billing, setBilling] = useState<BillingPeriod>("monthly");
 
   return (
     <div className="min-h-screen bg-black text-white font-sans">
@@ -160,7 +199,7 @@ export default function PricingPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
               </svg>
             </div>
-            <span className="font-bold text-xl tracking-tight text-white">DeepLink</span>
+            <span className="font-bold text-xl tracking-tight text-white">Tappr</span>
           </Link>
           <div className="flex items-center gap-4">
             <Button
@@ -217,77 +256,55 @@ export default function PricingPage() {
 
         {/* Pricing Cards */}
         <section className="pb-16">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto items-start">
             {plans.map((plan) => {
               const price = billing === "yearly" ? plan.yearlyPrice : plan.monthlyPrice;
-              const annual = price * 12;
               return (
                 <div
                   key={plan.name}
                   className={cn(
                     "relative rounded-2xl border p-8 transition-all duration-500",
                     plan.popular
-                      ? "border-[#00D26A]/40 bg-[#00D26A]/5 shadow-[0_0_40px_rgba(0,210,106,0.08)] scale-[1.02]"
+                      ? "border-[#00D26A]/40 bg-[#00D26A]/5 shadow-[0_0_40px_rgba(0,210,106,0.08)] md:scale-[1.03]"
                       : "border-white/5 bg-white/[0.01] hover:border-white/10"
                   )}
                 >
                   {plan.popular && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                       <span className="bg-[#00D26A] text-black text-[10px] font-black uppercase tracking-widest px-4 py-1 rounded-full shadow-[0_0_15px_rgba(0,210,106,0.4)]">
-                        Most Popular
+                        Cel mai popular
                       </span>
                     </div>
                   )}
 
                   <div className="mb-6">
-                    <h3 className="text-xl font-black text-white">{plan.name}</h3>
-                    <p className="text-sm text-neutral-500 font-medium">{plan.description}</p>
+                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-neutral-400 mb-2">{plan.name}</h3>
+                    <div className="mb-2">
+                      <span className="text-xs text-neutral-500 align-top">$</span>
+                      <span className={cn("text-5xl font-black", plan.popular ? "text-[#00D26A]" : "text-white")}>
+                        {price}
+                      </span>
+                      <span className="text-neutral-500 font-bold text-sm"> / luna</span>
+                    </div>
+                    <p className="text-sm text-neutral-500 font-medium leading-relaxed">{plan.description}</p>
                   </div>
 
-                  <div className="mb-2">
-                    <span className={cn("text-5xl font-black", plan.popular ? "text-[#00D26A]" : "text-white")}>
-                      ${price}
-                    </span>
-                    <span className="text-neutral-500 font-bold text-sm">/mo</span>
+                  <div className="mb-8">
+                    <FeatureList features={plan.features} />
                   </div>
-                  {billing === "yearly" && (
-                    <p className="text-xs text-neutral-500 font-medium mb-6">
-                      ${annual} billed annually
-                    </p>
-                  )}
-                  {billing === "monthly" && <div className="mb-6" />}
 
                   <Button
+                    render={<Link href="/signup" />}
+                    nativeButton={false}
                     className={cn(
-                      "w-full h-12 rounded-xl font-black uppercase text-xs tracking-widest mb-8",
+                      "w-full h-12 rounded-xl font-black text-xs tracking-widest",
                       plan.popular
                         ? "btn-primary-pulse text-black"
                         : "bg-white/5 border border-white/10 text-white hover:bg-white/10"
                     )}
                   >
-                    Get Started
+                    {plan.cta} &nbsp;&rarr;
                   </Button>
-
-                  <div className="border-t border-white/5 pt-6 space-y-4">
-                    {plan.features.map((feature) => (
-                      <div key={feature.name} className="flex items-center justify-between">
-                        <span className="text-sm text-neutral-400 font-medium">
-                          {feature.name}
-                        </span>
-                        <span className="text-sm font-bold">
-                          {feature.value === true ? (
-                            <Check className="w-4 h-4 text-[#00D26A]" />
-                          ) : feature.value === false ? (
-                            <X className="w-4 h-4 text-neutral-600" />
-                          ) : feature.value === "-" ? (
-                            <span className="text-neutral-600">—</span>
-                          ) : (
-                            <span className="text-white">{feature.value}</span>
-                          )}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
                 </div>
               );
             })}
@@ -297,7 +314,6 @@ export default function PricingPage() {
         {/* Free + Enterprise Row */}
         <section className="pb-20">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
-            {/* Free Plan */}
             <div className="rounded-2xl border border-white/5 bg-white/[0.01] p-6 flex items-center gap-5">
               <div className="w-12 h-12 rounded-xl bg-[#00D26A]/10 flex items-center justify-center shrink-0">
                 <Gift className="w-6 h-6 text-[#00D26A]" />
@@ -318,7 +334,6 @@ export default function PricingPage() {
               </Button>
             </div>
 
-            {/* Enterprise */}
             <div className="rounded-2xl border border-white/5 bg-white/[0.01] p-6 flex items-center gap-5">
               <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center shrink-0">
                 <Building2 className="w-6 h-6 text-neutral-400" />
@@ -393,7 +408,6 @@ export default function PricingPage() {
       <footer className="py-12 border-t border-white/5">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
-            {/* Brand */}
             <div className="col-span-2 md:col-span-1">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#00D26A] to-[#00FF87] flex items-center justify-center">
@@ -401,18 +415,14 @@ export default function PricingPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
                   </svg>
                 </div>
-                <span className="font-black text-lg text-white">DeepLink</span>
+                <span className="font-black text-lg text-white">Tappr</span>
               </div>
               <p className="text-xs text-neutral-500 font-medium leading-relaxed">
-                Open all links directly in mobile apps with deep links.
+                Smart link management for modern businesses.
               </p>
             </div>
-
-            {/* Solutions */}
             <div>
-              <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#00D26A] mb-4 border-b border-[#00D26A]/20 pb-2 inline-block">
-                Solutions
-              </h5>
+              <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#00D26A] mb-4 border-b border-[#00D26A]/20 pb-2 inline-block">Solutions</h5>
               <ul className="space-y-2 text-sm text-neutral-500 font-medium">
                 <li><Link href="#" className="hover:text-white transition-colors">YouTube Links</Link></li>
                 <li><Link href="#" className="hover:text-white transition-colors">Amazon Affiliates</Link></li>
@@ -420,59 +430,38 @@ export default function PricingPage() {
                 <li><Link href="#" className="hover:text-white transition-colors">Instagram Links</Link></li>
               </ul>
             </div>
-
-            {/* Features */}
             <div>
-              <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#00D26A] mb-4 border-b border-[#00D26A]/20 pb-2 inline-block">
-                Features
-              </h5>
+              <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#00D26A] mb-4 border-b border-[#00D26A]/20 pb-2 inline-block">Features</h5>
               <ul className="space-y-2 text-sm text-neutral-500 font-medium">
-                <li><Link href="#" className="hover:text-white transition-colors">App Opener</Link></li>
-                <li><Link href="#" className="hover:text-white transition-colors">Deep Link Generator</Link></li>
-                <li><Link href="#" className="hover:text-white transition-colors">Link Retargeting</Link></li>
+                <li><Link href="#" className="hover:text-white transition-colors">A/B Testing</Link></li>
+                <li><Link href="#" className="hover:text-white transition-colors">Smart Routing</Link></li>
+                <li><Link href="#" className="hover:text-white transition-colors">AI Brain</Link></li>
                 <li><Link href="#" className="hover:text-white transition-colors">QR Code Generator</Link></li>
               </ul>
             </div>
-
-            {/* Resources */}
             <div>
-              <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#00D26A] mb-4 border-b border-[#00D26A]/20 pb-2 inline-block">
-                Resources
-              </h5>
+              <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#00D26A] mb-4 border-b border-[#00D26A]/20 pb-2 inline-block">Resources</h5>
               <ul className="space-y-2 text-sm text-neutral-500 font-medium">
                 <li><Link href="/dashboard/developer" className="hover:text-white transition-colors">API Documentation</Link></li>
-                <li><Link href="#" className="hover:text-white transition-colors">Chrome Extension</Link></li>
-                <li>
-                  <span className="inline-flex items-center gap-1.5">
-                    <Link href="#" className="hover:text-white transition-colors">Mobile App</Link>
-                    <span className="text-[8px] font-black bg-[#00D26A]/10 text-[#00D26A] px-1.5 py-0.5 rounded-full border border-[#00D26A]/20">
-                      Soon
-                    </span>
-                  </span>
-                </li>
+                <li><Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link></li>
+                <li><Link href="/dashboard/affiliate" className="hover:text-white transition-colors">Affiliate Program</Link></li>
               </ul>
             </div>
-
-            {/* Info */}
             <div>
-              <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#00D26A] mb-4 border-b border-[#00D26A]/20 pb-2 inline-block">
-                Info
-              </h5>
+              <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#00D26A] mb-4 border-b border-[#00D26A]/20 pb-2 inline-block">Legal</h5>
               <ul className="space-y-2 text-sm text-neutral-500 font-medium">
-                <li><Link href="#" className="hover:text-white transition-colors">How it works</Link></li>
-                <li><Link href="#" className="hover:text-white transition-colors">Features</Link></li>
-                <li><Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link></li>
+                <li><Link href="#" className="hover:text-white transition-colors">Privacy Policy</Link></li>
+                <li><Link href="#" className="hover:text-white transition-colors">Terms & Conditions</Link></li>
+                <li><Link href="#" className="hover:text-white transition-colors">Contact</Link></li>
               </ul>
             </div>
           </div>
-
           <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-neutral-600 font-medium">
-            <span>&copy; 2026 DeepLink Platform.</span>
+            <span>&copy; 2026 Tappr. All rights reserved.</span>
             <div className="flex gap-6">
               <Link href="#" className="hover:text-white transition-colors">Privacy policy</Link>
               <Link href="#" className="hover:text-white transition-colors">Terms and conditions</Link>
               <Link href="/dashboard/developer" className="hover:text-white transition-colors">Developer API</Link>
-              <Link href="#" className="hover:text-white transition-colors">Contact</Link>
             </div>
           </div>
         </div>

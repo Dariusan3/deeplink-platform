@@ -625,79 +625,131 @@ export type Database = {
           },
         ]
       }
-      affiliate_queue: {
+      affiliates: {
         Row: {
           id: string
           user_id: string
           referral_code: string
-          position: number | null
           total_earnings: number
-          total_referrals: number
-          joined_at: string
+          paid_earnings: number
           is_active: boolean
+          created_at: string
         }
         Insert: {
           id?: string
           user_id: string
           referral_code: string
-          position?: number | null
           total_earnings?: number
-          total_referrals?: number
-          joined_at?: string
+          paid_earnings?: number
           is_active?: boolean
+          created_at?: string
         }
         Update: {
           id?: string
           user_id?: string
           referral_code?: string
-          position?: number | null
           total_earnings?: number
-          total_referrals?: number
-          joined_at?: string
+          paid_earnings?: number
           is_active?: boolean
+          created_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "affiliates_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       affiliate_referrals: {
         Row: {
           id: string
           referrer_id: string
           referred_user_id: string | null
-          referred_email: string | null
+          referred_email: string
           status: string
-          commission_amount: number
+          plan: string | null
+          plan_price: number
+          commission_rate: number
           created_at: string
-          converted_at: string | null
-          paid_at: string | null
+          activated_at: string | null
+          churned_at: string | null
         }
         Insert: {
           id?: string
           referrer_id: string
           referred_user_id?: string | null
-          referred_email?: string | null
+          referred_email: string
           status?: string
-          commission_amount?: number
+          plan?: string | null
+          plan_price?: number
+          commission_rate?: number
           created_at?: string
-          converted_at?: string | null
-          paid_at?: string | null
+          activated_at?: string | null
+          churned_at?: string | null
         }
         Update: {
           id?: string
           referrer_id?: string
           referred_user_id?: string | null
-          referred_email?: string | null
+          referred_email?: string
           status?: string
-          commission_amount?: number
+          plan?: string | null
+          plan_price?: number
+          commission_rate?: number
           created_at?: string
-          converted_at?: string | null
-          paid_at?: string | null
+          activated_at?: string | null
+          churned_at?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "affiliate_referrals_referrer_id_fkey"
             columns: ["referrer_id"]
             isOneToOne: false
-            referencedRelation: "affiliate_queue"
+            referencedRelation: "affiliates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      affiliate_payouts: {
+        Row: {
+          id: string
+          affiliate_id: string
+          amount: number
+          status: string
+          period_start: string
+          period_end: string
+          created_at: string
+          paid_at: string | null
+        }
+        Insert: {
+          id?: string
+          affiliate_id: string
+          amount: number
+          status?: string
+          period_start: string
+          period_end: string
+          created_at?: string
+          paid_at?: string | null
+        }
+        Update: {
+          id?: string
+          affiliate_id?: string
+          amount?: number
+          status?: string
+          period_start?: string
+          period_end?: string
+          created_at?: string
+          paid_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_payouts_affiliate_id_fkey"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "affiliates"
             referencedColumns: ["id"]
           },
         ]

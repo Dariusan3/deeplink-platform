@@ -1,235 +1,176 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useUser } from "./use-user";
+import { useUser } from "@/hooks/use-user";
 import { toast } from "sonner";
-import { Database } from "@/types/database";
+import type { Database } from "@/types/database";
 
-export type AffiliateEntry = Database["public"]["Tables"]["affiliate_queue"]["Row"] & {
-  user?: { full_name: string | null; email: string; avatar_url: string | null } | null;
-};
+export type Affiliate = Database["public"]["Tables"]["affiliates"]["Row"];
 export type AffiliateReferral = Database["public"]["Tables"]["affiliate_referrals"]["Row"];
+export type AffiliatePayout = Database["public"]["Tables"]["affiliate_payouts"]["Row"];
 
-const PYRAMID_SIZE = 5;
-const COMMISSION_PERCENT = 25;
-
-function generateReferralCode(): string {
-  return Math.random().toString(36).substring(2, 8).toUpperCase();
+// Commission tiers based on active referrals
+// 1 active → 10%, 2-5 active → 20%, 5-10 active → 30%
+export function getCommissionRate(activeCount: number): number {
+  if (activeCount >= 5) return 0.30;
+  if (activeCount >= 2) return 0.20;
+  if (activeCount >= 1) return 0.10;
+  return 0;
 }
 
+export function getCommissionTier(activeCount: number): { label: string; percent: number; color: string } {
+  if (activeCount >= 5) return { label: "Gold", percent: 30, color: "text-amber-400" };
+  if (activeCount >= 2) return { label: "Silver", percent: 20, color: "text-slate-300" };
+  if (activeCount >= 1) return { label: "Bronze", percent: 10, color: "text-amber-600" };
+  return { label: "None", percent: 0, color: "text-neutral-500" };
+}
+
+export const COMMISSION_TIERS = [
+  { min: 1, max: 1, percent: 10, label: "1 active referral", color: "from-amber-600 to-amber-700" },
+  { min: 2, max: 5, percent: 20, label: "2-5 active referrals", color: "from-slate-300 to-slate-400" },
+  { min: 5, max: 10, percent: 30, label: "5-10 active referrals", color: "from-amber-400 to-yellow-500" },
+];
+
 export function useAffiliate() {
-  const { user } = useUser();
-  const [queue, setQueue] = useState<AffiliateEntry[]>([]);
-  const [myEntry, setMyEntry] = useState<AffiliateEntry | null>(null);
+  const [affiliate, setAffiliate] = useState<Affiliate | null>(null);
   const [referrals, setReferrals] = useState<AffiliateReferral[]>([]);
+  const [payouts, setPayouts] = useState<AffiliatePayout[]>([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useUser();
   const supabase = useMemo(() => createClient(), []);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-  // Fetch full queue (pyramid + waitlist)
-  const fetchQueue = useCallback(async () => {
+  const activeReferrals = useMemo(
+    () => referrals.filter((r) => r.status === "active"),
+    [referrals]
+  );
+
+  const pendingReferrals = useMemo(
+    () => referrals.filter((r) => r.status === "pending"),
+    [referrals]
+  );
+
+  const commissionRate = useMemo(
+    () => getCommissionRate(activeReferrals.length),
+    [activeReferrals.length]
+  );
+
+  const tier = useMemo(
+    () => getCommissionTier(activeReferrals.length),
+    [activeReferrals.length]
+  );
+
+  // Monthly recurring commission
+  const monthlyCommission = useMemo(() => {
+    return activeReferrals.reduce((sum, r) => sum + r.plan_price * commissionRate, 0);
+  }, [activeReferrals, commissionRate]);
+
+  const unpaidEarnings = useMemo(() => {
+    if (!affiliate) return 0;
+    return affiliate.total_earnings - affiliate.paid_earnings;
+  }, [affiliate]);
+
+  const fetchAffiliate = useCallback(async () => {
+    if (!user?.id) return;
+    setLoading(true);
+
     const { data, error } = await supabase
-      .from("affiliate_queue")
-      .select("*, user:users(full_name, email, avatar_url)")
-      .eq("is_active", true)
-      .order("position", { ascending: true, nullsFirst: false })
-      .order("joined_at", { ascending: true });
+      .from("affiliates")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle();
 
-    if (error) {
-      console.error("Error fetching affiliate queue:", error.message);
-      return;
+    if (!error && data) {
+      setAffiliate(data);
+
+      // Fetch referrals
+      const { data: refs } = await supabase
+        .from("affiliate_referrals")
+        .select("*")
+        .eq("referrer_id", data.id)
+        .order("created_at", { ascending: false });
+      setReferrals(refs || []);
+
+      // Fetch payouts
+      const { data: pays } = await supabase
+        .from("affiliate_payouts")
+        .select("*")
+        .eq("affiliate_id", data.id)
+        .order("created_at", { ascending: false });
+      setPayouts(pays || []);
+    } else {
+      setAffiliate(null);
+      setReferrals([]);
+      setPayouts([]);
     }
 
-    // Sort: positions 1-5 first (by position), then waitlist (by joined_at)
-    const withPosition = (data || []).filter((e: AffiliateEntry) => e.position !== null)
-      .sort((a: AffiliateEntry, b: AffiliateEntry) => (a.position || 0) - (b.position || 0));
-    const waitlist = (data || []).filter((e: AffiliateEntry) => e.position === null)
-      .sort((a: AffiliateEntry, b: AffiliateEntry) => new Date(a.joined_at).getTime() - new Date(b.joined_at).getTime());
+    setLoading(false);
+  }, [user?.id, supabase]);
 
-    setQueue([...withPosition, ...waitlist] as AffiliateEntry[]);
-  }, [supabase]);
-
-  // Fetch my entry
-  const fetchMyEntry = useCallback(async () => {
-    if (!user) return;
-
-    const { data } = await supabase
-      .from("affiliate_queue")
-      .select("*, user:users(full_name, email, avatar_url)")
-      .eq("user_id", user.id)
-      .single();
-
-    setMyEntry((data as AffiliateEntry) || null);
-  }, [user, supabase]);
-
-  // Fetch my referrals
-  const fetchReferrals = useCallback(async () => {
-    if (!myEntry) return;
-
-    const { data } = await supabase
-      .from("affiliate_referrals")
-      .select("*")
-      .eq("referrer_id", myEntry.id)
-      .order("created_at", { ascending: false });
-
-    setReferrals((data || []) as AffiliateReferral[]);
-  }, [myEntry, supabase]);
-
-  // Load all data
+  // Realtime
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      await fetchQueue();
-      await fetchMyEntry();
-      setLoading(false);
-    };
-    load();
-  }, [fetchQueue, fetchMyEntry]);
+    if (!user?.id) return;
+    fetchAffiliate();
 
-  useEffect(() => {
-    if (myEntry) fetchReferrals();
-  }, [myEntry, fetchReferrals]);
-
-  // Realtime subscription
-  useEffect(() => {
-    const channel = supabase
-      .channel("affiliate-queue-realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "affiliate_queue" },
-        () => {
-          fetchQueue();
-          fetchMyEntry();
-        }
-      )
+    channelRef.current = supabase
+      .channel(`affiliate_${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "affiliates" }, () => fetchAffiliate())
+      .on("postgres_changes", { event: "*", schema: "public", table: "affiliate_referrals" }, () => fetchAffiliate())
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      if (channelRef.current) supabase.removeChannel(channelRef.current);
     };
-  }, [supabase, fetchQueue, fetchMyEntry]);
+  }, [user?.id, supabase, fetchAffiliate]);
 
-  // Join the affiliate program
   const joinProgram = useCallback(async () => {
-    if (!user) throw new Error("Must be logged in");
-    if (myEntry) {
-      toast.error("You're already in the affiliate program");
-      return;
-    }
+    if (!user?.id) return;
 
-    // Count active entries with positions
-    const activeInPyramid = queue.filter((e) => e.position !== null).length;
-    const position = activeInPyramid < PYRAMID_SIZE ? activeInPyramid + 1 : null;
+    // Generate unique referral code
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
 
     const { data, error } = await supabase
-      .from("affiliate_queue")
+      .from("affiliates")
       .insert({
         user_id: user.id,
-        referral_code: generateReferralCode(),
-        position,
+        referral_code: code,
       })
-      .select("*, user:users(full_name, email, avatar_url)")
+      .select()
       .single();
 
     if (error) {
-      toast.error(error.message || "Failed to join");
-      throw error;
-    }
-
-    setMyEntry(data as AffiliateEntry);
-    toast.success(
-      position
-        ? `You're in the pyramid at position #${position}!`
-        : "You've joined the waitlist!"
-    );
-    fetchQueue();
-  }, [user, myEntry, queue, supabase, fetchQueue]);
-
-  // Leave the program (FIFO: next in waitlist gets promoted)
-  const leaveProgram = useCallback(async () => {
-    if (!myEntry) return;
-
-    const myPosition = myEntry.position;
-
-    // Deactivate my entry
-    await supabase
-      .from("affiliate_queue")
-      .update({ is_active: false, position: null })
-      .eq("id", myEntry.id);
-
-    // If I was in the pyramid, shift everyone up and promote from waitlist
-    if (myPosition !== null) {
-      // Get active pyramid members above my position
-      const aboveMe = queue.filter(
-        (e) => e.position !== null && e.position > myPosition && e.id !== myEntry.id
-      );
-
-      // Shift each one up by 1
-      for (const entry of aboveMe) {
-        await supabase
-          .from("affiliate_queue")
-          .update({ position: (entry.position || 0) - 1 })
-          .eq("id", entry.id);
+      if (error.code === "23505") {
+        toast.error("You are already in the affiliate program");
+      } else {
+        toast.error("Failed to join affiliate program");
+        console.error(error);
       }
-
-      // Find next waitlister
-      const waitlist = queue.filter((e) => e.position === null && e.id !== myEntry.id);
-      if (waitlist.length > 0) {
-        const next = waitlist[0];
-        const newLastPosition = queue.filter(
-          (e) => e.position !== null && e.id !== myEntry.id
-        ).length + 1;
-
-        await supabase
-          .from("affiliate_queue")
-          .update({ position: Math.min(newLastPosition, PYRAMID_SIZE) })
-          .eq("id", next.id);
-      }
+    } else {
+      setAffiliate(data);
+      toast.success("Welcome to the affiliate program!");
     }
+  }, [user?.id, supabase]);
 
-    setMyEntry(null);
-    toast.success("You've left the affiliate program");
-    fetchQueue();
-  }, [myEntry, queue, supabase, fetchQueue]);
-
-  // Derived data
-  const pyramidMembers = queue.filter((e) => e.position !== null).slice(0, PYRAMID_SIZE);
-  const waitlist = queue.filter((e) => e.position === null);
-  const myPosition = myEntry?.position ?? null;
-  const isInPyramid = myPosition !== null && myPosition >= 1 && myPosition <= PYRAMID_SIZE;
-  const waitlistPosition = !isInPyramid && myEntry
-    ? waitlist.findIndex((e) => e.id === myEntry.id) + 1
-    : null;
-
-  const stats = useMemo(() => {
-    if (!myEntry) return { earnings: 0, referralCount: 0, converted: 0, pending: 0 };
-    return {
-      earnings: myEntry.total_earnings || 0,
-      referralCount: referrals.length,
-      converted: referrals.filter((r) => r.status === "converted" || r.status === "paid").length,
-      pending: referrals.filter((r) => r.status === "pending").length,
-    };
-  }, [myEntry, referrals]);
-
-  const referralLink = myEntry
-    ? `${typeof window !== "undefined" ? window.location.origin : ""}/signup?ref=${myEntry.referral_code}`
-    : null;
+  const referralLink = useMemo(() => {
+    if (!affiliate) return "";
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://tappr.me";
+    return `${origin}/signup?ref=${affiliate.referral_code}`;
+  }, [affiliate]);
 
   return {
-    queue,
-    pyramidMembers,
-    waitlist,
-    myEntry,
-    myPosition,
-    isInPyramid,
-    waitlistPosition,
+    affiliate,
     referrals,
-    referralLink,
-    stats,
+    activeReferrals,
+    pendingReferrals,
+    payouts,
     loading,
+    commissionRate,
+    tier,
+    monthlyCommission,
+    unpaidEarnings,
+    referralLink,
     joinProgram,
-    leaveProgram,
-    PYRAMID_SIZE,
-    COMMISSION_PERCENT,
+    fetchAffiliate,
   };
 }
