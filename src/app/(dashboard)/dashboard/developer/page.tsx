@@ -183,7 +183,7 @@ export default function DeveloperApiPage() {
                 API Reference for Developers
               </h1>
               <p className="text-sm text-neutral-500 font-medium">
-                Build integrations with the DeepLink API. Manage links, retrieve analytics, and
+                Build integrations with the Tappr API. Manage links, retrieve analytics, and
                 automate your workflow.
               </p>
             </div>

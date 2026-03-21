@@ -184,7 +184,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
               </svg>
             </div>
             <span className="font-black text-xl text-white tracking-tighter">
-              Deep<span className="text-[#00D26A]">Link</span>
+              Ta<span className="text-[#00D26A]">ppr</span>
             </span>
           </div>
         )}

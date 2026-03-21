@@ -423,9 +423,9 @@ export default function SettingsPage() {
 
                       <div className="flex items-center justify-between group p-4 rounded-xl bg-white/[0.01] border border-white/5">
                         <div className="space-y-1">
-                          <p className="font-bold text-white text-sm">Show DeepLink Branding</p>
+                          <p className="font-bold text-white text-sm">Show Tappr Branding</p>
                           <p className="text-xs text-neutral-500 font-medium">
-                            Display &quot;Powered by DeepLink&quot; on the redirect page
+                            Display &quot;Powered by Tappr&quot; on the redirect page
                           </p>
                         </div>
                         <Toggle checked={true} onChange={() => toast.error("Upgrade to Premium to disable branding")} premium disabled />

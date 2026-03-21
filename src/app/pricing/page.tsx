@@ -11,60 +11,60 @@ type BillingPeriod = "monthly" | "yearly";
 const plans = [
   {
     name: "STARTER",
-    description: "Pentru antreprenori solo care vor sa inceapa inteligent.",
+    description: "For solo entrepreneurs who want to start smart.",
     monthlyPrice: 89,
     yearlyPrice: 67,
     popular: false,
-    cta: "Incepe cu Starter",
+    cta: "Start with Starter",
     features: [
-      { text: "Link-uri nelimitate cu tracking complet", bold: true },
-      "Smart routing — 2 conditii per link (device, locatie)",
-      "QR codes dinamice — pana la 20",
-      "AI Brain — chat pe statistici",
-      "Raport lunar automat pe email",
-      "3 useri inclusi",
-      "50.000 click-uri / luna",
-      "Integrari Instagram, TikTok, WhatsApp",
+      { text: "Unlimited links with full tracking", bold: true },
+      "Smart routing — 2 conditions per link (device, location)",
+      "Dynamic QR codes — up to 20",
+      "AI Brain — chat about your stats",
+      "Automated monthly report via email",
+      "3 users included",
+      "50,000 clicks / month",
+      "Instagram, TikTok, WhatsApp integrations",
     ],
   },
   {
     name: "GROWTH",
-    description: "Pentru business-uri care scaleaza si vor control total.",
+    description: "For businesses that scale and want full control.",
     monthlyPrice: 189,
     yearlyPrice: 142,
     popular: true,
-    cta: "Alege Growth",
+    cta: "Choose Growth",
     features: [
-      { text: "Tot din Starter, plus:", bold: true },
-      { text: "Smart routing avansat — device + locatie + ora + sursa simultan", bold: true },
-      { text: "A/B testing automat pe link-uri si QR codes", hot: true },
-      { text: "AI Brain proactiv — te alerteaza fara sa il intrebi", bold: true },
-      "Rapoarte saptamanale, nu lunar",
-      "Link-uri cu scadenta si redirect automat",
-      "10 useri inclusi",
-      "250.000 click-uri / luna",
-      "White-label partial + Stripe, Shopify, Calendly",
-      { text: "Competitor tracking — 3 competitori monitorizati", bold: true },
+      { text: "Everything in Starter, plus:", bold: true },
+      { text: "Advanced smart routing — device + location + time + source combined", bold: true },
+      { text: "Automated A/B testing on links and QR codes", hot: true },
+      { text: "Proactive AI Brain — alerts you without asking", bold: true },
+      "Weekly reports instead of monthly",
+      "Links with expiration and auto-redirect",
+      "10 users included",
+      "250,000 clicks / month",
+      "Partial white-label + Stripe, Shopify, Calendly",
+      { text: "Competitor tracking — monitor 3 competitors", bold: true },
     ],
   },
   {
     name: "AGENCY",
-    description: "Pentru agentii si antreprenori cu mai multe branduri sau clienti.",
+    description: "For agencies and entrepreneurs with multiple brands or clients.",
     monthlyPrice: 389,
     yearlyPrice: 292,
     popular: false,
-    cta: "Alege Agency",
+    cta: "Choose Agency",
     features: [
-      { text: "Tot din Growth, plus:", bold: true },
-      { text: "Multi-brand — pana la 10 branduri separate in acelasi cont", bold: true },
-      { text: "Client access — clientii vad doar dashboardul lor", bold: true },
-      { text: "White-label complet — platforma apare cu brandul tau", hot: true },
-      { text: "Rapoarte PDF branded generate automat pentru clienti", bold: true },
-      { text: "AI Brain antrenat per brand/client", bold: true },
-      "Useri nelimitati",
-      "1.000.000 click-uri / luna",
-      "Competitor tracking nelimitat",
-      "Support prioritar — raspuns in 4 ore",
+      { text: "Everything in Growth, plus:", bold: true },
+      { text: "Multi-brand — up to 10 separate brands in one account", bold: true },
+      { text: "Client access — clients only see their own dashboard", bold: true },
+      { text: "Full white-label — platform appears with your brand", hot: true },
+      { text: "Branded PDF reports auto-generated for clients", bold: true },
+      { text: "AI Brain trained per brand/client", bold: true },
+      "Unlimited users",
+      "1,000,000 clicks / month",
+      "Unlimited competitor tracking",
+      "Priority support — response within 4 hours",
     ],
   },
 ];
@@ -272,7 +272,7 @@ export default function PricingPage() {
                   {plan.popular && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                       <span className="bg-[#00D26A] text-black text-[10px] font-black uppercase tracking-widest px-4 py-1 rounded-full shadow-[0_0_15px_rgba(0,210,106,0.4)]">
-                        Cel mai popular
+                        Most Popular
                       </span>
                     </div>
                   )}
@@ -284,7 +284,7 @@ export default function PricingPage() {
                       <span className={cn("text-5xl font-black", plan.popular ? "text-[#00D26A]" : "text-white")}>
                         {price}
                       </span>
-                      <span className="text-neutral-500 font-bold text-sm"> / luna</span>
+                      <span className="text-neutral-500 font-bold text-sm"> / month</span>
                     </div>
                     <p className="text-sm text-neutral-500 font-medium leading-relaxed">{plan.description}</p>
                   </div>

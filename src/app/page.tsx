@@ -26,7 +26,7 @@ export default function HomePage() {
               </svg>
             </div>
             <span className="font-bold text-xl tracking-tight text-white">
-              DeepLink
+              Tappr
             </span>
           </div>
           <div className="flex items-center gap-4">
@@ -124,7 +124,7 @@ export default function HomePage() {
                   </svg>
                 </div>
 
-                {/* Stage 2: DeepLink Detection */}
+                {/* Stage 2: Tappr Detection */}
                 <div className="journey-card w-full lg:w-80 aspect-square flex flex-col items-center justify-center text-center p-8 border-[#00D26A]/30 glow-green bg-[#00D26A]/5">
                   <div className="w-20 h-20 rounded-full bg-[#00D26A]/10 border border-[#00D26A]/20 flex items-center justify-center mb-6 relative">
                     <div className="absolute inset-0 bg-[#00D26A] animate-ping opacity-10 rounded-full" />
@@ -133,7 +133,7 @@ export default function HomePage() {
                     </svg>
                   </div>
                   <p className="text-base font-black text-white leading-tight">
-                    DeepLink detects <span className="text-[#00D26A]">device & app</span>
+                    Tappr detects <span className="text-[#00D26A]">device & app</span>
                   </p>
                 </div>
 
@@ -186,7 +186,7 @@ export default function HomePage() {
               <div className="mt-12 max-w-2xl mx-auto px-4">
                 <div className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl">
                   <div className="bg-neutral-700 px-3 py-1 rounded-lg text-[10px] font-black text-white uppercase tracking-widest">
-                    Without DeepLink?
+                    Without Tappr?
                   </div>
                   <p className="text-sm text-neutral-400 font-medium">
                     Links open in sluggish <span className="text-white">in-app browsers</span> decreasing conversions by 40%.
@@ -215,7 +215,7 @@ export default function HomePage() {
                 <div className="glass-card pt-12 pb-8 px-6 text-center border-[#00D26A]/10 hover:border-[#00D26A]/30 transition-all">
                   <h3 className="text-xl font-black mb-3 text-white">Paste Your Link</h3>
                   <p className="text-neutral-400 text-sm leading-relaxed font-medium">
-                    Drop any Amazon, YouTube, Spotify, or 100+ other URLs into DeepLink.
+                    Drop any Amazon, YouTube, Spotify, or 100+ other URLs into Tappr.
                   </p>
                   <div className="mt-6 pt-6 border-t border-white/5">
                     <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">
@@ -399,7 +399,7 @@ export default function HomePage() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
                   </svg>
                 </div>
-                <span className="font-black text-lg text-white">DeepLink</span>
+                <span className="font-black text-lg text-white">Tappr</span>
               </div>
               <p className="text-xs text-neutral-500 font-medium leading-relaxed">
                 Open all links directly in mobile apps with deep links.
@@ -455,7 +455,7 @@ export default function HomePage() {
           </div>
 
           <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-neutral-600 font-medium">
-            <span>&copy; 2026 DeepLink Platform.</span>
+            <span>&copy; 2026 Tappr Platform.</span>
             <div className="flex gap-6">
               <Link href="#" className="hover:text-white transition-colors">Privacy policy</Link>
               <Link href="#" className="hover:text-white transition-colors">Terms and conditions</Link>

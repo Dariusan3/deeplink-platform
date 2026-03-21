@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DeepLink — Smart Link Management Platform",
+  title: "Tappr — Smart Link Management Platform",
   description:
-    "Create intelligent deeplinks that route users dynamically based on geo, device, and time. Built for teams who need precision control over every click.",
+    "Create intelligent links that route users dynamically based on geo, device, and time. Built for teams who need precision control over every click.",
 };
 
 export default function RootLayout({

@@ -112,7 +112,7 @@ export function BulkImportDialog() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "deeplink-import-template.csv";
+    a.download = "tappr-import-template.csv";
     a.click();
   };
 

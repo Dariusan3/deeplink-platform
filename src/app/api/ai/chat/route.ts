@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
 
   const { messages, teamId, analyticsContext } = await request.json();
 
-  const systemPrompt = `You are the AI Brain — a powerful analytics advisor for a smart deep link management platform called DeepLink.
+  const systemPrompt = `You are the AI Brain — a powerful analytics advisor for a smart deep link management platform called Tappr.
 
 You have access to the following live data for team "${analyticsContext?.teamName || "Unknown"}":
 

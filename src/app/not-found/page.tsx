@@ -61,7 +61,7 @@ export default function NotFoundPage() {
         <div className="w-6 h-6 rounded-lg bg-[#00D26A] flex items-center justify-center">
           <div className="w-3 h-3 bg-black rounded-sm rotate-45" />
         </div>
-        <span className="text-white font-black uppercase text-[10px] tracking-widest italic">DeepLink.co</span>
+        <span className="text-white font-black uppercase text-[10px] tracking-widest italic">Tappr.me</span>
       </div>
     </div>
   );

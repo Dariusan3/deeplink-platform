@@ -305,7 +305,7 @@ export default function TeamsPage() {
               Invite Team Member
             </DialogTitle>
             <DialogDescription className="text-neutral-400 font-medium">
-              Add someone to {team.name}. They must have a DeepLink account.
+              Add someone to {team.name}. They must have a Tappr account.
             </DialogDescription>
             <div className="space-y-4 mt-4">
               <div>

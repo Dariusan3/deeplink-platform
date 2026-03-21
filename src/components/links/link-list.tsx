@@ -110,7 +110,7 @@ export function LinkList() {
           <h3 className="text-lg font-black text-white mb-2">No High-Performance Links</h3>
           <p className="text-sm text-neutral-500 max-w-sm font-medium leading-relaxed mb-8">
             Start your optimized distribution journey by creating <br />
-            your first intelligent deeplink.
+            your first intelligent link.
           </p>
         </div>
       </Card>
