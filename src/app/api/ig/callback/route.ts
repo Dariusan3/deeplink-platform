@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Exchange code for short-lived token
+    // Exchange code for short-lived token (new Instagram API with Instagram Login)
     const redirectUri = `${request.nextUrl.origin}/api/ig/callback`;
     const tokenRes = await fetch("https://api.instagram.com/oauth/access_token", {
       method: "POST",
@@ -81,9 +81,9 @@ export async function GET(request: NextRequest) {
       expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
     }
 
-    // Fetch username
+    // Fetch username via new Instagram Graph API
     const profileRes = await fetch(
-      `https://graph.instagram.com/me?fields=id,username&access_token=${accessToken}`
+      `https://graph.instagram.com/v22.0/me?fields=user_id,username&access_token=${accessToken}`
     );
     let igUsername = igUserId;
     if (profileRes.ok) {
