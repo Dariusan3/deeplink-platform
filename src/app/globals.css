@@ -113,12 +113,14 @@
   input:-webkit-autofill:hover,
   input:-webkit-autofill:focus,
   input:-webkit-autofill:active {
-    -webkit-box-shadow: 0 0 0 9999px rgba(255, 255, 255, 0.04) inset !important;
-    box-shadow: 0 0 0 9999px rgba(255, 255, 255, 0.04) inset !important;
+    -webkit-box-shadow: 0 0 0 9999px #0a0a0a inset !important;
+    box-shadow: 0 0 0 9999px #0a0a0a inset !important;
     -webkit-text-fill-color: #ffffff !important;
-    caret-color: #ffffff;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    caret-color: #ffffff !important;
     border-color: rgba(255, 255, 255, 0.08) !important;
-    transition: background-color 9999s ease-in-out 0s;
+    transition: background-color 9999s ease-in-out 0s !important;
   }
 }
 
