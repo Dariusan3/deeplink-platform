@@ -14,7 +14,13 @@
       "mcp__supabase__get_logs",
       "Bash(EXIT_CODE=$?)",
       "Bash(echo \"EXIT CODE: $EXIT_CODE\")",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(find /Users/osadicidarius/Documents/projects/deeplink-platform -name .env* -type f)",
+      "Bash(ls:*)",
+      "Bash(find /Users/osadicidarius/Documents/projects/deeplink-platform -name *cron* -o -name *job* -o -name *schedule*)",
+      "Bash(cat:*)",
+      "Bash(grep:*)",
+      "Bash(find /Users/osadicidarius/Documents/projects/deeplink-platform/src -type f \\\\\\(-name *brain* -o -name *chat* -o -name *pricing* \\\\\\))"
     ]
   }
 }

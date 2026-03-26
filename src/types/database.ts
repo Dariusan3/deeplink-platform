@@ -157,6 +157,41 @@ export type Database = {
           },
         ]
       }
+      brain_chats: {
+        Row: {
+          created_at: string
+          id: string
+          messages: Json
+          team_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          messages?: Json
+          team_id: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          messages?: Json
+          team_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brain_chats_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       business_brain: {
         Row: {
           content: Json | null
@@ -439,6 +474,7 @@ export type Database = {
           created_by: string
           id: string
           name: string
+          plan: string
           slug: string
         }
         Insert: {
@@ -446,6 +482,7 @@ export type Database = {
           created_by: string
           id?: string
           name: string
+          plan?: string
           slug: string
         }
         Update: {
@@ -453,6 +490,7 @@ export type Database = {
           created_by?: string
           id?: string
           name?: string
+          plan?: string
           slug?: string
         }
         Relationships: [

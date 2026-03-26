@@ -144,18 +144,52 @@ export default function AlertsPage() {
     const fourHoursAgo = new Date(now.getTime() - 4 * 60 * 60 * 1000);
 
     try {
-      const { count: recentClicks } = await supabase
-        .from("link_clicks")
-        .select("*", { count: "exact", head: true })
-        .in("link_id", linkIds)
-        .gte("clicked_at", twoHoursAgo.toISOString());
+      const topLinkIds = links.slice(0, 3).map((l) => l.id);
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-      const { count: prevClicks } = await supabase
-        .from("link_clicks")
-        .select("*", { count: "exact", head: true })
-        .in("link_id", linkIds)
-        .gte("clicked_at", fourHoursAgo.toISOString())
-        .lt("clicked_at", twoHoursAgo.toISOString());
+      const [
+        { count: recentClicks },
+        { count: prevClicks },
+        { data: recentLinkRows },
+        { data: historyRows },
+      ] = await Promise.all([
+        supabase
+          .from("link_clicks")
+          .select("*", { count: "exact", head: true })
+          .in("link_id", linkIds)
+          .gte("clicked_at", twoHoursAgo.toISOString()),
+        supabase
+          .from("link_clicks")
+          .select("*", { count: "exact", head: true })
+          .in("link_id", linkIds)
+          .gte("clicked_at", fourHoursAgo.toISOString())
+          .lt("clicked_at", twoHoursAgo.toISOString()),
+        supabase
+          .from("link_clicks")
+          .select("link_id")
+          .in("link_id", topLinkIds)
+          .gte("clicked_at", twoHoursAgo.toISOString()),
+        supabase
+          .from("link_clicks")
+          .select("link_id")
+          .in("link_id", topLinkIds)
+          .gte("clicked_at", sevenDaysAgo.toISOString()),
+      ]);
+
+      // Per-link recent 2h counts
+      const recentByLink: Record<string, number> = {};
+      for (const row of recentLinkRows ?? []) {
+        recentByLink[row.link_id] = (recentByLink[row.link_id] ?? 0) + 1;
+      }
+
+      // Per-link historical avg per 2h window (7 days = 84 two-hour windows)
+      const avgByLink: Record<string, number> = {};
+      for (const row of historyRows ?? []) {
+        avgByLink[row.link_id] = (avgByLink[row.link_id] ?? 0) + 1;
+      }
+      for (const id of topLinkIds) {
+        avgByLink[id] = (avgByLink[id] ?? 0) / 84;
+      }
 
       const res = await fetch("/api/ai/anomaly-check", {
         method: "POST",
@@ -166,8 +200,8 @@ export default function AlertsPage() {
           topLinks: links.slice(0, 3).map((l) => ({
             slug: l.slug,
             title: l.title,
-            recentClicks: 0,
-            avgClicks: 2,
+            recentClicks: recentByLink[l.id] ?? 0,
+            avgClicks: avgByLink[l.id] ?? 0,
           })),
         }),
       });
@@ -182,21 +216,21 @@ export default function AlertsPage() {
   }, [links, supabase]);
 
   const loadAll = useCallback(async () => {
-    setLoading(true);
     await Promise.all([checkGoals(), checkAnomalies()]);
     setLoading(false);
   }, [checkGoals, checkAnomalies]);
 
   useEffect(() => {
     if (links.length > 0 || collections.length > 0) {
-      loadAll();
+      void Promise.resolve().then(() => loadAll());
     } else {
-      setLoading(false);
+      void Promise.resolve().then(() => setLoading(false));
     }
   }, [links.length, collections.length, loadAll]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
+    setLoading(true);
     setDismissedAnomalies(new Set());
     await loadAll();
     setRefreshing(false);

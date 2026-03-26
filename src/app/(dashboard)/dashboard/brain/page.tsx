@@ -3,11 +3,26 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Header } from "@/components/header";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useAnalytics } from "@/hooks/use-analytics";
 import { useTeam } from "@/hooks/use-team";
 import { useLinks } from "@/hooks/use-links";
 import { useCollections } from "@/hooks/use-collections";
 import { useBusinessBrain } from "@/hooks/use-business-brain";
+import { useBrainChats, type ChatMessage } from "@/hooks/use-brain-chats";
 import {
   Send,
   Sparkles,
@@ -22,16 +37,12 @@ import {
   BookOpen,
   Plus,
   Trash2,
-  ChevronLeft,
   ChevronRight,
   Save,
+  MessageSquare,
+  PenSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-}
 
 const SUGGESTED_PROMPTS = [
   { icon: <TrendingUp className="w-4 h-4" />, text: "Which link is performing best and why?" },
@@ -45,7 +56,7 @@ const SUGGESTED_PROMPTS = [
 ];
 
 export default function BrainPage() {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -60,15 +71,47 @@ export default function BrainPage() {
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
 
+  // Delete confirmation
+  const [deletingChatId, setDeletingChatId] = useState<string | null>(null);
+
   const { activeTeam } = useTeam();
   const { links } = useLinks();
   const { collections } = useCollections();
   const { dailyClicks, geoData, deviceData, referrerData, topLinks, totalClicks } = useAnalytics("30d");
   const { entries, addEntry, updateEntry, deleteEntry, buildBusinessContext } = useBusinessBrain();
+  const {
+    chats,
+    loading: chatsLoading,
+    activeChatId,
+    setActiveChatId,
+    createChat,
+    updateChat,
+    deleteChat,
+    canCreateChat,
+    chatLimit,
+  } = useBrainChats();
 
+  // Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Load messages when switching to a different chat.
+  // Only overwrite state if the stored chat has messages — newly created chats
+  // start with messages:[] and would otherwise wipe the active conversation.
+  useEffect(() => {
+    if (!activeChatId) {
+      setMessages([]);
+      return;
+    }
+    const chat = chats.find((c) => c.id === activeChatId);
+    if (chat) {
+      const stored = (chat.messages as unknown as ChatMessage[]) ?? [];
+      if (stored.length > 0) {
+        setMessages(stored);
+      }
+    }
+  }, [activeChatId, chats]);
 
   const buildAnalyticsContext = useCallback(() => ({
     totalClicks,
@@ -105,7 +148,7 @@ export default function BrainPage() {
   const sendMessage = async (userText: string) => {
     if (!userText.trim() || streaming) return;
 
-    const userMessage: Message = { role: "user", content: userText };
+    const userMessage: ChatMessage = { role: "user", content: userText };
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setInput("");
@@ -115,6 +158,7 @@ export default function BrainPage() {
     setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
     abortRef.current = new AbortController();
+    let accumulated = "";
 
     try {
       const res = await fetch("/api/ai/chat", {
@@ -132,7 +176,6 @@ export default function BrainPage() {
 
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
-      let accumulated = "";
 
       while (reader) {
         const { done, value } = await reader.read();
@@ -157,6 +200,22 @@ export default function BrainPage() {
       }
     } finally {
       setStreaming(false);
+
+      // Auto-save chat after streaming completes (skip if aborted)
+      if (!abortRef.current?.signal.aborted && accumulated) {
+        const finalMessages: ChatMessage[] = [
+          ...newMessages,
+          { role: "assistant", content: accumulated },
+        ];
+
+        if (activeChatId) {
+          void updateChat(activeChatId, finalMessages);
+        } else if (canCreateChat) {
+          void createChat().then((newChat) => {
+            if (newChat) updateChat(newChat.id, finalMessages);
+          });
+        }
+      }
     }
   };
 
@@ -167,10 +226,22 @@ export default function BrainPage() {
     }
   };
 
-  const resetConversation = () => {
+  const handleNewChat = useCallback(() => {
     abortRef.current?.abort();
     setMessages([]);
     setStreaming(false);
+    setActiveChatId(null);
+  }, [setActiveChatId]);
+
+  const handleSelectChat = (id: string) => {
+    if (streaming) return; // prevent switching mid-stream
+    setActiveChatId(id);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingChatId) return;
+    await deleteChat(deletingChatId);
+    setDeletingChatId(null);
   };
 
   const handleAddEntry = async () => {
@@ -206,301 +277,438 @@ export default function BrainPage() {
       .replace(/\n/g, '<br/>');
   };
 
+  const showLimitBadge = chatLimit !== Infinity && chats.length >= chatLimit * 0.8;
+
   return (
-    <>
-      <Header title="AI Brain" />
-      <div className="flex h-[calc(100vh-65px)]">
-        {/* Knowledge sidebar */}
-        <div
-          className={cn(
-            "border-r border-white/5 bg-black/50 flex flex-col transition-all duration-300 shrink-0 overflow-hidden",
-            knowledgeOpen ? "w-80" : "w-0"
-          )}
-        >
-          {knowledgeOpen && (
-            <>
-              <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 shrink-0">
-                <div className="flex items-center gap-2">
-                  <BookOpen className="w-4 h-4 text-[#00D26A]" />
-                  <span className="text-xs font-black text-white uppercase tracking-widest">
-                    Business Knowledge
+    <TooltipProvider>
+      <>
+        <Header title="AI Brain" />
+        <div className="flex h-[calc(100vh-65px)]">
+
+          {/* LEFT: Chat History Sidebar */}
+          <div className="w-56 shrink-0 border-r border-white/5 bg-black/50 flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-3 py-3 border-b border-white/5 shrink-0">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="w-3.5 h-3.5 text-[#00D26A]" />
+                <span className="text-[10px] font-black text-white uppercase tracking-widest">Chats</span>
+              </div>
+              <Tooltip>
+                <TooltipTrigger
+                  onClick={handleNewChat}
+                  disabled={!canCreateChat}
+                  className="w-6 h-6 rounded-lg flex items-center justify-center bg-white/5 border border-white/10 text-neutral-400 hover:text-white hover:bg-[#00D26A]/10 hover:border-[#00D26A]/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <PenSquare className="w-3 h-3" />
+                </TooltipTrigger>
+                {!canCreateChat && (
+                  <TooltipContent side="right" className="text-[10px]">
+                    Limit reached ({chats.length}/{chatLimit}). Upgrade to save more.
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </div>
+
+            {/* Chat list */}
+            <div className="flex-1 overflow-y-auto scrollbar-none p-2 space-y-0.5">
+              {chatsLoading ? (
+                <div className="space-y-1.5 p-1">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-8 rounded-lg bg-white/5 animate-pulse" />
+                  ))}
+                </div>
+              ) : chats.length === 0 ? (
+                <div className="text-center py-8 px-3">
+                  <MessageSquare className="w-6 h-6 text-neutral-700 mx-auto mb-2" />
+                  <p className="text-[10px] text-neutral-600 leading-relaxed">
+                    Your chats will appear here after you send your first message.
+                  </p>
+                </div>
+              ) : (
+                chats.map((chat) => (
+                  <div
+                    key={chat.id}
+                    onClick={() => handleSelectChat(chat.id)}
+                    className={cn(
+                      "group flex items-center justify-between gap-1.5 px-2.5 py-2 rounded-lg cursor-pointer transition-all",
+                      chat.id === activeChatId
+                        ? "bg-[#00D26A]/5 border border-[#00D26A]/20"
+                        : "hover:bg-white/[0.04] border border-transparent",
+                      streaming && chat.id !== activeChatId && "pointer-events-none opacity-50"
+                    )}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <MessageSquare className={cn(
+                        "w-3 h-3 shrink-0",
+                        chat.id === activeChatId ? "text-[#00D26A]" : "text-neutral-600"
+                      )} />
+                      <span className="text-[11px] text-neutral-300 truncate">
+                        {chat.title}
+                      </span>
+                    </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setDeletingChatId(chat.id); }}
+                      className="opacity-0 group-hover:opacity-100 text-neutral-600 hover:text-red-500 transition-all shrink-0"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Plan limit badge */}
+            {showLimitBadge && (
+              <div className="px-3 py-2.5 border-t border-white/5 shrink-0">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-neutral-500">Chats Used</span>
+                  <span className={cn(
+                    "text-[9px] font-black",
+                    chats.length >= chatLimit ? "text-red-400" : "text-amber-400"
+                  )}>
+                    {chats.length}/{chatLimit}
                   </span>
                 </div>
-                <button
-                  onClick={() => setKnowledgeOpen(false)}
-                  className="text-neutral-500 hover:text-white transition-colors"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Add new entry */}
-              <div className="p-3 border-b border-white/5 space-y-2 shrink-0">
-                <input
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="Title (e.g. Target Audience)"
-                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-xs font-bold placeholder:text-neutral-600 focus:outline-none focus:border-[#00D26A]/50"
-                />
-                <textarea
-                  value={newContent}
-                  onChange={(e) => setNewContent(e.target.value)}
-                  placeholder="Details about your business, products, audience, goals..."
-                  rows={3}
-                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-xs placeholder:text-neutral-600 focus:outline-none focus:border-[#00D26A]/50 resize-none"
-                />
-                <Button
-                  onClick={handleAddEntry}
-                  disabled={!newTitle.trim() || !newContent.trim()}
-                  size="sm"
-                  className="w-full h-8 btn-primary-pulse text-black font-black uppercase text-[9px] tracking-widest rounded-lg"
-                >
-                  <Plus className="w-3 h-3 mr-1" />
-                  Add Knowledge
-                </Button>
-              </div>
-
-              {/* Entries list */}
-              <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                {entries.length === 0 ? (
-                  <div className="text-center py-8">
-                    <BookOpen className="w-8 h-8 text-neutral-700 mx-auto mb-3" />
-                    <p className="text-[10px] text-neutral-600 font-medium">
-                      Add info about your business so the AI can give better advice
-                    </p>
-                  </div>
-                ) : (
-                  entries.map((entry) => {
-                    const text = typeof entry.content === "object" && entry.content !== null && "text" in (entry.content as Record<string, unknown>)
-                      ? (entry.content as { text: string }).text
-                      : "";
-
-                    if (editingId === entry.id) {
-                      return (
-                        <div key={entry.id} className="p-3 rounded-xl border border-[#00D26A]/20 bg-[#00D26A]/5 space-y-2">
-                          <input
-                            value={editTitle}
-                            onChange={(e) => setEditTitle(e.target.value)}
-                            className="w-full px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-xs font-bold focus:outline-none focus:border-[#00D26A]/50"
-                          />
-                          <textarea
-                            value={editContent}
-                            onChange={(e) => setEditContent(e.target.value)}
-                            rows={4}
-                            className="w-full px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-[#00D26A]/50 resize-none"
-                          />
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              onClick={handleSaveEdit}
-                              className="h-7 text-[9px] btn-primary-pulse text-black font-black uppercase tracking-widest rounded-md flex-1"
-                            >
-                              <Save className="w-3 h-3 mr-1" />
-                              Save
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => setEditingId(null)}
-                              className="h-7 text-[9px] text-neutral-500 hover:text-white"
-                            >
-                              Cancel
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div
-                        key={entry.id}
-                        className="p-3 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-all group cursor-pointer"
-                        onClick={() => startEdit(entry)}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <h4 className="text-xs font-black text-white truncate">
-                            {entry.title || "Untitled"}
-                          </h4>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteEntry(entry.id);
-                            }}
-                            className="text-neutral-700 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 shrink-0"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                        <p className="text-[10px] text-neutral-500 mt-1 line-clamp-3 leading-relaxed">
-                          {text}
-                        </p>
-                      </div>
-                    );
-                  })
+                <div className="h-1 rounded-full bg-white/5 overflow-hidden">
+                  <div
+                    className={cn(
+                      "h-full rounded-full transition-all",
+                      chats.length >= chatLimit ? "bg-red-500" : "bg-amber-400"
+                    )}
+                    style={{ width: `${Math.min((chats.length / chatLimit) * 100, 100)}%` }}
+                  />
+                </div>
+                {chats.length >= chatLimit && (
+                  <p className="text-[9px] text-neutral-600 mt-1.5">
+                    <a href="/pricing" className="text-[#00D26A] hover:underline">Upgrade</a> to save more chats
+                  </p>
                 )}
               </div>
-            </>
-          )}
-        </div>
-
-        {/* Main chat area */}
-        <div className="flex-1 flex flex-col min-w-0">
-          {/* Top bar */}
-          <div className="flex items-center justify-between px-6 py-3 border-b border-white/5 shrink-0">
-            <div className="flex items-center gap-3">
-              {/* Knowledge toggle */}
-              <button
-                onClick={() => setKnowledgeOpen(!knowledgeOpen)}
-                className={cn(
-                  "w-8 h-8 rounded-xl flex items-center justify-center transition-all",
-                  knowledgeOpen
-                    ? "bg-[#00D26A]/10 border border-[#00D26A]/20 text-[#00D26A]"
-                    : "bg-white/5 border border-white/10 text-neutral-500 hover:text-white hover:bg-white/10"
-                )}
-                title="Business Knowledge"
-              >
-                <BookOpen className="w-4 h-4" />
-              </button>
-
-              <div className="w-8 h-8 rounded-xl bg-[#00D26A]/10 border border-[#00D26A]/20 flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-[#00D26A]" />
-              </div>
-              <div>
-                <p className="text-xs font-black text-white">AI Brain — Analytics &amp; Business Advisor</p>
-                <p className="text-[10px] text-neutral-500">
-                  {entries.length > 0
-                    ? `${entries.length} knowledge entries · Links, collections & analytics loaded`
-                    : "Links, collections & analytics loaded"}
-                </p>
-              </div>
-            </div>
-            {messages.length > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={resetConversation}
-                className="h-8 text-[10px] font-black uppercase tracking-widest text-neutral-500 hover:text-white hover:bg-white/5"
-              >
-                <RotateCcw className="w-3 h-3 mr-2" />
-                New Chat
-              </Button>
             )}
           </div>
 
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
-            {messages.length === 0 ? (
-              <div className="max-w-2xl mx-auto space-y-8 pt-8">
-                <div className="text-center space-y-3">
-                  <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-[#00D26A]/20 to-[#39FF14]/10 border border-[#00D26A]/20 flex items-center justify-center">
-                    <Sparkles className="w-8 h-8 text-[#00D26A]" />
-                  </div>
-                  <h2 className="text-2xl font-black text-white">What do you want to know?</h2>
-                  <p className="text-sm text-neutral-400">
-                    Ask about your links, collections, traffic, or business strategy.
-                    {entries.length === 0 && (
-                      <> Click the <BookOpen className="w-3.5 h-3.5 inline-block mx-1 text-[#00D26A]" /> button to add business context for smarter advice.</>
-                    )}
+          {/* CENTER: Main chat area */}
+          <div className="flex-1 flex flex-col min-w-0">
+            {/* Top bar */}
+            <div className="flex items-center justify-between px-6 py-3 border-b border-white/5 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-[#00D26A]/10 border border-[#00D26A]/20 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-[#00D26A]" />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-white">AI Brain — Analytics &amp; Business Advisor</p>
+                  <p className="text-[10px] text-neutral-500">
+                    {entries.length > 0
+                      ? `${entries.length} knowledge entries · Links, collections & analytics loaded`
+                      : "Links, collections & analytics loaded"}
                   </p>
                 </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {/* Knowledge toggle */}
+                <button
+                  onClick={() => setKnowledgeOpen(!knowledgeOpen)}
+                  className={cn(
+                    "w-8 h-8 rounded-xl flex items-center justify-center transition-all",
+                    knowledgeOpen
+                      ? "bg-[#00D26A]/10 border border-[#00D26A]/20 text-[#00D26A]"
+                      : "bg-white/5 border border-white/10 text-neutral-500 hover:text-white hover:bg-white/10"
+                  )}
+                  title="Business Knowledge"
+                >
+                  <BookOpen className="w-4 h-4" />
+                </button>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {[
-                    { label: "Total Clicks", value: totalClicks.toLocaleString() },
-                    { label: "Active Links", value: links.filter((l) => l.is_active).length },
-                    { label: "Collections", value: collections.length },
-                    { label: "Knowledge", value: entries.length },
-                  ].map((stat) => (
-                    <div key={stat.label} className="glass-card p-4 rounded-xl text-center">
-                      <p className="text-xl font-black text-[#00D26A]">{stat.value}</p>
-                      <p className="text-[10px] text-neutral-500 uppercase tracking-widest mt-1">{stat.label}</p>
+                <Tooltip>
+                  <TooltipTrigger
+                    onClick={handleNewChat}
+                    disabled={!canCreateChat}
+                    className="h-8 px-3 inline-flex items-center gap-2 rounded-md text-[10px] font-black uppercase tracking-widest text-neutral-500 hover:text-white hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    New Chat
+                  </TooltipTrigger>
+                  {!canCreateChat && (
+                    <TooltipContent side="bottom" className="text-[10px]">
+                      Limit reached ({chats.length}/{chatLimit}). Upgrade to save more.
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </div>
+            </div>
+
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto scrollbar-none px-6 py-6 space-y-6">
+              {messages.length === 0 ? (
+                <div className="max-w-2xl mx-auto space-y-8 pt-8">
+                  <div className="text-center space-y-3">
+                    <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-[#00D26A]/20 to-[#39FF14]/10 border border-[#00D26A]/20 flex items-center justify-center">
+                      <Sparkles className="w-8 h-8 text-[#00D26A]" />
+                    </div>
+                    <h2 className="text-2xl font-black text-white">What do you want to know?</h2>
+                    <p className="text-sm text-neutral-400">
+                      Ask about your links, collections, traffic, or business strategy.
+                      {entries.length === 0 && (
+                        <> Click the <BookOpen className="w-3.5 h-3.5 inline-block mx-1 text-[#00D26A]" /> button to add business context for smarter advice.</>
+                      )}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {[
+                      { label: "Total Clicks", value: totalClicks.toLocaleString() },
+                      { label: "Active Links", value: links.filter((l) => l.is_active).length },
+                      { label: "Collections", value: collections.length },
+                      { label: "Knowledge", value: entries.length },
+                    ].map((stat) => (
+                      <div key={stat.label} className="glass-card p-4 rounded-xl text-center">
+                        <p className="text-xl font-black text-[#00D26A]">{stat.value}</p>
+                        <p className="text-[10px] text-neutral-500 uppercase tracking-widest mt-1">{stat.label}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Suggested Questions</p>
+                    <div className="grid gap-2">
+                      {SUGGESTED_PROMPTS.map((prompt) => (
+                        <button
+                          key={prompt.text}
+                          onClick={() => sendMessage(prompt.text)}
+                          className="flex items-center gap-3 p-3 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-[#00D26A]/5 hover:border-[#00D26A]/20 text-left text-sm text-neutral-300 hover:text-white transition-all group"
+                        >
+                          <span className="text-[#00D26A] shrink-0">{prompt.icon}</span>
+                          {prompt.text}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="max-w-3xl mx-auto space-y-6">
+                  {messages.map((msg, i) => (
+                    <div key={i} className={cn("flex gap-3", msg.role === "user" && "justify-end")}>
+                      {msg.role === "assistant" && (
+                        <div className="w-7 h-7 rounded-lg bg-[#00D26A]/10 border border-[#00D26A]/20 flex items-center justify-center shrink-0 mt-1">
+                          <Sparkles className="w-3.5 h-3.5 text-[#00D26A]" />
+                        </div>
+                      )}
+                      <div
+                        className={cn(
+                          "max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed",
+                          msg.role === "user"
+                            ? "bg-[#00D26A]/10 border border-[#00D26A]/20 text-white"
+                            : "glass-card text-neutral-300"
+                        )}
+                      >
+                        {msg.role === "assistant" ? (
+                          <div dangerouslySetInnerHTML={{ __html: renderContent(msg.content) }} />
+                        ) : (
+                          msg.content
+                        )}
+                        {msg.role === "assistant" && streaming && i === messages.length - 1 && (
+                          <span className="inline-block w-1.5 h-4 bg-[#00D26A] ml-1 animate-pulse rounded-sm" />
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
 
-                <div className="space-y-2">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Suggested Questions</p>
-                  <div className="grid gap-2">
-                    {SUGGESTED_PROMPTS.map((prompt) => (
-                      <button
-                        key={prompt.text}
-                        onClick={() => sendMessage(prompt.text)}
-                        className="flex items-center gap-3 p-3 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-[#00D26A]/5 hover:border-[#00D26A]/20 text-left text-sm text-neutral-300 hover:text-white transition-all group"
-                      >
-                        <span className="text-[#00D26A] shrink-0">{prompt.icon}</span>
-                        {prompt.text}
-                      </button>
-                    ))}
-                  </div>
+            {/* Input */}
+            <div className="border-t border-white/5 px-6 py-4 shrink-0">
+              <div className="max-w-3xl mx-auto flex gap-3 items-end">
+                <div className="flex-1 relative">
+                  <textarea
+                    ref={textareaRef}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Ask anything about your links, traffic, business, or audience..."
+                    rows={1}
+                    className="w-full resize-none bg-white/[0.03] border border-white/5 rounded-xl px-4 py-3 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-[#00D26A]/30 focus:ring-1 focus:ring-[#00D26A]/20 transition-all"
+                    style={{ maxHeight: "120px" }}
+                    onInput={(e) => {
+                      const t = e.target as HTMLTextAreaElement;
+                      t.style.height = "auto";
+                      t.style.height = `${Math.min(t.scrollHeight, 120)}px`;
+                    }}
+                  />
                 </div>
+                <Button
+                  onClick={() => sendMessage(input)}
+                  disabled={!input.trim() || streaming}
+                  className="h-11 w-11 p-0 rounded-xl btn-primary-pulse shrink-0"
+                >
+                  <Send className="w-4 h-4 text-black" />
+                </Button>
               </div>
-            ) : (
-              <div className="max-w-3xl mx-auto space-y-6">
-                {messages.map((msg, i) => (
-                  <div key={i} className={cn("flex gap-3", msg.role === "user" && "justify-end")}>
-                    {msg.role === "assistant" && (
-                      <div className="w-7 h-7 rounded-lg bg-[#00D26A]/10 border border-[#00D26A]/20 flex items-center justify-center shrink-0 mt-1">
-                        <Sparkles className="w-3.5 h-3.5 text-[#00D26A]" />
-                      </div>
-                    )}
-                    <div
-                      className={cn(
-                        "max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed",
-                        msg.role === "user"
-                          ? "bg-[#00D26A]/10 border border-[#00D26A]/20 text-white"
-                          : "glass-card text-neutral-300"
-                      )}
-                    >
-                      {msg.role === "assistant" ? (
-                        <div dangerouslySetInnerHTML={{ __html: renderContent(msg.content) }} />
-                      ) : (
-                        msg.content
-                      )}
-                      {msg.role === "assistant" && streaming && i === messages.length - 1 && (
-                        <span className="inline-block w-1.5 h-4 bg-[#00D26A] ml-1 animate-pulse rounded-sm" />
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div ref={messagesEndRef} />
+              <p className="text-center text-[10px] text-neutral-600 mt-2 max-w-3xl mx-auto">
+                Press Enter to send · Shift+Enter for new line · AI uses your analytics + business knowledge
+              </p>
+            </div>
           </div>
 
-          {/* Input */}
-          <div className="border-t border-white/5 px-6 py-4 shrink-0">
-            <div className="max-w-3xl mx-auto flex gap-3 items-end">
-              <div className="flex-1 relative">
-                <textarea
-                  ref={textareaRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Ask anything about your links, traffic, business, or audience..."
-                  rows={1}
-                  className="w-full resize-none bg-white/[0.03] border border-white/5 rounded-xl px-4 py-3 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-[#00D26A]/30 focus:ring-1 focus:ring-[#00D26A]/20 transition-all"
-                  style={{ maxHeight: "120px" }}
-                  onInput={(e) => {
-                    const t = e.target as HTMLTextAreaElement;
-                    t.style.height = "auto";
-                    t.style.height = `${Math.min(t.scrollHeight, 120)}px`;
-                  }}
-                />
-              </div>
-              <Button
-                onClick={() => sendMessage(input)}
-                disabled={!input.trim() || streaming}
-                className="h-11 w-11 p-0 rounded-xl btn-primary-pulse shrink-0"
-              >
-                <Send className="w-4 h-4 text-black" />
-              </Button>
-            </div>
-            <p className="text-center text-[10px] text-neutral-600 mt-2 max-w-3xl mx-auto">
-              Press Enter to send · Shift+Enter for new line · AI uses your analytics + business knowledge
-            </p>
+          {/* RIGHT: Knowledge panel (collapsible) */}
+          <div
+            className={cn(
+              "border-l border-white/5 bg-black/50 flex flex-col transition-all duration-300 shrink-0 overflow-hidden",
+              knowledgeOpen ? "w-80" : "w-0"
+            )}
+          >
+            {knowledgeOpen && (
+              <>
+                <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="w-4 h-4 text-[#00D26A]" />
+                    <span className="text-xs font-black text-white uppercase tracking-widest">
+                      Business Knowledge
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setKnowledgeOpen(false)}
+                    className="text-neutral-500 hover:text-white transition-colors"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Add new entry */}
+                <div className="p-3 border-b border-white/5 space-y-2 shrink-0">
+                  <input
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    placeholder="Title (e.g. Target Audience)"
+                    className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-xs font-bold placeholder:text-neutral-600 focus:outline-none focus:border-[#00D26A]/50"
+                  />
+                  <textarea
+                    value={newContent}
+                    onChange={(e) => setNewContent(e.target.value)}
+                    placeholder="Details about your business, products, audience, goals..."
+                    rows={3}
+                    className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-xs placeholder:text-neutral-600 focus:outline-none focus:border-[#00D26A]/50 resize-none"
+                  />
+                  <Button
+                    onClick={handleAddEntry}
+                    disabled={!newTitle.trim() || !newContent.trim()}
+                    size="sm"
+                    className="w-full h-8 btn-primary-pulse text-black font-black uppercase text-[9px] tracking-widest rounded-lg"
+                  >
+                    <Plus className="w-3 h-3 mr-1" />
+                    Add Knowledge
+                  </Button>
+                </div>
+
+                {/* Entries list */}
+                <div className="flex-1 overflow-y-auto scrollbar-none p-3 space-y-2">
+                  {entries.length === 0 ? (
+                    <div className="text-center py-8">
+                      <BookOpen className="w-8 h-8 text-neutral-700 mx-auto mb-3" />
+                      <p className="text-[10px] text-neutral-600 font-medium">
+                        Add info about your business so the AI can give better advice
+                      </p>
+                    </div>
+                  ) : (
+                    entries.map((entry) => {
+                      const text = typeof entry.content === "object" && entry.content !== null && "text" in (entry.content as Record<string, unknown>)
+                        ? (entry.content as { text: string }).text
+                        : "";
+
+                      if (editingId === entry.id) {
+                        return (
+                          <div key={entry.id} className="p-3 rounded-xl border border-[#00D26A]/20 bg-[#00D26A]/5 space-y-2">
+                            <input
+                              value={editTitle}
+                              onChange={(e) => setEditTitle(e.target.value)}
+                              className="w-full px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-xs font-bold focus:outline-none focus:border-[#00D26A]/50"
+                            />
+                            <textarea
+                              value={editContent}
+                              onChange={(e) => setEditContent(e.target.value)}
+                              rows={4}
+                              className="w-full px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-[#00D26A]/50 resize-none"
+                            />
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={handleSaveEdit}
+                                className="h-7 text-[9px] btn-primary-pulse text-black font-black uppercase tracking-widest rounded-md flex-1"
+                              >
+                                <Save className="w-3 h-3 mr-1" />
+                                Save
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setEditingId(null)}
+                                className="h-7 text-[9px] text-neutral-500 hover:text-white"
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div
+                          key={entry.id}
+                          className="p-3 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-all group cursor-pointer"
+                          onClick={() => startEdit(entry)}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <h4 className="text-xs font-black text-white truncate">
+                              {entry.title || "Untitled"}
+                            </h4>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteEntry(entry.id);
+                              }}
+                              className="text-neutral-700 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 shrink-0"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                          <p className="text-[10px] text-neutral-500 mt-1 line-clamp-3 leading-relaxed">
+                            {text}
+                          </p>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
-      </div>
-    </>
+
+        {/* Delete chat confirmation dialog */}
+        <Dialog open={!!deletingChatId} onOpenChange={(open) => !open && setDeletingChatId(null)}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Delete Chat</DialogTitle>
+              <DialogDescription>
+                This chat and all its messages will be permanently deleted. This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setDeletingChatId(null)}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                className="bg-red-500 hover:bg-red-600 text-white font-black"
+                onClick={handleConfirmDelete}
+              >
+                Delete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
+    </TooltipProvider>
   );
 }
