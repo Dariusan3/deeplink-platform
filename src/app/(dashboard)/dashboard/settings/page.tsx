@@ -506,7 +506,7 @@ export default function SettingsPage() {
                                   return;
                                 }
                                 const redirectUri = `${window.location.origin}/api/ig/callback`;
-                                const authUrl = `https://www.instagram.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=instagram_business_basic&response_type=code&enable_fb_login=0`;
+                                const authUrl = `https://www.instagram.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=instagram_business_basic,instagram_business_manage_insights&response_type=code&enable_fb_login=0`;
                                 window.location.href = authUrl;
                               }}
                               className="h-9 px-5 rounded-xl bg-gradient-to-r from-purple-500 via-pink-500 to-amber-500 text-white font-black uppercase text-[10px] tracking-widest hover:opacity-90 transition-opacity"

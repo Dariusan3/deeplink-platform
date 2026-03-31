@@ -31,84 +31,140 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-// ROI Calculator Component
-function ROICalculator() {
+// ROI Calculator Component — connected to real A/B test data
+function ROICalculator({ tests }: { tests: ABTest[] }) {
+  const [useRealData, setUseRealData] = useState(true);
   const [adSpend, setAdSpend] = useState("");
   const [clicks, setClicks] = useState("");
   const [conversions, setConversions] = useState("");
   const [revenuePerConversion, setRevenuePerConversion] = useState("");
 
-  const results = useMemo(() => {
-    const spend = parseFloat(adSpend) || 0;
-    const clickCount = parseInt(clicks) || 0;
-    const convCount = parseInt(conversions) || 0;
-    const revPerConv = parseFloat(revenuePerConversion) || 0;
+  // Aggregate real data from all tests
+  const realData = useMemo(() => {
+    const totalVisits = tests.reduce((s, t) => s + t.variant_a_visits + t.variant_b_visits, 0);
+    const totalConversions = tests.reduce((s, t) => s + t.variant_a_conversions + t.variant_b_conversions, 0);
+    const totalRevenue = tests.reduce((s, t) => s + Number(t.variant_a_revenue) + Number(t.variant_b_revenue), 0);
+    const totalCost = tests.reduce((s, t) => s + (t.variant_a_visits + t.variant_b_visits) * Number(t.cost_per_click), 0);
+    return { totalVisits, totalConversions, totalRevenue, totalCost };
+  }, [tests]);
 
-    const totalRevenue = convCount * revPerConv;
+  const results = useMemo(() => {
+    let spend: number, clickCount: number, convCount: number, totalRevenue: number;
+
+    if (useRealData) {
+      spend = realData.totalCost;
+      clickCount = realData.totalVisits;
+      convCount = realData.totalConversions;
+      totalRevenue = realData.totalRevenue;
+    } else {
+      spend = parseFloat(adSpend) || 0;
+      clickCount = parseInt(clicks) || 0;
+      convCount = parseInt(conversions) || 0;
+      totalRevenue = convCount * (parseFloat(revenuePerConversion) || 0);
+    }
+
     const roi = spend > 0 ? ((totalRevenue - spend) / spend) * 100 : 0;
     const cpc = clickCount > 0 ? spend / clickCount : 0;
     const cpa = convCount > 0 ? spend / convCount : 0;
     const convRate = clickCount > 0 ? (convCount / clickCount) * 100 : 0;
     const profit = totalRevenue - spend;
 
-    return { totalRevenue, roi, cpc, cpa, convRate, profit };
-  }, [adSpend, clicks, conversions, revenuePerConversion]);
+    return { totalRevenue, roi, cpc, cpa, convRate, profit, spend, clickCount, convCount };
+  }, [useRealData, realData, adSpend, clicks, conversions, revenuePerConversion]);
+
+  const hasData = useRealData
+    ? realData.totalVisits > 0 || realData.totalCost > 0
+    : parseFloat(adSpend) > 0 || parseInt(clicks) > 0;
 
   return (
     <Card className="glass-card border-white/5 overflow-hidden">
       <CardHeader className="pb-4">
-        <CardTitle className="text-base font-black flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-            <Calculator className="w-4 h-4 text-emerald-400" />
-          </div>
-          ROI Calculator
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base font-black flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+              <Calculator className="w-4 h-4 text-emerald-400" />
+            </div>
+            ROI Calculator
+          </CardTitle>
+          <button
+            onClick={() => setUseRealData(!useRealData)}
+            className={cn(
+              "text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border transition-all",
+              useRealData
+                ? "text-[#00D26A] bg-[#00D26A]/10 border-[#00D26A]/20"
+                : "text-neutral-400 bg-white/5 border-white/10 hover:text-white"
+            )}
+          >
+            {useRealData ? "Live Data" : "Manual"}
+          </button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Ad Spend ($)</Label>
-            <Input
-              type="number"
-              placeholder="1000"
-              value={adSpend}
-              onChange={(e) => setAdSpend(e.target.value)}
-              className="mt-1 h-9 bg-white/[0.02] border-white/5 text-sm"
-            />
+        {useRealData ? (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-2.5 rounded-lg bg-white/[0.02] border border-white/5">
+              <p className="text-[9px] font-bold uppercase tracking-widest text-neutral-500 mb-1">Ad Spend</p>
+              <p className="text-sm font-black text-white">${realData.totalCost.toFixed(2)}</p>
+            </div>
+            <div className="p-2.5 rounded-lg bg-white/[0.02] border border-white/5">
+              <p className="text-[9px] font-bold uppercase tracking-widest text-neutral-500 mb-1">Total Clicks</p>
+              <p className="text-sm font-black text-white">{realData.totalVisits.toLocaleString()}</p>
+            </div>
+            <div className="p-2.5 rounded-lg bg-white/[0.02] border border-white/5">
+              <p className="text-[9px] font-bold uppercase tracking-widest text-neutral-500 mb-1">Conversions</p>
+              <p className="text-sm font-black text-white">{realData.totalConversions.toLocaleString()}</p>
+            </div>
+            <div className="p-2.5 rounded-lg bg-white/[0.02] border border-white/5">
+              <p className="text-[9px] font-bold uppercase tracking-widest text-neutral-500 mb-1">Revenue</p>
+              <p className="text-sm font-black text-[#00D26A]">${realData.totalRevenue.toFixed(2)}</p>
+            </div>
           </div>
-          <div>
-            <Label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Total Clicks</Label>
-            <Input
-              type="number"
-              placeholder="5000"
-              value={clicks}
-              onChange={(e) => setClicks(e.target.value)}
-              className="mt-1 h-9 bg-white/[0.02] border-white/5 text-sm"
-            />
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Ad Spend ($)</Label>
+              <Input
+                type="number"
+                placeholder="1000"
+                value={adSpend}
+                onChange={(e) => setAdSpend(e.target.value)}
+                className="mt-1 h-9 bg-white/[0.02] border-white/5 text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Total Clicks</Label>
+              <Input
+                type="number"
+                placeholder="5000"
+                value={clicks}
+                onChange={(e) => setClicks(e.target.value)}
+                className="mt-1 h-9 bg-white/[0.02] border-white/5 text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Conversions</Label>
+              <Input
+                type="number"
+                placeholder="150"
+                value={conversions}
+                onChange={(e) => setConversions(e.target.value)}
+                className="mt-1 h-9 bg-white/[0.02] border-white/5 text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Revenue / Conv ($)</Label>
+              <Input
+                type="number"
+                placeholder="50"
+                value={revenuePerConversion}
+                onChange={(e) => setRevenuePerConversion(e.target.value)}
+                className="mt-1 h-9 bg-white/[0.02] border-white/5 text-sm"
+              />
+            </div>
           </div>
-          <div>
-            <Label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Conversions</Label>
-            <Input
-              type="number"
-              placeholder="150"
-              value={conversions}
-              onChange={(e) => setConversions(e.target.value)}
-              className="mt-1 h-9 bg-white/[0.02] border-white/5 text-sm"
-            />
-          </div>
-          <div>
-            <Label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Revenue / Conv ($)</Label>
-            <Input
-              type="number"
-              placeholder="50"
-              value={revenuePerConversion}
-              onChange={(e) => setRevenuePerConversion(e.target.value)}
-              className="mt-1 h-9 bg-white/[0.02] border-white/5 text-sm"
-            />
-          </div>
-        </div>
+        )}
 
-        {(parseFloat(adSpend) > 0 || parseInt(clicks) > 0) && (
+        {hasData && (
           <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/5">
             <div className="text-center p-2 rounded-lg bg-white/[0.02]">
               <p className={cn("text-lg font-black", results.roi >= 0 ? "text-[#00D26A]" : "text-red-400")}>
@@ -697,7 +753,7 @@ export default function ABTestingPage() {
 
         {/* Right sidebar */}
         <div className="space-y-4">
-          <ROICalculator />
+          <ROICalculator tests={tests} />
 
           {/* How it works */}
           <Card className="glass-card border-white/5">

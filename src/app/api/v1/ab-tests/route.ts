@@ -2,11 +2,48 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const supabase = createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey);
+
+// Simple in-memory rate limiter: max 30 requests per IP per minute
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_WINDOW = 60_000; // 1 minute
+const RATE_LIMIT_MAX = 30;
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
+    return false;
+  }
+
+  entry.count++;
+  if (entry.count > RATE_LIMIT_MAX) return true;
+  return false;
+}
+
+// Periodically clean stale entries to prevent memory leak
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of rateLimitMap) {
+    if (now > entry.resetAt) rateLimitMap.delete(ip);
+  }
+}, RATE_LIMIT_WINDOW);
 
 // POST /api/v1/ab-tests — Track conversion event
 export async function POST(request: NextRequest) {
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+
+  if (isRateLimited(ip)) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded. Max 30 requests per minute." },
+      { status: 429, headers: { "Retry-After": "60" } }
+    );
+  }
+
   try {
     const body = await request.json();
     const { test_id, slug, variant, revenue } = body;
@@ -20,12 +57,15 @@ export async function POST(request: NextRequest) {
     if (!testId && slug) {
       const { data: test } = await supabase
         .from("ab_tests")
-        .select("id")
+        .select("id, status")
         .eq("slug", slug)
         .limit(1)
         .maybeSingle();
       if (!test) {
         return NextResponse.json({ error: "A/B test not found" }, { status: 404 });
+      }
+      if (test.status !== "running") {
+        return NextResponse.json({ error: "A/B test is not running" }, { status: 400 });
       }
       testId = test.id;
     }
@@ -34,15 +74,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "test_id or slug is required" }, { status: 400 });
     }
 
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
     const userAgent = request.headers.get("user-agent") || "";
+    const safeRevenue = Math.max(0, parseFloat(revenue) || 0);
 
     // Insert conversion event
     const { error: eventError } = await supabase.from("ab_test_events").insert({
       test_id: testId,
       variant,
       event_type: "conversion",
-      revenue: revenue || 0,
+      revenue: safeRevenue,
       ip_address: ip,
       user_agent: userAgent,
     });
@@ -51,25 +91,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to track conversion" }, { status: 500 });
     }
 
-    // Increment conversion counter and revenue on the test
-    const convCol = variant === "a" ? "variant_a_conversions" : "variant_b_conversions";
-    const revCol = variant === "a" ? "variant_a_revenue" : "variant_b_revenue";
+    // Atomic increment — no race condition
+    const { error: rpcError } = await supabase.rpc("increment_ab_conversion", {
+      p_test_id: testId,
+      p_variant: variant,
+      p_revenue: safeRevenue,
+    });
 
-    // Fetch current values
-    const { data: test } = await supabase
-      .from("ab_tests")
-      .select("variant_a_conversions, variant_b_conversions, variant_a_revenue, variant_b_revenue")
-      .eq("id", testId)
-      .single();
-
-    if (test) {
-      const currentConv = variant === "a" ? test.variant_a_conversions : test.variant_b_conversions;
-      const currentRev = variant === "a" ? test.variant_a_revenue : test.variant_b_revenue;
-
-      await supabase.from("ab_tests").update({
-        [convCol]: currentConv + 1,
-        [revCol]: currentRev + (revenue || 0),
-      }).eq("id", testId);
+    if (rpcError) {
+      console.error("increment_ab_conversion error:", rpcError.message);
     }
 
     return NextResponse.json({ success: true, event: "conversion", variant });
