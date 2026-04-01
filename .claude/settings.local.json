@@ -34,7 +34,8 @@
       "Bash(curl -s -o /dev/null -w \"→ %{redirect_url}\\\\n\" -A \"Mozilla/5.0 \\(Macintosh; Intel Mac OS X 10_15_7\\)\" \"http://localhost:3000/dawd\")",
       "Bash(ls -la /Users/osadicidarius/Documents/projects/deeplink-platform/src/app/\\\\\\(dashboard\\\\\\)/dashboard/links/)",
       "Bash(ls -la \"/Users/osadicidarius/Documents/projects/deeplink-platform/src/app/\\(dashboard\\)/dashboard/links/\")",
-      "Bash(cat \"/Users/osadicidarius/Documents/projects/deeplink-platform/src/app/\\(dashboard\\)/dashboard/links/page.tsx\")"
+      "Bash(cat \"/Users/osadicidarius/Documents/projects/deeplink-platform/src/app/\\(dashboard\\)/dashboard/links/page.tsx\")",
+      "Bash(gh api:*)"
     ]
   }
 }
