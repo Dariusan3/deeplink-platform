@@ -4,6 +4,7 @@ import { Header } from "@/components/header";
 import { CreateLinkDialog } from "@/components/links/create-link-dialog";
 import { LinkList } from "@/components/links/link-list";
 import { BulkImportDialog } from "@/components/links/bulk-import-dialog";
+import { ExportDialog } from "@/components/links/export-dialog";
 
 export default function LinksPage() {
   return (
@@ -18,6 +19,7 @@ export default function LinksPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <ExportDialog />
             <BulkImportDialog />
             <CreateLinkDialog />
           </div>

@@ -158,6 +158,88 @@ export function useAffiliate() {
     return `${origin}/signup?ref=${affiliate.referral_code}`;
   }, [affiliate]);
 
+  // Pyramid leaderboard — top 5 positions (FIFO rotation)
+  const [pyramidLeaders, setPyramidLeaders] = useState<(Affiliate & { user_email?: string; user_name?: string })[]>([]);
+
+  const fetchPyramid = useCallback(async () => {
+    const { data } = await supabase
+      .from("affiliates")
+      .select("*, users!affiliates_user_id_fkey(email, full_name)")
+      .not("pyramid_position", "is", null)
+      .order("pyramid_position", { ascending: true })
+      .limit(5);
+
+    if (data) {
+      setPyramidLeaders(
+        data.map((a: any) => ({
+          ...a,
+          user_email: a.users?.email,
+          user_name: a.users?.full_name,
+        }))
+      );
+    }
+  }, [supabase]);
+
+  useEffect(() => {
+    fetchPyramid();
+  }, [fetchPyramid]);
+
+  // Join pyramid when joining affiliate program (auto-assign next position)
+  const joinPyramid = useCallback(async () => {
+    if (!affiliate) return;
+    if (affiliate.pyramid_position !== null) return; // already in pyramid
+
+    // Count current pyramid members
+    const { count } = await supabase
+      .from("affiliates")
+      .select("*", { count: "exact", head: true })
+      .not("pyramid_position", "is", null);
+
+    if ((count ?? 0) >= 5) {
+      toast.error("Pyramid is full (5/5). Wait for a spot to open.");
+      return;
+    }
+
+    const nextPosition = (count ?? 0) + 1;
+
+    const { error } = await supabase
+      .from("affiliates")
+      .update({ pyramid_position: nextPosition, pyramid_joined_at: new Date().toISOString() })
+      .eq("id", affiliate.id);
+
+    if (error) {
+      toast.error("Failed to join pyramid");
+    } else {
+      toast.success(`You're in position #${nextPosition}!`);
+      fetchAffiliate();
+      fetchPyramid();
+    }
+  }, [affiliate, supabase, fetchAffiliate, fetchPyramid]);
+
+  // Rotate: person at #1 goes to #5, everyone shifts up
+  const rotatePyramid = useCallback(async () => {
+    if (!pyramidLeaders.length) return;
+
+    const leader = pyramidLeaders[0]; // position #1
+    const rest = pyramidLeaders.slice(1); // positions 2-5
+
+    // Shift everyone up by 1
+    for (const member of rest) {
+      await supabase
+        .from("affiliates")
+        .update({ pyramid_position: member.pyramid_position! - 1 })
+        .eq("id", member.id);
+    }
+
+    // Move #1 to last position
+    await supabase
+      .from("affiliates")
+      .update({ pyramid_position: pyramidLeaders.length, pyramid_joined_at: new Date().toISOString() })
+      .eq("id", leader.id);
+
+    fetchPyramid();
+  }, [pyramidLeaders, supabase, fetchPyramid]);
+
   return {
     affiliate,
     referrals,
@@ -172,5 +254,8 @@ export function useAffiliate() {
     referralLink,
     joinProgram,
     fetchAffiliate,
+    pyramidLeaders,
+    joinPyramid,
+    rotatePyramid,
   };
 }

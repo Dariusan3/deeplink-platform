@@ -181,10 +181,7 @@ async function handleABTest(request: NextRequest, test: any) {
     }
   }
 
-  // Track visit event and increment counter
-  const visitCol = variant === "a" ? "variant_a_visits" : "variant_b_visits";
-  const currentVisits = variant === "a" ? test.variant_a_visits : test.variant_b_visits;
-
+  // Track visit event and atomically increment counter
   supabase!.from("ab_test_events").insert({
     test_id: test.id,
     variant,
@@ -195,9 +192,10 @@ async function handleABTest(request: NextRequest, test: any) {
     device_type: deviceType,
   }).then(() => {});
 
-  supabase!.from("ab_tests").update({
-    [visitCol]: currentVisits + 1,
-  }).eq("id", test.id).then(() => {});
+  supabase!.rpc("increment_ab_visit", {
+    p_test_id: test.id,
+    p_variant: variant,
+  }).then(() => {});
 
   return NextResponse.redirect(ensureAbsoluteUrl(destinationUrl), { status: 302 });
 }

@@ -146,6 +146,8 @@ export default function AffiliatePage() {
     unpaidEarnings,
     referralLink,
     joinProgram,
+    pyramidLeaders,
+    joinPyramid,
   } = useAffiliate();
 
   const [copied, setCopied] = useState(false);
@@ -313,6 +315,111 @@ export default function AffiliatePage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* FIFO Pyramid Leaderboard */}
+      <Card className="glass-card border-white/5 overflow-hidden">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-black flex items-center gap-2">
+              <Crown className="w-4 h-4 text-amber-400" />
+              Affiliate Pyramid — Top 5
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-widest">
+                {pyramidLeaders.length}/5 spots filled
+              </span>
+              {affiliate && affiliate.pyramid_position === null && pyramidLeaders.length < 5 && (
+                <Button
+                  onClick={joinPyramid}
+                  size="sm"
+                  className="h-7 px-3 text-[9px] font-black uppercase tracking-widest bg-[#00D26A] hover:bg-[#00D26A]/90 text-black"
+                >
+                  <Sparkles className="w-3 h-3 mr-1" />
+                  Join Pyramid
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {pyramidLeaders.length === 0 ? (
+            <div className="text-center py-6">
+              <Crown className="w-8 h-8 text-neutral-600 mx-auto mb-2" />
+              <p className="text-sm text-neutral-500 font-medium">No one in the pyramid yet</p>
+              <p className="text-xs text-neutral-600">Be the first to claim position #1</p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-1">
+              {pyramidLeaders.map((leader, i) => {
+                const isMe = leader.id === affiliate?.id;
+                const posColors = [
+                  "from-amber-400 to-yellow-500 border-amber-400/30",
+                  "from-slate-300 to-slate-400 border-slate-300/30",
+                  "from-amber-600 to-amber-700 border-amber-600/30",
+                  "from-neutral-400 to-neutral-500 border-neutral-400/30",
+                  "from-neutral-500 to-neutral-600 border-neutral-500/30",
+                ];
+                // Pyramid widths: #1 widest, #5 narrowest
+                const widths = ["w-full", "w-[90%]", "w-[80%]", "w-[70%]", "w-[60%]"];
+
+                return (
+                  <div
+                    key={leader.id}
+                    className={cn(
+                      "relative flex items-center gap-3 px-4 py-3 rounded-xl border transition-all",
+                      widths[i],
+                      isMe
+                        ? "bg-[#00D26A]/5 border-[#00D26A]/20 shadow-[0_0_15px_rgba(0,210,106,0.1)]"
+                        : "bg-white/[0.02] border-white/5"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-8 h-8 rounded-lg bg-gradient-to-br flex items-center justify-center shrink-0",
+                      posColors[i]
+                    )}>
+                      <span className="text-xs font-black text-black">#{i + 1}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={cn("text-sm font-bold truncate", isMe ? "text-[#00D26A]" : "text-white")}>
+                        {leader.user_name || leader.user_email || leader.referral_code}
+                        {isMe && <span className="text-[9px] ml-2 text-[#00D26A]/60 font-black uppercase">(You)</span>}
+                      </p>
+                      <p className="text-[10px] text-neutral-500">
+                        Code: {leader.referral_code} · Earnings: ${leader.total_earnings.toFixed(0)}
+                      </p>
+                    </div>
+                    {i === 0 && (
+                      <Crown className="w-4 h-4 text-amber-400 shrink-0" />
+                    )}
+                  </div>
+                );
+              })}
+              {pyramidLeaders.length < 5 && (
+                Array.from({ length: 5 - pyramidLeaders.length }).map((_, i) => {
+                  const idx = pyramidLeaders.length + i;
+                  const widths = ["w-full", "w-[90%]", "w-[80%]", "w-[70%]", "w-[60%]"];
+                  return (
+                    <div
+                      key={`empty-${idx}`}
+                      className={cn(
+                        "flex items-center justify-center px-4 py-3 rounded-xl border border-dashed border-white/5",
+                        widths[idx]
+                      )}
+                    >
+                      <span className="text-[10px] text-neutral-600 font-bold uppercase tracking-widest">
+                        #{idx + 1} — Open Spot
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+          <p className="text-[9px] text-neutral-600 text-center mt-3">
+            FIFO rotation — when #1 completes their cycle, they move to #5 and everyone shifts up
+          </p>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main content */}

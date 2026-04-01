@@ -21,6 +21,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTeam } from "@/hooks/use-team";
 import { useUser } from "@/hooks/use-user";
+import { useAnomalyAlerts } from "@/hooks/use-anomaly-alerts";
 import { CreateTeamDialog } from "@/components/teams/create-team-dialog";
 
 const navigation = [
@@ -148,6 +149,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const supabase = useMemo(() => createClient(), []);
   const { teams, activeTeam, setActiveTeam } = useTeam();
   const { user, profile } = useUser();
+  const { unreadCount } = useAnomalyAlerts();
 
   const displayName = profile?.full_name || user?.user_metadata?.full_name || "User";
   const displayEmail = profile?.email || user?.email || "user@example.com";
@@ -312,12 +314,17 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
             >
               <span className={cn("shrink-0 transition-colors duration-300", isActive ? "text-[#00D26A]" : "group-hover:text-neutral-300")}>{item.icon}</span>
               {!collapsed && <span>{item.name}</span>}
+              {!collapsed && item.name === "Alerts" && unreadCount > 0 && (
+                <span className="ml-auto text-[9px] font-black px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 tracking-wider animate-pulse">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
               {!collapsed && (item as { badge?: string }).badge && (
                 <span className="ml-auto text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#00D26A]/20 text-[#00D26A] border border-[#00D26A]/30 tracking-wider">
                   {(item as { badge?: string }).badge}
                 </span>
               )}
-              {isActive && !collapsed && !(item as { badge?: string }).badge && (
+              {isActive && !collapsed && !(item as { badge?: string }).badge && item.name !== "Alerts" && (
                 <div className="ml-auto w-1 h-1 rounded-full bg-[#39FF14] shadow-[0_0_8px_rgba(57,255,20,0.8)]" />
               )}
             </Link>

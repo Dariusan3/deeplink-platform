@@ -157,6 +157,62 @@ export type Database = {
           },
         ]
       }
+      anomaly_alerts: {
+        Row: {
+          id: string
+          team_id: string
+          severity: string
+          title: string
+          description: string
+          root_cause: string | null
+          action: string | null
+          affected_link: string | null
+          change_percent: number | null
+          is_read: boolean
+          is_dismissed: boolean
+          emailed: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          team_id: string
+          severity: string
+          title: string
+          description: string
+          root_cause?: string | null
+          action?: string | null
+          affected_link?: string | null
+          change_percent?: number | null
+          is_read?: boolean
+          is_dismissed?: boolean
+          emailed?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          team_id?: string
+          severity?: string
+          title?: string
+          description?: string
+          root_cause?: string | null
+          action?: string | null
+          affected_link?: string | null
+          change_percent?: number | null
+          is_read?: boolean
+          is_dismissed?: boolean
+          emailed?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "anomaly_alerts_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brain_chats: {
         Row: {
           created_at: string
@@ -503,6 +559,53 @@ export type Database = {
           },
         ]
       }
+      subscriptions: {
+        Row: {
+          id: string
+          team_id: string
+          plan: string
+          status: string
+          is_free: boolean
+          starts_at: string
+          expires_at: string | null
+          granted_by: string | null
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          team_id: string
+          plan: string
+          status?: string
+          is_free?: boolean
+          starts_at?: string
+          expires_at?: string | null
+          granted_by?: string | null
+          notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          team_id?: string
+          plan?: string
+          status?: string
+          is_free?: boolean
+          starts_at?: string
+          expires_at?: string | null
+          granted_by?: string | null
+          notes?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           avatar_url: string | null
@@ -510,6 +613,7 @@ export type Database = {
           email: string
           full_name: string | null
           id: string
+          is_admin: boolean
           updated_at: string
         }
         Insert: {
@@ -518,6 +622,7 @@ export type Database = {
           email: string
           full_name?: string | null
           id: string
+          is_admin?: boolean
           updated_at?: string
         }
         Update: {
@@ -526,6 +631,7 @@ export type Database = {
           email?: string
           full_name?: string | null
           id?: string
+          is_admin?: boolean
           updated_at?: string
         }
         Relationships: []
@@ -671,6 +777,8 @@ export type Database = {
           total_earnings: number
           paid_earnings: number
           is_active: boolean
+          pyramid_position: number | null
+          pyramid_joined_at: string | null
           created_at: string
         }
         Insert: {
@@ -680,6 +788,8 @@ export type Database = {
           total_earnings?: number
           paid_earnings?: number
           is_active?: boolean
+          pyramid_position?: number | null
+          pyramid_joined_at?: string | null
           created_at?: string
         }
         Update: {
@@ -689,6 +799,8 @@ export type Database = {
           total_earnings?: number
           paid_earnings?: number
           is_active?: boolean
+          pyramid_position?: number | null
+          pyramid_joined_at?: string | null
           created_at?: string
         }
         Relationships: [

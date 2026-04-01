@@ -20,7 +20,21 @@
       "Bash(find /Users/osadicidarius/Documents/projects/deeplink-platform -name *cron* -o -name *job* -o -name *schedule*)",
       "Bash(cat:*)",
       "Bash(grep:*)",
-      "Bash(find /Users/osadicidarius/Documents/projects/deeplink-platform/src -type f \\\\\\(-name *brain* -o -name *chat* -o -name *pricing* \\\\\\))"
+      "Bash(find /Users/osadicidarius/Documents/projects/deeplink-platform/src -type f \\\\\\(-name *brain* -o -name *chat* -o -name *pricing* \\\\\\))",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} → Redirect: %{redirect_url}\\\\n\" -H \"x-vercel-ip-country: RO\" \"http://localhost:3000/test-slug\")",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} → Redirect: %{redirect_url}\\\\n\" -H \"x-vercel-ip-country: GB\" \"http://localhost:3000/test-slug\")",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} → Redirect: %{redirect_url}\\\\n\" -A \"Mozilla/5.0 \\(iPhone; CPU iPhone OS 17_0 like Mac OS X\\)\" \"http://localhost:3000/test-slug\")",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} → Redirect: %{redirect_url}\\\\n\" -A \"Mozilla/5.0 \\(Macintosh; Intel Mac OS X 10_15_7\\)\" \"http://localhost:3000/test-slug\")",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} → Redirect: %{redirect_url}\\\\n\" \"http://localhost:3000/test-slug?device=mobile&country=RO\")",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} → Redirect: %{redirect_url}\\\\n\" \"http://localhost:3000/dawd\")",
+      "Bash(curl -s -o /dev/null -w \"→ %{redirect_url}\\\\n\" -H \"x-vercel-ip-country: RO\" \"http://localhost:3000/dawd\")",
+      "Bash(curl -s -o /dev/null -w \"→ %{redirect_url}\\\\n\" -H \"x-vercel-ip-country: GB\" \"http://localhost:3000/dawd\")",
+      "Bash(curl -s -o /dev/null -w \"→ %{redirect_url}\\\\n\" -A \"Mozilla/5.0 \\(iPhone; CPU iPhone OS 17_0 like Mac OS X\\)\" \"http://localhost:3000/dawd\")",
+      "Bash(curl -s -o /dev/null -w \"→ %{redirect_url}\\\\n\" -H \"x-vercel-ip-country: US\" -A \"Mozilla/5.0 \\(iPhone; CPU iPhone OS 17_0 like Mac OS X\\)\" \"http://localhost:3000/dawd\")",
+      "Bash(curl -s -o /dev/null -w \"→ %{redirect_url}\\\\n\" -A \"Mozilla/5.0 \\(Macintosh; Intel Mac OS X 10_15_7\\)\" \"http://localhost:3000/dawd\")",
+      "Bash(ls -la /Users/osadicidarius/Documents/projects/deeplink-platform/src/app/\\\\\\(dashboard\\\\\\)/dashboard/links/)",
+      "Bash(ls -la \"/Users/osadicidarius/Documents/projects/deeplink-platform/src/app/\\(dashboard\\)/dashboard/links/\")",
+      "Bash(cat \"/Users/osadicidarius/Documents/projects/deeplink-platform/src/app/\\(dashboard\\)/dashboard/links/page.tsx\")"
     ]
   }
 }

@@ -1,15 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, CheckCircle2, Mail } from "lucide-react";
 
 export default function SignupPage() {
+  const searchParams = useSearchParams();
+  const refCode = searchParams.get("ref");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -38,7 +40,7 @@ export default function SignupPage() {
       email,
       password,
       options: {
-        data: { full_name: fullName },
+        data: { full_name: fullName, ...(refCode ? { referral_code: refCode } : {}) },
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
@@ -54,6 +56,8 @@ export default function SignupPage() {
 
   const handleGoogleLogin = async () => {
     setLoading(true);
+    // Store ref code in localStorage for Google OAuth flow (metadata not available)
+    if (refCode) localStorage.setItem("tappr_ref_code", refCode);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: `${window.location.origin}/auth/callback` },
