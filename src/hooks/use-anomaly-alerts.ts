@@ -45,7 +45,7 @@ export function useAnomalyAlerts() {
           table: "anomaly_alerts",
           filter: `team_id=eq.${activeTeam.id}`,
         },
-        (payload) => {
+        (payload: any) => {
           const newAlert = payload.new as AnomalyAlert;
           setAlerts((prev) => [newAlert, ...prev]);
         }

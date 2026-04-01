@@ -47,10 +47,10 @@ export default function AdminOverviewPage() {
       ]);
 
       const activeSubs = subs?.length ?? 0;
-      const freeSubs = subs?.filter((s) => s.is_free).length ?? 0;
+      const freeSubs = subs?.filter((s: any) => s.is_free).length ?? 0;
 
       const planCounts: Record<string, number> = {};
-      for (const s of subs || []) {
+      for (const s of (subs || []) as any[]) {
         planCounts[s.plan] = (planCounts[s.plan] || 0) + 1;
       }
       const planBreakdown = Object.entries(planCounts).map(([plan, count]) => ({ plan, count }));
