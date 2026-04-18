@@ -22,7 +22,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useTeam } from "@/hooks/use-team";
 import { useUser } from "@/hooks/use-user";
 import { useAnomalyAlerts } from "@/hooks/use-anomaly-alerts";
+import { useCollections } from "@/hooks/use-collections";
+import { useLinks } from "@/hooks/use-links";
 import { CreateTeamDialog } from "@/components/teams/create-team-dialog";
+import { Star } from "lucide-react";
 
 const navigation = [
   {
@@ -136,6 +139,15 @@ const navigation = [
       </svg>
     ),
   },
+  {
+    name: "Contact Support",
+    href: "/dashboard/contact",
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75a9.707 9.707 0 0 1-2.031 5.951l-.013.017c-.32.448-.805.76-1.348.858l-3.178.547a1.125 1.125 0 0 1-1.302-1.302l.547-3.178c.098-.543.41-1.028.858-1.348l.017-.013A9.707 9.707 0 0 1 21.75 12.75Zm-7.5-3.375a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM12 9.375a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm-3.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+      </svg>
+    ),
+  },
 ];
 
 interface SidebarProps {
@@ -150,6 +162,10 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const { teams, activeTeam, setActiveTeam } = useTeam();
   const { user, profile } = useUser();
   const { unreadCount } = useAnomalyAlerts();
+  const { collections } = useCollections();
+  const { links } = useLinks();
+  const starredCollections = collections.filter((c) => c.is_starred);
+  const favoriteLinks = links.filter((l) => l.is_favorite);
 
   const displayName = profile?.full_name || user?.user_metadata?.full_name || "User";
   const displayEmail = profile?.email || user?.email || "user@example.com";
@@ -346,6 +362,50 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
 
           return linkContent;
         })}
+
+        {/* Favorite Links */}
+        {!collapsed && favoriteLinks.length > 0 && (
+          <div className="mt-4 pt-3 border-t border-white/5">
+            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-neutral-600 px-3 mb-2">
+              Favorites
+            </p>
+            {favoriteLinks.map((link) => (
+              <Link
+                key={link.id}
+                href={`/dashboard/analytics?linkId=${link.id}`}
+                className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-bold text-neutral-500 hover:text-neutral-200 hover:bg-white/[0.03] transition-all"
+              >
+                <Star className="w-3 h-3 shrink-0 text-amber-400" fill="currentColor" />
+                <span className="truncate">{link.title || link.slug}</span>
+              </Link>
+            ))}
+          </div>
+        )}
+
+        {/* Starred Collections */}
+        {!collapsed && starredCollections.length > 0 && (
+          <div className="mt-4 pt-3 border-t border-white/5">
+            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-neutral-600 px-3 mb-2">
+              Starred
+            </p>
+            {starredCollections.map((col) => {
+              const colPath = `/dashboard/collections`;
+              return (
+                <Link
+                  key={col.id}
+                  href={colPath}
+                  className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-bold text-neutral-500 hover:text-neutral-200 hover:bg-white/[0.03] transition-all"
+                >
+                  <div
+                    className="w-3 h-3 rounded shrink-0"
+                    style={{ backgroundColor: col.color || "#00D26A" }}
+                  />
+                  <span className="truncate">{col.name}</span>
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </nav>
 
       <Separator className="opacity-50" />

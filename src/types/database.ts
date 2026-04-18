@@ -292,6 +292,9 @@ export type Database = {
           color: string | null
           click_goal: number | null
           click_goal_period: string | null
+          is_starred: boolean
+          is_rotator: boolean
+          rotator_slug: string | null
           created_at: string
           created_by: string
         }
@@ -303,6 +306,9 @@ export type Database = {
           color?: string | null
           click_goal?: number | null
           click_goal_period?: string | null
+          is_starred?: boolean
+          is_rotator?: boolean
+          rotator_slug?: string | null
           created_at?: string
           created_by: string
         }
@@ -314,6 +320,9 @@ export type Database = {
           color?: string | null
           click_goal?: number | null
           click_goal_period?: string | null
+          is_starred?: boolean
+          is_rotator?: boolean
+          rotator_slug?: string | null
           created_at?: string
           created_by?: string
         }
@@ -432,6 +441,7 @@ export type Database = {
           destination_url: string
           id: string
           is_active: boolean | null
+          is_favorite: boolean
           redirect_rules: Json | null
           slug: string
           team_id: string
@@ -447,6 +457,7 @@ export type Database = {
           destination_url: string
           id?: string
           is_active?: boolean | null
+          is_favorite?: boolean
           redirect_rules?: Json | null
           slug: string
           team_id: string
@@ -462,6 +473,7 @@ export type Database = {
           destination_url?: string
           id?: string
           is_active?: boolean | null
+          is_favorite?: boolean
           redirect_rules?: Json | null
           slug?: string
           team_id?: string
@@ -645,6 +657,7 @@ export type Database = {
           default_domain: string
           show_app_tap_to_continue: boolean
           show_branding: boolean
+          tiktok_browser_mode: string
           created_at: string
           updated_at: string
         }
@@ -656,6 +669,7 @@ export type Database = {
           default_domain?: string
           show_app_tap_to_continue?: boolean
           show_branding?: boolean
+          tiktok_browser_mode?: string
           created_at?: string
           updated_at?: string
         }
@@ -667,6 +681,7 @@ export type Database = {
           default_domain?: string
           show_app_tap_to_continue?: boolean
           show_branding?: boolean
+          tiktok_browser_mode?: string
           created_at?: string
           updated_at?: string
         }

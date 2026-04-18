@@ -6,19 +6,22 @@ import { useAnalytics } from "@/hooks/use-analytics";
 import { useTeam } from "@/hooks/use-team";
 import { useLinks } from "@/hooks/use-links";
 import { useCollections } from "@/hooks/use-collections";
+import { useBrainChats, type ChatMessage } from "@/hooks/use-brain-chats";
 import { Send, Sparkles, X, Minimize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-}
+type Message = ChatMessage;
 
 export function FloatingChat() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
+  // ID of the persisted Brain chat that mirrors this floating session.
+  // Null until the first assistant reply completes; then subsequent replies
+  // append to the same chat. "Clear" resets it so a fresh session starts a
+  // new Brain chat.
+  const [brainChatId, setBrainChatId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -27,6 +30,7 @@ export function FloatingChat() {
   const { links } = useLinks();
   const { collections } = useCollections();
   const { dailyClicks, geoData, deviceData, referrerData, topLinks, totalClicks } = useAnalytics("30d");
+  const { createChat, updateChat, canCreateChat } = useBrainChats();
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -74,6 +78,7 @@ export function FloatingChat() {
     setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
     abortRef.current = new AbortController();
+    let accumulated = "";
 
     try {
       const res = await fetch("/api/ai/chat", {
@@ -91,7 +96,6 @@ export function FloatingChat() {
 
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
-      let accumulated = "";
 
       while (reader) {
         const { done, value } = await reader.read();
@@ -116,6 +120,28 @@ export function FloatingChat() {
       }
     } finally {
       setStreaming(false);
+
+      // Persist the exchange as a Brain chat so it shows up in /dashboard/brain.
+      // First completed reply creates the chat; subsequent replies update it.
+      // Skip on aborts and empty replies. If the team is over the brain-chat
+      // limit, silently skip (no toast — this is a background save).
+      if (!abortRef.current?.signal.aborted && accumulated) {
+        const finalMessages: ChatMessage[] = [
+          ...newMessages,
+          { role: "assistant", content: accumulated },
+        ];
+
+        if (brainChatId) {
+          void updateChat(brainChatId, finalMessages);
+        } else if (canCreateChat) {
+          void createChat().then((newChat) => {
+            if (newChat) {
+              setBrainChatId(newChat.id);
+              updateChat(newChat.id, finalMessages);
+            }
+          });
+        }
+      }
     }
   };
 
@@ -163,6 +189,7 @@ export function FloatingChat() {
               onClick={() => {
                 abortRef.current?.abort();
                 setMessages([]);
+                setBrainChatId(null);
               }}
               className="text-[9px] font-black uppercase tracking-widest text-neutral-600 hover:text-white transition-colors"
             >

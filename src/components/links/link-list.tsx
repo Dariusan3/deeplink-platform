@@ -4,17 +4,20 @@ import { useState, useMemo } from "react";
 import { useLinks } from "@/hooks/use-links";
 import { useCollections } from "@/hooks/use-collections";
 import { LinkCard } from "./link-card";
-import { LinkToolbar, StatusFilter } from "./link-toolbar";
+import { LinkToolbar, StatusFilter, SortBy } from "./link-toolbar";
 import { Card } from "@/components/ui/card";
 import { Link as LinkIcon } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
 export function LinkList() {
-  const { links, loading, updateLink, deleteLink, resetClicks } = useLinks();
+  const { links, loading, updateLink, deleteLink, resetClicks, toggleFavorite } = useLinks();
   const { collections, moveLinksToCollection } = useCollections();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [sortBy, setSortBy] = useState<SortBy>("newest");
+  const [collectionFilter, setCollectionFilter] = useState<string | null>(null);
+  const [dateFilter, setDateFilter] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const filteredLinks = useMemo(() => {
@@ -25,6 +28,17 @@ export function LinkList() {
       result = result.filter((l) => l.is_active);
     } else if (statusFilter === "paused") {
       result = result.filter((l) => !l.is_active);
+    }
+
+    // Collection filter
+    if (collectionFilter) {
+      result = result.filter((l) => l.collection_id === collectionFilter);
+    }
+
+    // Date filter (older than)
+    if (dateFilter) {
+      const cutoff = new Date(dateFilter);
+      result = result.filter((l) => new Date(l.created_at) < cutoff);
     }
 
     // Search filter
@@ -38,8 +52,25 @@ export function LinkList() {
       );
     }
 
+    // Sort
+    result = [...result].sort((a, b) => {
+      switch (sortBy) {
+        case "oldest":
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        case "most-clicks":
+          return (b.click_count || 0) - (a.click_count || 0);
+        case "least-clicks":
+          return (a.click_count || 0) - (b.click_count || 0);
+        case "alpha":
+          return (a.title || a.slug).localeCompare(b.title || b.slug);
+        case "newest":
+        default:
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+    });
+
     return result;
-  }, [links, searchQuery, statusFilter]);
+  }, [links, searchQuery, statusFilter, sortBy, collectionFilter, dateFilter]);
 
   const allSelected = filteredLinks.length > 0 && filteredLinks.every((l) => selectedIds.has(l.id));
 
@@ -69,13 +100,20 @@ export function LinkList() {
     toast.success(`${count} link${count !== 1 ? "s" : ""} deleted`);
   };
 
-  const handleBulkArchive = async () => {
+  const handleBulkPause = async () => {
     const count = selectedIds.size;
     for (const id of selectedIds) {
       await updateLink(id, { is_active: false });
     }
     setSelectedIds(new Set());
     toast.success(`${count} link${count !== 1 ? "s" : ""} paused`);
+  };
+
+  const handleBulkCollection = async (collectionId: string | null) => {
+    const ids = Array.from(selectedIds);
+    await moveLinksToCollection(ids, collectionId);
+    setSelectedIds(new Set());
+    toast.success(`${ids.length} link${ids.length !== 1 ? "s" : ""} moved to collection`);
   };
 
   if (loading && links.length === 0) {
@@ -124,18 +162,26 @@ export function LinkList() {
         onSearchChange={setSearchQuery}
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
+        sortBy={sortBy}
+        onSortByChange={setSortBy}
+        collectionFilter={collectionFilter}
+        onCollectionFilterChange={setCollectionFilter}
+        dateFilter={dateFilter}
+        onDateFilterChange={setDateFilter}
         selectedCount={selectedIds.size}
         allSelected={allSelected}
         onSelectAll={handleSelectAll}
         onDeselectAll={handleDeselectAll}
         onBulkDelete={handleBulkDelete}
-        onBulkArchive={handleBulkArchive}
+        onBulkPause={handleBulkPause}
+        onBulkCollection={handleBulkCollection}
         totalCount={filteredLinks.length}
+        collections={collections.map((c) => ({ id: c.id, name: c.name }))}
       />
 
       {filteredLinks.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-sm font-bold text-neutral-500">No links match your search</p>
+          <p className="text-sm font-bold text-neutral-500">No links match your filters</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-6 pb-20">
@@ -146,6 +192,7 @@ export function LinkList() {
               onToggleActive={(id, active) => updateLink(id, { is_active: active })}
               onDelete={(id) => deleteLink(id)}
               onResetClicks={(id) => resetClicks(id)}
+              onToggleFavorite={(id, favorite) => toggleFavorite(id, favorite)}
               selected={selectedIds.has(link.id)}
               onToggleSelect={() => handleToggleSelect(link.id)}
               collections={collections.map((c) => ({ id: c.id, name: c.name }))}

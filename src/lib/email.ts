@@ -5,6 +5,16 @@ const resend = process.env.RESEND_API_KEY
   : null;
 
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "Tappr Alerts <alerts@tappr.me>";
+const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || "support@tappr.me";
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 export async function sendAnomalyEmail({
   to,
@@ -72,5 +82,171 @@ export async function sendAnomalyEmail({
     });
   } catch (err) {
     console.error("Failed to send anomaly email:", err);
+  }
+}
+
+export async function sendABWinnerEmail({
+  to,
+  teamName,
+  testName,
+  testSlug,
+  winnerName,
+  winnerUrl,
+  winnerVisits,
+  winnerConversions,
+  loserName,
+  loserVisits,
+  loserConversions,
+}: {
+  to: string;
+  teamName: string;
+  testName: string;
+  testSlug: string;
+  winnerName: string;
+  winnerUrl: string;
+  winnerVisits: number;
+  winnerConversions: number;
+  loserName: string;
+  loserVisits: number;
+  loserConversions: number;
+}) {
+  if (!resend) {
+    console.warn("RESEND_API_KEY not set — skipping A/B winner email");
+    return;
+  }
+
+  const winnerRate = winnerVisits > 0 ? (winnerConversions / winnerVisits) * 100 : 0;
+  const loserRate = loserVisits > 0 ? (loserConversions / loserVisits) * 100 : 0;
+  const lift = loserRate > 0 ? ((winnerRate - loserRate) / loserRate) * 100 : 0;
+  const testUrl = `https://tappr.me/${testSlug}`;
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; background: #000; color: #fff; border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);">
+      <div style="padding: 24px 24px 16px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 20px; font-weight: 900; color: #fff;">Ta<span style="color: #00D26A;">ppr</span></span>
+          <span style="font-size: 10px; font-weight: 800; color: #00D26A; background: rgba(0,210,106,0.1); padding: 2px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.1em;">A/B WINNER</span>
+        </div>
+        <p style="font-size: 11px; color: #666; margin: 4px 0 0; text-transform: uppercase; letter-spacing: 0.15em; font-weight: 700;">Team: ${teamName}</p>
+      </div>
+      <div style="padding: 20px 24px;">
+        <h2 style="font-size: 18px; font-weight: 900; color: #fff; margin: 0 0 4px;">${testName}</h2>
+        <p style="font-size: 13px; color: #999; margin: 0 0 20px;">Auto-optimization picked a winner. Your A/B test URL now routes 100% of traffic to it.</p>
+
+        <div style="background: rgba(0,210,106,0.08); border: 1px solid rgba(0,210,106,0.25); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+          <p style="font-size: 10px; color: #00D26A; text-transform: uppercase; letter-spacing: 0.15em; font-weight: 800; margin: 0 0 8px;">Winner — ${winnerName}</p>
+          <p style="font-size: 14px; color: #fff; margin: 0 0 12px; word-break: break-all; font-family: ui-monospace, monospace;">${winnerUrl}</p>
+          <div style="display: flex; gap: 16px;">
+            <div><p style="font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.1em; margin: 0;">Visits</p><p style="font-size: 14px; color: #fff; font-weight: 800; margin: 2px 0 0;">${winnerVisits.toLocaleString()}</p></div>
+            <div><p style="font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.1em; margin: 0;">Conversions</p><p style="font-size: 14px; color: #fff; font-weight: 800; margin: 2px 0 0;">${winnerConversions.toLocaleString()}</p></div>
+            <div><p style="font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.1em; margin: 0;">Conv. Rate</p><p style="font-size: 14px; color: #00D26A; font-weight: 800; margin: 2px 0 0;">${winnerRate.toFixed(2)}%</p></div>
+          </div>
+        </div>
+
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+          <p style="font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.15em; font-weight: 800; margin: 0 0 8px;">Loser — ${loserName}</p>
+          <div style="display: flex; gap: 16px;">
+            <div><p style="font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.1em; margin: 0;">Visits</p><p style="font-size: 14px; color: #999; font-weight: 800; margin: 2px 0 0;">${loserVisits.toLocaleString()}</p></div>
+            <div><p style="font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.1em; margin: 0;">Conversions</p><p style="font-size: 14px; color: #999; font-weight: 800; margin: 2px 0 0;">${loserConversions.toLocaleString()}</p></div>
+            <div><p style="font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.1em; margin: 0;">Conv. Rate</p><p style="font-size: 14px; color: #999; font-weight: 800; margin: 2px 0 0;">${loserRate.toFixed(2)}%</p></div>
+          </div>
+        </div>
+
+        ${lift > 0 ? `
+        <div style="background: rgba(0,210,106,0.05); border: 1px solid rgba(0,210,106,0.15); border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+          <p style="font-size: 13px; color: #00D26A; margin: 0; font-weight: 700;">+${lift.toFixed(0)}% lift over the losing variant</p>
+        </div>` : ""}
+
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 12px;">
+          <p style="font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 800; margin: 0 0 4px;">Put this on your CTA button</p>
+          <p style="font-size: 13px; color: #fff; margin: 0; font-family: ui-monospace, monospace;">${testUrl}</p>
+        </div>
+      </div>
+      <div style="padding: 16px 24px; border-top: 1px solid rgba(255,255,255,0.05); text-align: center;">
+        <a href="https://tappr.me/dashboard/ab-testing" style="display: inline-block; background: #00D26A; color: #000; font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em; padding: 10px 24px; border-radius: 8px; text-decoration: none;">View in Dashboard</a>
+      </div>
+      <div style="padding: 12px 24px; text-align: center;">
+        <p style="font-size: 10px; color: #444; margin: 0;">Tappr A/B Testing — Auto-optimized routing for your links</p>
+      </div>
+    </div>
+  `;
+
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to,
+      subject: `Winner picked: ${winnerName} — ${testName}`,
+      html,
+    });
+  } catch (err) {
+    console.error("Failed to send A/B winner email:", err);
+  }
+}
+
+export async function sendContactMessage({
+  name,
+  email,
+  subject,
+  message,
+  userId,
+  teamName,
+}: {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  userId?: string | null;
+  teamName?: string | null;
+}): Promise<{ ok: boolean; reason?: string }> {
+  if (!resend) {
+    console.warn("RESEND_API_KEY not set — can't send contact message");
+    return { ok: false, reason: "email_not_configured" };
+  }
+
+  const safeName = escapeHtml(name);
+  const safeEmail = escapeHtml(email);
+  const safeSubject = escapeHtml(subject || "(no subject)");
+  const safeMessage = escapeHtml(message).replace(/\n/g, "<br/>");
+  const meta = [
+    userId ? `User ID: ${escapeHtml(userId)}` : null,
+    teamName ? `Team: ${escapeHtml(teamName)}` : null,
+  ].filter(Boolean).join(" · ");
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; background: #000; color: #fff; border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);">
+      <div style="padding: 24px 24px 16px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 20px; font-weight: 900; color: #fff;">Ta<span style="color: #00D26A;">ppr</span></span>
+          <span style="font-size: 10px; font-weight: 800; color: #00D26A; background: rgba(0,210,106,0.1); padding: 2px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.1em;">CONTACT</span>
+        </div>
+        ${meta ? `<p style="font-size: 11px; color: #666; margin: 6px 0 0; font-weight: 600;">${meta}</p>` : ""}
+      </div>
+      <div style="padding: 20px 24px;">
+        <p style="font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.15em; font-weight: 800; margin: 0 0 4px;">From</p>
+        <p style="font-size: 14px; color: #fff; margin: 0 0 12px;">${safeName} &lt;${safeEmail}&gt;</p>
+
+        <p style="font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.15em; font-weight: 800; margin: 0 0 4px;">Subject</p>
+        <p style="font-size: 14px; color: #fff; margin: 0 0 16px;">${safeSubject}</p>
+
+        <p style="font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.15em; font-weight: 800; margin: 0 0 4px;">Message</p>
+        <div style="font-size: 14px; color: #ccc; line-height: 1.6; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 12px; white-space: pre-wrap;">${safeMessage}</div>
+      </div>
+    </div>
+  `;
+
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: SUPPORT_EMAIL,
+      // Use Reply-To so the support inbox can reply to the user directly,
+      // but keep the sender as our verified domain (deliverability).
+      replyTo: email,
+      subject: `[Contact] ${subject || "(no subject)"} — ${name}`,
+      html,
+    });
+    return { ok: true };
+  } catch (err) {
+    console.error("Failed to send contact message:", err);
+    return { ok: false, reason: "send_failed" };
   }
 }

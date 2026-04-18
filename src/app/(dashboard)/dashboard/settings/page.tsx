@@ -117,6 +117,7 @@ export default function SettingsPage() {
   const [defaultDomain, setDefaultDomain] = useState("");
   const [showAppTap, setShowAppTap] = useState(true);
   const [showBranding, setShowBranding] = useState(true);
+  const [tiktokBrowserMode, setTiktokBrowserMode] = useState("overlay");
 
   // Sync settings to local state
   useEffect(() => {
@@ -126,6 +127,7 @@ export default function SettingsPage() {
       setDefaultDomain(settings.default_domain);
       setShowAppTap(settings.show_app_tap_to_continue);
       setShowBranding(settings.show_branding);
+      setTiktokBrowserMode(settings.tiktok_browser_mode || "overlay");
     }
   }, [settings]);
 
@@ -177,6 +179,7 @@ export default function SettingsPage() {
       await updateSettings({
         show_app_tap_to_continue: showAppTap,
         show_branding: showBranding,
+        tiktok_browser_mode: tiktokBrowserMode,
       });
     } catch {}
     setSaving(false);
@@ -429,6 +432,79 @@ export default function SettingsPage() {
                           </p>
                         </div>
                         <Toggle checked={true} onChange={() => toast.error("Upgrade to Premium to disable branding")} premium disabled />
+                      </div>
+
+                      {/* TikTok Browser */}
+                      <div className="p-5 rounded-xl bg-white/[0.01] border border-white/5 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-pink-500/10 border border-pink-500/20 flex items-center justify-center">
+                              <svg className="w-4 h-4 text-pink-400" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1v-3.49a6.37 6.37 0 0 0-.79-.05A6.34 6.34 0 0 0 3.15 15.2a6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.34-6.34V8.73a8.19 8.19 0 0 0 4.76 1.52v-3.4a4.85 4.85 0 0 1-1-.16z"/>
+                              </svg>
+                            </div>
+                            <div>
+                              <p className="font-bold text-white text-sm">TikTok Browser</p>
+                              <p className="text-xs text-neutral-500 font-medium">
+                                Choose how links behave when opened inside the TikTok in-app browser
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <button
+                            type="button"
+                            onClick={() => setTiktokBrowserMode("overlay")}
+                            className={cn(
+                              "w-full flex items-start gap-3 p-3 rounded-xl border transition-all text-left",
+                              tiktokBrowserMode === "overlay"
+                                ? "bg-[#00D26A]/5 border-[#00D26A]/20"
+                                : "border-white/5 hover:border-white/10"
+                            )}
+                          >
+                            <div className={cn(
+                              "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5",
+                              tiktokBrowserMode === "overlay" ? "border-[#00D26A]" : "border-neutral-600"
+                            )}>
+                              {tiktokBrowserMode === "overlay" && (
+                                <div className="w-2.5 h-2.5 rounded-full bg-[#00D26A]" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-white">Show instructions to open in browser</p>
+                              <p className="text-[10px] text-neutral-500 mt-0.5">
+                                Show an overlay that guides users to tap ··· and open in their default browser
+                              </p>
+                            </div>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setTiktokBrowserMode("direct")}
+                            className={cn(
+                              "w-full flex items-start gap-3 p-3 rounded-xl border transition-all text-left",
+                              tiktokBrowserMode === "direct"
+                                ? "bg-[#00D26A]/5 border-[#00D26A]/20"
+                                : "border-white/5 hover:border-white/10"
+                            )}
+                          >
+                            <div className={cn(
+                              "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5",
+                              tiktokBrowserMode === "direct" ? "border-[#00D26A]" : "border-neutral-600"
+                            )}>
+                              {tiktokBrowserMode === "direct" && (
+                                <div className="w-2.5 h-2.5 rounded-full bg-[#00D26A]" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-white">Redirect directly to destination</p>
+                              <p className="text-[10px] text-neutral-500 mt-0.5">
+                                Skip the redirect page and go directly to the link&apos;s destination
+                              </p>
+                            </div>
+                          </button>
+                        </div>
                       </div>
 
                       <div className="flex justify-end">

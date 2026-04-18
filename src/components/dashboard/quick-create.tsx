@@ -1,23 +1,45 @@
 "use client";
 
 import { useState } from "react";
-import { Link as LinkIcon, Copy, Check, Settings2 } from "lucide-react";
+import { Link as LinkIcon, Copy, Check, Settings2, ChevronUp, FolderOpen, Target, Sparkles, StickyNote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLinks } from "@/hooks/use-links";
 import { useTeam } from "@/hooks/use-team";
+import { useCollections } from "@/hooks/use-collections";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 export function QuickCreate() {
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [createdSlug, setCreatedSlug] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Advanced fields
+  const [customSlug, setCustomSlug] = useState("");
+  const [title, setTitle] = useState("");
+  const [collectionId, setCollectionId] = useState<string | null>(null);
+  const [clickGoal, setClickGoal] = useState("");
+  const [clickGoalPeriod, setClickGoalPeriod] = useState("daily");
+
   const { createLink } = useLinks();
   const { activeTeam } = useTeam();
+  const { collections } = useCollections();
 
   const isValidUrl = (u: string) => /^https?:\/\/.+\..+/.test(u.trim());
+
+  const isOwnDomain = (u: string) => {
+    if (typeof window === "undefined") return false;
+    try {
+      return new URL(u.trim()).hostname === window.location.hostname;
+    } catch {
+      return false;
+    }
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,20 +51,27 @@ export function QuickCreate() {
       toast.error("Please enter a valid URL (e.g. https://example.com)");
       return;
     }
+    if (isOwnDomain(url)) {
+      toast.error("You can't shorten a link that already points to this platform.");
+      return;
+    }
 
     setLoading(true);
     try {
-      let title = "New Link";
-      try {
-        title = new URL(url).hostname.replace("www.", "");
-      } catch {}
+      let linkTitle = title.trim() || "New Link";
+      if (linkTitle === "New Link") {
+        try { linkTitle = new URL(url).hostname.replace("www.", ""); } catch {}
+      }
 
-      const slug = Math.random().toString(36).substring(2, 8);
+      const slug = customSlug.trim() || Math.random().toString(36).substring(2, 8);
       await createLink({
-        title,
+        title: linkTitle,
         destination_url: url,
         slug,
         is_active: true,
+        collection_id: collectionId || undefined,
+        click_goal: clickGoal ? Number(clickGoal) : undefined,
+        click_goal_period: clickGoal ? clickGoalPeriod : undefined,
       });
 
       setCreatedSlug(slug);
@@ -52,6 +81,11 @@ export function QuickCreate() {
       setTimeout(() => {
         setCreatedSlug(null);
         setUrl("");
+        setCustomSlug("");
+        setTitle("");
+        setCollectionId(null);
+        setClickGoal("");
+        setShowAdvanced(false);
       }, 5000);
     } catch (error: any) {
       toast.error(error.message || "Failed to create link");
@@ -125,13 +159,16 @@ export function QuickCreate() {
             <Button
               type="button"
               variant="ghost"
-              className="shrink-0 h-12 w-12 rounded-xl bg-white/[0.03] border border-white/10 hover:bg-white/[0.06] text-neutral-400 hover:text-white"
-              onClick={() => {
-                window.location.href = "/dashboard/links";
-              }}
+              className={cn(
+                "shrink-0 h-12 w-12 rounded-xl border transition-all",
+                showAdvanced
+                  ? "bg-[#00D26A]/10 border-[#00D26A]/20 text-[#00D26A]"
+                  : "bg-white/[0.03] border-white/10 text-neutral-400 hover:text-white hover:bg-white/[0.06]"
+              )}
+              onClick={() => setShowAdvanced(!showAdvanced)}
               title="Advanced options"
             >
-              <Settings2 className="w-5 h-5" />
+              {showAdvanced ? <ChevronUp className="w-5 h-5" /> : <Settings2 className="w-5 h-5" />}
             </Button>
             <Button
               type="submit"
@@ -141,6 +178,73 @@ export function QuickCreate() {
               {loading ? "Creating..." : "Create Link"}
             </Button>
           </form>
+        )}
+
+        {/* Advanced Options Panel */}
+        {!createdSlug && showAdvanced && (
+          <div className="mt-4 pt-4 border-t border-white/5 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-[9px] font-black uppercase tracking-widest text-neutral-500 flex items-center gap-1">
+                <StickyNote className="w-2.5 h-2.5 text-[#00D26A]" /> Title
+              </Label>
+              <Input
+                placeholder="My Link"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="h-9 bg-white/[0.03] border-white/10 rounded-lg text-xs"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[9px] font-black uppercase tracking-widest text-neutral-500 flex items-center gap-1">
+                <Sparkles className="w-2.5 h-2.5 text-[#00D26A]" /> Custom Slug
+              </Label>
+              <Input
+                placeholder="my-promo"
+                value={customSlug}
+                onChange={(e) => setCustomSlug(e.target.value)}
+                className="h-9 bg-white/[0.03] border-white/10 rounded-lg text-xs"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[9px] font-black uppercase tracking-widest text-neutral-500 flex items-center gap-1">
+                <FolderOpen className="w-2.5 h-2.5 text-[#00D26A]" /> Collection
+              </Label>
+              <select
+                value={collectionId || ""}
+                onChange={(e) => setCollectionId(e.target.value || null)}
+                className="w-full h-9 px-2 rounded-lg bg-white/[0.03] border border-white/10 text-white text-xs outline-none focus:border-[#00D26A]/50 appearance-none cursor-pointer"
+              >
+                <option value="" className="bg-neutral-900">None</option>
+                {collections.map((col) => (
+                  <option key={col.id} value={col.id} className="bg-neutral-900">{col.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[9px] font-black uppercase tracking-widest text-neutral-500 flex items-center gap-1">
+                <Target className="w-2.5 h-2.5 text-[#00D26A]" /> Click Goal
+              </Label>
+              <div className="flex gap-1.5">
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="100"
+                  value={clickGoal}
+                  onChange={(e) => setClickGoal(e.target.value)}
+                  className="h-9 bg-white/[0.03] border-white/10 rounded-lg text-xs w-16"
+                />
+                <select
+                  value={clickGoalPeriod}
+                  onChange={(e) => setClickGoalPeriod(e.target.value)}
+                  className="h-9 px-1.5 rounded-lg bg-white/[0.03] border border-white/10 text-white text-[10px] outline-none focus:border-[#00D26A]/50 appearance-none cursor-pointer"
+                >
+                  <option value="daily" className="bg-neutral-900">/day</option>
+                  <option value="weekly" className="bg-neutral-900">/week</option>
+                  <option value="monthly" className="bg-neutral-900">/mo</option>
+                </select>
+              </div>
+            </div>
+          </div>
         )}
       </CardContent>
     </Card>

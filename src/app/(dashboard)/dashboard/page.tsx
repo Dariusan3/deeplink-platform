@@ -9,7 +9,6 @@ import { ClickChart } from "@/components/dashboard/click-chart";
 import { QuickCreate } from "@/components/dashboard/quick-create";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { DashboardLinks } from "@/components/dashboard/dashboard-links";
-import { IgFunnel } from "@/components/dashboard/ig-funnel";
 import { RealtimeAlerts } from "@/components/dashboard/realtime-alerts";
 import { Link as LinkIcon, MousePointer2, Users, TrendingUp } from "lucide-react";
 
@@ -112,8 +111,7 @@ export default function DashboardPage() {
           <div className="lg:col-span-2">
             <ClickChart dailyCounts={dailyCounts} loading={statsLoading} />
           </div>
-          <div className="lg:col-span-1 space-y-6">
-            <IgFunnel />
+          <div className="lg:col-span-1">
             <RecentActivity recentClicks={recentClicks} loading={statsLoading} />
           </div>
         </div>

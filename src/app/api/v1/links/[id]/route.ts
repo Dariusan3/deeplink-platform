@@ -44,11 +44,18 @@ export async function PATCH(
   }
 
   if (body.destination_url) {
+    let destHost: string;
     try {
-      new URL(body.destination_url);
+      destHost = new URL(body.destination_url).hostname;
     } catch {
       return Response.json(
         { error: "destination_url must be a valid URL" },
+        { status: 400 }
+      );
+    }
+    if (destHost === request.nextUrl.hostname) {
+      return Response.json(
+        { error: "destination_url cannot point to this platform" },
         { status: 400 }
       );
     }

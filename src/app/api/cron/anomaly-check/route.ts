@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Groq from "groq-sdk";
 import { sendAnomalyEmail } from "@/lib/email";
+import { finalizeABWinnerIfReady } from "@/lib/ab-testing";
 
 // Uses service role key — this route is called by a cron scheduler, not a browser
 const supabase = createClient(
@@ -18,6 +19,41 @@ interface DetectedAnomaly {
   change_percent?: number;
 }
 
+function extractHostname(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const match = url.match(/^https?:\/\/([^/?#:]+)/i);
+  if (!match) return null;
+  return match[1].toLowerCase().replace(/^www\./, "");
+}
+
+function getGoalPeriodStart(period: string, ref: Date): Date {
+  if (period === "weekly") {
+    const d = new Date(ref);
+    const day = d.getDay(); // 0 = Sunday
+    const diff = day === 0 ? -6 : 1 - day; // ISO week starts Monday
+    d.setDate(d.getDate() + diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+  if (period === "monthly") {
+    return new Date(ref.getFullYear(), ref.getMonth(), 1);
+  }
+  // daily (default)
+  return new Date(ref.getFullYear(), ref.getMonth(), ref.getDate());
+}
+
+function getGoalPeriodEnd(period: string, ref: Date): Date {
+  if (period === "weekly") {
+    const start = getGoalPeriodStart("weekly", ref);
+    return new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
+  }
+  if (period === "monthly") {
+    return new Date(ref.getFullYear(), ref.getMonth() + 1, 1);
+  }
+  const start = getGoalPeriodStart("daily", ref);
+  return new Date(start.getTime() + 24 * 60 * 60 * 1000);
+}
+
 export async function GET(request: NextRequest) {
   // Verify cron secret to prevent unauthorized access
   const authHeader = request.headers.get("authorization");
@@ -29,6 +65,7 @@ export async function GET(request: NextRequest) {
   const now = new Date();
   const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
   const fourHoursAgo = new Date(now.getTime() - 4 * 60 * 60 * 1000);
+  const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
   // Get all teams with active links
@@ -121,6 +158,119 @@ export async function GET(request: NextRequest) {
         });
       }
     }
+
+    // Detect "Paused Link Still Trafficked" — a paused link still receives
+    // clicks, usually because old posts/bookmarks link to it. User should
+    // either re-activate or add a redirect rule to the new destination.
+    const { data: pausedLinks } = await supabase
+      .from("links")
+      .select("id, slug, title")
+      .eq("team_id", team.id)
+      .eq("is_active", false);
+
+    if (pausedLinks && pausedLinks.length > 0) {
+      for (const link of pausedLinks) {
+        const { count: pausedClicks } = await supabase
+          .from("link_clicks")
+          .select("*", { count: "exact", head: true })
+          .eq("link_id", link.id)
+          .gte("clicked_at", oneDayAgo.toISOString());
+
+        if ((pausedClicks ?? 0) >= 20) {
+          allAnomalies.push({
+            team_id: team.id,
+            severity: "low",
+            title: "Paused Link Still Trafficked",
+            description: `"${link.title || link.slug}" is paused but received ${pausedClicks} clicks in the last 24h. Old posts or bookmarks still point to it — consider re-activating with a new destination or a redirect rule.`,
+            affected_link: link.slug,
+          });
+        }
+      }
+    }
+
+    // Detect "Traffic Concentration Risk" — a single referrer driving >70%
+    // of a link's clicks. Dangerous dependency: if that source dies, traffic
+    // vanishes. Only checks top links with ≥100 clicks over 7 days so we
+    // don't alert on small-volume noise.
+    for (const link of topLinks) {
+      const { data: recentClicks } = await supabase
+        .from("link_clicks")
+        .select("referer")
+        .eq("link_id", link.id)
+        .gte("clicked_at", sevenDaysAgo.toISOString());
+
+      if (!recentClicks || recentClicks.length < 100) continue;
+
+      const referrerCounts = new Map<string, number>();
+      for (const c of recentClicks) {
+        const host = extractHostname(c.referer as string | null) || "direct";
+        referrerCounts.set(host, (referrerCounts.get(host) || 0) + 1);
+      }
+
+      const sorted = [...referrerCounts.entries()].sort((a, b) => b[1] - a[1]);
+      const [topHost, topCount] = sorted[0];
+      const share = topCount / recentClicks.length;
+
+      // Ignore "direct" — direct traffic isn't a single-source dependency,
+      // it's many sources summed under the no-referer bucket.
+      if (share > 0.7 && topHost !== "direct") {
+        allAnomalies.push({
+          team_id: team.id,
+          severity: "medium",
+          title: "Traffic Concentration Risk",
+          description: `"${link.title || link.slug}" gets ${(share * 100).toFixed(0)}% of its clicks from ${topHost}. If that source goes down, you lose most of your traffic — diversify.`,
+          affected_link: link.slug,
+          change_percent: share * 100,
+        });
+      }
+    }
+
+    // Detect "Goal Miss Risk" — proactive: partway through a goal period
+    // but pace is low enough that the projected total will miss the goal
+    // by ≥30%. Only fires after >50% of the period has elapsed so we don't
+    // spam the user first thing in the morning.
+    const { data: goalLinks } = await supabase
+      .from("links")
+      .select("id, slug, title, click_goal, click_goal_period")
+      .eq("team_id", team.id)
+      .eq("is_active", true)
+      .not("click_goal", "is", null)
+      .gt("click_goal", 0);
+
+    if (goalLinks) {
+      for (const link of goalLinks) {
+        const period = link.click_goal_period || "daily";
+        const periodStart = getGoalPeriodStart(period, now);
+        const periodEnd = getGoalPeriodEnd(period, now);
+        const totalMs = periodEnd.getTime() - periodStart.getTime();
+        const elapsedMs = now.getTime() - periodStart.getTime();
+        const elapsedPct = elapsedMs / totalMs;
+
+        if (elapsedPct < 0.5) continue;
+
+        const { count: actualClicks } = await supabase
+          .from("link_clicks")
+          .select("*", { count: "exact", head: true })
+          .eq("link_id", link.id)
+          .gte("clicked_at", periodStart.toISOString());
+
+        const actual = actualClicks ?? 0;
+        const projected = Math.round(actual / elapsedPct);
+        const goal = link.click_goal as number;
+
+        if (projected < goal * 0.7) {
+          const shortfallPct = Math.round((1 - projected / goal) * 100);
+          allAnomalies.push({
+            team_id: team.id,
+            severity: "medium",
+            title: "Goal Miss Risk",
+            description: `"${link.title || link.slug}" is at ${actual}/${goal} ${period} clicks with ${Math.round(elapsedPct * 100)}% of the period elapsed. At current pace you'll hit ~${projected} — ${shortfallPct}% short of goal.`,
+            affected_link: link.slug,
+            change_percent: -shortfallPct,
+          });
+        }
+      }
+    }
   }
 
   if (allAnomalies.length === 0) {
@@ -163,15 +313,25 @@ Reply with only the JSON, no other text.`;
     }
   }
 
-  // Deduplicate: don't insert if same team+title exists in last 4 hours
+  // Deduplicate: don't insert if same team+title+affected_link exists in
+  // last 4 hours. Keying on affected_link lets alerts for different links
+  // sharing a title (e.g. "Goal Miss Risk" for 3 different links) coexist.
   const insertAnomalies = [];
   for (const anomaly of allAnomalies) {
-    const { count } = await supabase
+    const dedupQuery = supabase
       .from("anomaly_alerts")
       .select("*", { count: "exact", head: true })
       .eq("team_id", anomaly.team_id)
       .eq("title", anomaly.title)
       .gte("created_at", fourHoursAgo.toISOString());
+
+    if (anomaly.affected_link) {
+      dedupQuery.eq("affected_link", anomaly.affected_link);
+    } else {
+      dedupQuery.is("affected_link", null);
+    }
+
+    const { count } = await dedupQuery;
 
     if ((count ?? 0) === 0) {
       insertAnomalies.push({
@@ -233,9 +393,33 @@ Reply with only the JSON, no other text.`;
     }
   }
 
+  // Finalize A/B test winners that already met the threshold but never had
+  // a visit to trigger the in-request check. Piggybacks on this cron since
+  // Vercel Hobby caps us to 1 daily cron.
+  const { data: runningTests } = await supabase
+    .from("ab_tests")
+    .select(
+      "id, team_id, name, slug, status, variant_a_name, variant_a_url, variant_a_visits, variant_a_conversions, variant_b_name, variant_b_url, variant_b_visits, variant_b_conversions, auto_optimize, min_conversions, threshold_percent, winner"
+    )
+    .eq("status", "running")
+    .eq("auto_optimize", true)
+    .is("winner", null);
+
+  let abWinners = 0;
+  if (runningTests) {
+    for (const test of runningTests) {
+      const winner = await finalizeABWinnerIfReady(supabase, test).catch((err) => {
+        console.error(`A/B finalize failed for ${test.id}:`, err);
+        return null;
+      });
+      if (winner) abWinners++;
+    }
+  }
+
   return NextResponse.json({
     checked: teams.length,
     detected: allAnomalies.length,
     saved: insertAnomalies.length,
+    ab_winners_finalized: abWinners,
   });
 }

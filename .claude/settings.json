@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(/usr/local/bin/npx tsc *)",
+      "Read(//Users/osadicidarius/.nvm/versions/node/**)",
+      "Read(//opt/homebrew/bin/**)",
+      "Bash(command -v asdf fnm)",
+      "Bash(/opt/homebrew/bin/node /opt/homebrew/bin/npx tsc --noEmit)",
+      "Bash(export PATH=\"/opt/homebrew/bin:$PATH\")",
+      "Bash(node_modules/.bin/tsc --noEmit)"
+    ]
+  }
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Link as LinkIcon, Sparkles } from "lucide-react";
+import { Plus, Link as LinkIcon, Sparkles, Settings2, ChevronDown, ChevronUp, Globe, FolderOpen, StickyNote, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,7 +15,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useLinks } from "@/hooks/use-links";
 import { useTeam } from "@/hooks/use-team";
+import { useCollections } from "@/hooks/use-collections";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 export function CreateLinkDialog() {
   const [open, setOpen] = useState(false);
@@ -23,8 +25,18 @@ export function CreateLinkDialog() {
   const [title, setTitle] = useState("");
   const [destinationUrl, setDestinationUrl] = useState("");
   const [slug, setSlug] = useState("");
+
+  // Advanced options
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [collectionId, setCollectionId] = useState<string | null>(null);
+  const [clickGoal, setClickGoal] = useState("");
+  const [clickGoalPeriod, setClickGoalPeriod] = useState("daily");
+  const [notes, setNotes] = useState("");
+  const [isActive, setIsActive] = useState(true);
+
   const { createLink } = useLinks();
   const { activeTeam, loading: teamLoading } = useTeam();
+  const { collections } = useCollections();
 
   const handleGenerateSlug = () => {
     const newSlug = Math.random().toString(36).substring(2, 8);
@@ -34,6 +46,15 @@ export function CreateLinkDialog() {
 
   const isValidUrl = (url: string) => {
     return /^https?:\/\/.+\..+/.test(url.trim());
+  };
+
+  const isOwnDomain = (url: string) => {
+    if (typeof window === "undefined") return false;
+    try {
+      return new URL(url.trim()).hostname === window.location.hostname;
+    } catch {
+      return false;
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,6 +67,10 @@ export function CreateLinkDialog() {
       toast.error("Please enter a valid URL (e.g. https://example.com)");
       return;
     }
+    if (isOwnDomain(destinationUrl)) {
+      toast.error("You can't shorten a link that already points to this platform.");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -54,7 +79,10 @@ export function CreateLinkDialog() {
         title: title || "New Link",
         destination_url: destinationUrl,
         slug: finalSlug,
-        is_active: true,
+        is_active: isActive,
+        collection_id: collectionId || undefined,
+        click_goal: clickGoal ? Number(clickGoal) : undefined,
+        click_goal_period: clickGoal ? clickGoalPeriod : undefined,
       });
       toast.success("Deeplink created successfully!");
       setOpen(false);
@@ -72,10 +100,16 @@ export function CreateLinkDialog() {
     setTitle("");
     setDestinationUrl("");
     setSlug("");
+    setCollectionId(null);
+    setClickGoal("");
+    setClickGoalPeriod("daily");
+    setNotes("");
+    setIsActive(true);
+    setShowAdvanced(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
       <DialogTrigger
         id="create-link-dialog-trigger"
         render={
@@ -85,7 +119,7 @@ export function CreateLinkDialog() {
           </Button>
         }
       />
-      <DialogContent className="glass-card bg-black/90 border-white/5 shadow-[0_0_50px_rgba(0,210,106,0.1)] text-white sm:max-w-[425px]">
+      <DialogContent className="glass-card bg-black/90 border-white/5 shadow-[0_0_50px_rgba(0,210,106,0.1)] text-white sm:max-w-[480px] max-h-[90vh] overflow-y-auto scrollbar-none">
         <DialogHeader>
           <DialogTitle className="text-2xl font-black tracking-tight flex items-center gap-2">
             <div className="p-2 rounded-lg bg-[#00D26A]/10 text-[#00D26A]">
@@ -94,7 +128,7 @@ export function CreateLinkDialog() {
             Generate New Link
           </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-6 py-4">
+        <form onSubmit={handleSubmit} className="space-y-5 py-4">
           <div className="space-y-2">
             <Label htmlFor="title" className="text-[10px] font-black uppercase tracking-widest text-[#00D26A]">
               Title (Internal)
@@ -145,7 +179,106 @@ export function CreateLinkDialog() {
               Example: dplnk.co/<span className="text-[#00D26A]">{slug || "magic-slug"}</span>
             </p>
           </div>
-          <DialogFooter className="pt-4">
+
+          {/* Advanced Options Toggle */}
+          <button
+            type="button"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="flex items-center gap-2 w-full py-2.5 text-xs font-black uppercase tracking-widest text-neutral-500 hover:text-white transition-colors"
+          >
+            <Settings2 className="w-4 h-4" />
+            Advanced Options
+            {showAdvanced ? <ChevronUp className="w-3.5 h-3.5 ml-auto" /> : <ChevronDown className="w-3.5 h-3.5 ml-auto" />}
+          </button>
+
+          {showAdvanced && (
+            <div className="space-y-4 pt-1 border-t border-white/5">
+              {/* Collection */}
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500 flex items-center gap-1.5">
+                  <FolderOpen className="w-3 h-3 text-[#00D26A]" /> Collection
+                </Label>
+                <select
+                  value={collectionId || ""}
+                  onChange={(e) => setCollectionId(e.target.value || null)}
+                  className="w-full h-10 px-3 rounded-xl bg-white/[0.03] border border-white/10 text-white text-xs font-medium outline-none focus:border-[#00D26A]/50 appearance-none cursor-pointer"
+                >
+                  <option value="" className="bg-neutral-900">No collection</option>
+                  {collections.map((col) => (
+                    <option key={col.id} value={col.id} className="bg-neutral-900">{col.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Click Goal */}
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500 flex items-center gap-1.5">
+                  <Target className="w-3 h-3 text-[#00D26A]" /> Click Goal
+                </Label>
+                <div className="flex items-center gap-3">
+                  <Input
+                    type="number"
+                    min={0}
+                    placeholder="e.g. 100"
+                    className="bg-white/[0.03] border-white/10 rounded-xl h-10 text-sm w-28"
+                    value={clickGoal}
+                    onChange={(e) => setClickGoal(e.target.value)}
+                  />
+                  <span className="text-xs text-neutral-500 font-bold">clicks per</span>
+                  <select
+                    value={clickGoalPeriod}
+                    onChange={(e) => setClickGoalPeriod(e.target.value)}
+                    className="h-10 px-3 rounded-xl bg-white/[0.03] border border-white/10 text-white text-xs font-medium outline-none focus:border-[#00D26A]/50 appearance-none cursor-pointer"
+                  >
+                    <option value="daily" className="bg-neutral-900">Day</option>
+                    <option value="weekly" className="bg-neutral-900">Week</option>
+                    <option value="monthly" className="bg-neutral-900">Month</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Internal Note */}
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500 flex items-center gap-1.5">
+                  <StickyNote className="w-3 h-3 text-[#00D26A]" /> Internal Note
+                </Label>
+                <Input
+                  placeholder="(not visible to visitors)"
+                  className="bg-white/[0.03] border-white/10 rounded-xl h-10 text-sm"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                />
+              </div>
+
+              {/* Start paused */}
+              <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5">
+                <div>
+                  <p className="text-xs font-bold text-white">Start Active</p>
+                  <p className="text-[9px] text-neutral-500">Turn off to create as paused</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsActive(!isActive)}
+                  className={cn(
+                    "w-10 h-5 rounded-full transition-all",
+                    isActive ? "bg-[#00D26A]" : "bg-white/10"
+                  )}
+                >
+                  <div className={cn(
+                    "w-4 h-4 rounded-full bg-white transition-all mx-0.5",
+                    isActive ? "translate-x-5" : "translate-x-0"
+                  )} />
+                </button>
+              </div>
+
+              <p className="text-[9px] text-neutral-600 flex items-center gap-1.5">
+                <Globe className="w-3 h-3" />
+                You can add smart routing rules (geo, device, time) after creating the link.
+              </p>
+            </div>
+          )}
+
+          <DialogFooter className="pt-2">
             <Button
               type="submit"
               disabled={loading || !activeTeam || teamLoading}

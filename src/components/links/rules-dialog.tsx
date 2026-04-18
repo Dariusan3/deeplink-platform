@@ -16,6 +16,8 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link, RedirectRule } from "@/types/links";
 import { useLinks } from "@/hooks/use-links";
+import { DateTimePicker } from "@/components/ui/date-picker";
+import { CountryMultiSelect } from "@/components/ui/country-multiselect";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -111,6 +113,10 @@ export function RulesDialog({ link, trigger, open: controlledOpen, onOpenChange:
         }
       }
 
+      const now = new Date();
+      // Load the originally-persisted rules once so we can distinguish an
+      // already-expired rule from one the user has just edited into the past.
+      const originalRules = (link.redirect_rules as unknown as RedirectRule[]) || [];
       for (const rule of rules) {
         const hasTimeStart = !!rule.conditions.time?.after;
         const hasTimeEnd = !!rule.conditions.time?.before;
@@ -118,7 +124,22 @@ export function RulesDialog({ link, trigger, open: controlledOpen, onOpenChange:
           if (!hasTimeStart || !hasTimeEnd) {
             throw new Error(`Rule #${rule.priority}: Both Start and End dates are required for date range.`);
           }
-          if (new Date(rule.conditions.time!.after!) >= new Date(rule.conditions.time!.before!)) {
+          const start = new Date(rule.conditions.time!.after!);
+          const end = new Date(rule.conditions.time!.before!);
+          const orig = originalRules[rule.priority - 1];
+          const startUnchanged = orig?.conditions?.time?.after === rule.conditions.time!.after;
+          const endUnchanged = orig?.conditions?.time?.before === rule.conditions.time!.before;
+
+          // Only reject past dates when the user touched them. Existing
+          // expired rules stay editable — otherwise re-opening the dialog
+          // on an old rule would block saves for unrelated changes.
+          if (!startUnchanged && start.getTime() < now.getTime() - 60_000) {
+            throw new Error(`Rule #${rule.priority}: Start date cannot be in the past.`);
+          }
+          if (!endUnchanged && end.getTime() < now.getTime()) {
+            throw new Error(`Rule #${rule.priority}: End date cannot be in the past.`);
+          }
+          if (start >= end) {
             throw new Error(`Rule #${rule.priority}: Start date must be earlier than End date.`);
           }
         }
@@ -242,16 +263,14 @@ export function RulesDialog({ link, trigger, open: controlledOpen, onOpenChange:
                         <Label className="text-[9px] font-black uppercase tracking-widest text-neutral-500 flex items-center gap-2">
                           <Globe className="w-3 h-3 text-[#00D26A]" /> Country
                         </Label>
-                        <Input
-                          placeholder="e.g. US, RO, GB, DE"
-                          className="bg-white/3 border-white/5 rounded-xl h-10 text-xs"
-                          value={rule.conditions.geo?.countries?.join(", ") || ""}
-                          onChange={(e) => {
-                            const countries = e.target.value.split(",").map(c => c.trim().toUpperCase()).filter(c => c.length > 0);
+                        <CountryMultiSelect
+                          value={rule.conditions.geo?.countries || []}
+                          onChange={(countries) =>
                             handleUpdateRule(idx, {
-                              conditions: { ...rule.conditions, geo: { countries } }
-                            });
-                          }}
+                              conditions: { ...rule.conditions, geo: { countries } },
+                            })
+                          }
+                          placeholder="Any country"
                         />
                       </div>
 
@@ -382,36 +401,55 @@ export function RulesDialog({ link, trigger, open: controlledOpen, onOpenChange:
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
                           <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest">Start</span>
-                          <Input
-                            type="datetime-local"
-                            className="bg-white/3 border-white/5 rounded-xl h-10 text-[11px] font-mono"
-                            value={toLocalValue(rule.conditions.time?.after)}
-                            onChange={(e) => {
-                              const dateVal = e.target.value ? new Date(e.target.value).toISOString() : undefined;
+                          <DateTimePicker
+                            value={rule.conditions.time?.after || ""}
+                            onChange={(iso) => {
+                              // If the new start pushes past the existing end, clear end
+                              // so the user can re-pick — avoids saving an invalid range.
+                              const currentEnd = rule.conditions.time?.before;
+                              const endInvalid =
+                                iso && currentEnd && new Date(iso) >= new Date(currentEnd);
                               handleUpdateRule(idx, {
                                 conditions: {
                                   ...rule.conditions,
-                                  time: { ...rule.conditions.time, after: dateVal }
-                                }
+                                  time: {
+                                    ...rule.conditions.time,
+                                    after: iso || undefined,
+                                    before: endInvalid ? undefined : currentEnd,
+                                  },
+                                },
                               });
                             }}
+                            placeholder="Start date & time"
+                            minDate={new Date()}
                           />
                         </div>
                         <div className="space-y-1">
                           <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest">End</span>
-                          <Input
-                            type="datetime-local"
-                            className="bg-white/3 border-white/5 rounded-xl h-10 text-[11px] font-mono"
-                            value={toLocalValue(rule.conditions.time?.before)}
-                            onChange={(e) => {
-                              const dateVal = e.target.value ? new Date(e.target.value).toISOString() : undefined;
+                          <DateTimePicker
+                            value={rule.conditions.time?.before || ""}
+                            onChange={(iso) => {
                               handleUpdateRule(idx, {
                                 conditions: {
                                   ...rule.conditions,
-                                  time: { ...rule.conditions.time, before: dateVal }
+                                  time: { ...rule.conditions.time, before: iso || undefined }
                                 }
                               });
                             }}
+                            placeholder="End date & time"
+                            // End can't be in the past AND must be after start.
+                            // Picker itself adds a 1-minute buffer over start so
+                            // same-minute picks don't fail the <= check below.
+                            minDate={(() => {
+                              const now = new Date();
+                              const start = rule.conditions.time?.after
+                                ? new Date(rule.conditions.time.after)
+                                : null;
+                              if (!start) return now;
+                              return start > now
+                                ? new Date(start.getTime() + 60_000)
+                                : now;
+                            })()}
                           />
                         </div>
                       </div>

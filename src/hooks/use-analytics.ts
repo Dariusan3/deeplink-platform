@@ -31,6 +31,16 @@ export interface TopLinkData {
   count: number;
 }
 
+export interface BrowserData {
+  browser: string;
+  count: number;
+}
+
+export interface HourlyData {
+  hour: number;
+  count: number;
+}
+
 type TimeRange = "7d" | "14d" | "30d" | "90d" | "all";
 
 export function useAnalytics(timeRange: TimeRange = "30d", collectionId?: string | null) {
@@ -41,6 +51,8 @@ export function useAnalytics(timeRange: TimeRange = "30d", collectionId?: string
   const [deviceData, setDeviceData] = useState<DeviceData[]>([]);
   const [referrerData, setReferrerData] = useState<ReferrerData[]>([]);
   const [topLinks, setTopLinks] = useState<TopLinkData[]>([]);
+  const [browserData, setBrowserData] = useState<BrowserData[]>([]);
+  const [hourlyData, setHourlyData] = useState<HourlyData[]>([]);
   const [totalClicks, setTotalClicks] = useState(0);
   const [loading, setLoading] = useState(true);
   const supabase = useMemo(() => createClient(), []);
@@ -67,7 +79,7 @@ export function useAnalytics(timeRange: TimeRange = "30d", collectionId?: string
     setLoading(true);
     let query = supabase
       .from("link_clicks")
-      .select("clicked_at, country, device_type, referer, link_id")
+      .select("clicked_at, country, device_type, referer, link_id, user_agent")
       .in("link_id", linkIds);
 
     if (timeRange !== "all") {
@@ -86,7 +98,7 @@ export function useAnalytics(timeRange: TimeRange = "30d", collectionId?: string
       return;
     }
 
-    const clicks = (data || []) as { clicked_at: string; country: string | null; device_type: string | null; referer: string | null; link_id: string }[];
+    const clicks = (data || []) as { clicked_at: string; country: string | null; device_type: string | null; referer: string | null; link_id: string; user_agent: string | null }[];
     setTotalClicks(clicks.length);
 
     // Daily clicks
@@ -178,6 +190,41 @@ export function useAnalytics(timeRange: TimeRange = "30d", collectionId?: string
       .slice(0, 10);
     setTopLinks(topArr);
 
+    // Browsers
+    const byBrowser: Record<string, number> = {};
+    clicks.forEach((c) => {
+      const ua = c.user_agent || "";
+      let browser = "Other";
+      if (ua.includes("Instagram")) browser = "Instagram";
+      else if (ua.includes("Edg")) browser = "Edge";
+      else if (ua.includes("Chrome") && !ua.includes("Edg")) browser = "Chrome";
+      else if (ua.includes("Safari") && !ua.includes("Chrome")) browser = "Safari";
+      else if (ua.includes("Firefox")) browser = "Firefox";
+      else if (ua.includes("Opera") || ua.includes("OPR")) browser = "Opera";
+      else if (ua.includes("Google")) browser = "Google App";
+      else if (ua.includes("FBAN") || ua.includes("FBAV")) browser = "Facebook";
+      else if (ua.includes("Snapchat")) browser = "Snapchat";
+      else if (ua.includes("Twitter")) browser = "Twitter/X";
+      else if (ua.includes("TikTok")) browser = "TikTok";
+      byBrowser[browser] = (byBrowser[browser] || 0) + 1;
+    });
+    const browserArr = Object.entries(byBrowser)
+      .map(([browser, count]) => ({ browser, count }))
+      .sort((a, b) => b.count - a.count);
+    setBrowserData(browserArr);
+
+    // Hourly distribution (peak traffic hours)
+    const byHour: Record<number, number> = {};
+    for (let h = 0; h < 24; h++) byHour[h] = 0;
+    clicks.forEach((c) => {
+      const hour = new Date(c.clicked_at).getHours();
+      byHour[hour] = (byHour[hour] || 0) + 1;
+    });
+    const hourlyArr = Object.entries(byHour)
+      .map(([h, count]) => ({ hour: Number(h), count }))
+      .sort((a, b) => a.hour - b.hour);
+    setHourlyData(hourlyArr);
+
     setLoading(false);
   }, [links, timeRange, collectionId, supabase]);
 
@@ -189,6 +236,8 @@ export function useAnalytics(timeRange: TimeRange = "30d", collectionId?: string
     dailyClicks,
     geoData,
     deviceData,
+    browserData,
+    hourlyData,
     referrerData,
     topLinks,
     totalClicks,

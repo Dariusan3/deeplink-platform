@@ -135,6 +135,23 @@ export function useLinks() {
     toast.success("Link decommissioned successfully");
   }, [supabase]);
 
+  const toggleFavorite = useCallback(async (id: string, favorite: boolean) => {
+    // Optimistic update so the sidebar reflects the change instantly.
+    setLinks((prev) => prev.map((l) => (l.id === id ? { ...l, is_favorite: favorite } : l)));
+
+    const { error } = await supabase
+      .from("links")
+      .update({ is_favorite: favorite })
+      .eq("id", id);
+
+    if (error) {
+      // Revert on failure.
+      setLinks((prev) => prev.map((l) => (l.id === id ? { ...l, is_favorite: !favorite } : l)));
+      toast.error(error.message || "Failed to update favorite");
+      throw error;
+    }
+  }, [supabase]);
+
   const resetClicks = useCallback(async (linkId: string) => {
     const { error } = await supabase
       .from("link_clicks")
@@ -159,5 +176,6 @@ export function useLinks() {
     updateLink,
     deleteLink,
     resetClicks,
+    toggleFavorite,
   };
 }

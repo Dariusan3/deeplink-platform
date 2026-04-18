@@ -75,8 +75,10 @@ export function useCollections() {
   }, [activeTeam?.id, supabase, fetchCollections]);
 
   const createCollection = useCallback(
-    async (name: string, description?: string, color?: string) => {
+    async (name: string, description?: string, color?: string, clickGoal?: number, clickGoalPeriod?: string, isRotator?: boolean, isStarred?: boolean) => {
       if (!user || !activeTeam) throw new Error("Authentication required");
+
+      const rotatorSlug = isRotator ? `r-${Math.random().toString(36).substring(2, 8)}` : null;
 
       const { data, error } = await supabase
         .from("collections")
@@ -86,6 +88,11 @@ export function useCollections() {
           color: color || "#00D26A",
           team_id: activeTeam.id,
           created_by: user.id,
+          click_goal: clickGoal || null,
+          click_goal_period: clickGoalPeriod || null,
+          is_rotator: isRotator || false,
+          is_starred: isStarred || false,
+          rotator_slug: rotatorSlug,
         })
         .select()
         .single();
@@ -118,7 +125,7 @@ export function useCollections() {
   );
 
   const updateCollection = useCallback(
-    async (id: string, updates: { click_goal?: number | null; click_goal_period?: string | null }) => {
+    async (id: string, updates: { click_goal?: number | null; click_goal_period?: string | null; is_starred?: boolean; is_rotator?: boolean; rotator_slug?: string | null }) => {
       const { error } = await supabase
         .from("collections")
         .update(updates)

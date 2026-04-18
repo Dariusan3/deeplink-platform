@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useCollections } from "@/hooks/use-collections";
 import { useLinks } from "@/hooks/use-links";
-import { CreateCollectionDialog } from "@/components/collections/create-collection-dialog";
+import { CreateCollectionDialog, CollectionsInfo } from "@/components/collections/create-collection-dialog";
 import {
   FolderOpen,
   Trash2,
@@ -265,7 +265,8 @@ export default function CollectionsPage() {
             </div>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pb-20">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-20">
+          <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
             {collections.map((col) => (
               <div
                 key={col.id}
@@ -325,6 +326,10 @@ export default function CollectionsPage() {
                 </div>
               </div>
             ))}
+          </div>
+          <div className="lg:col-span-1">
+            <CollectionsInfo />
+          </div>
           </div>
         )}
       </div>

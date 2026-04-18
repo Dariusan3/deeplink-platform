@@ -35,7 +35,10 @@
       "Bash(ls -la /Users/osadicidarius/Documents/projects/deeplink-platform/src/app/\\\\\\(dashboard\\\\\\)/dashboard/links/)",
       "Bash(ls -la \"/Users/osadicidarius/Documents/projects/deeplink-platform/src/app/\\(dashboard\\)/dashboard/links/\")",
       "Bash(cat \"/Users/osadicidarius/Documents/projects/deeplink-platform/src/app/\\(dashboard\\)/dashboard/links/page.tsx\")",
-      "Bash(gh api:*)"
+      "Bash(gh api:*)",
+      "Bash(vercel --prod --yes)",
+      "Bash(vercel logs:*)",
+      "Bash(vercel env:*)"
     ]
   }
 }

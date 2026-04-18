@@ -1,12 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import type { RedirectRule } from "@/types/links";
+import { finalizeABWinnerIfReady } from "@/lib/ab-testing";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
 const supabase = (supabaseUrl && !supabaseUrl.includes("your-supabase-url-here"))
   ? createClient(supabaseUrl, supabaseAnonKey)
+  : null;
+
+// Service-role client is used to update ab_tests + read team/user for the
+// winner email — anon key RLS would block the team_members/users lookup.
+const supabaseAdmin = (supabaseUrl && supabaseServiceKey)
+  ? createClient(supabaseUrl, supabaseServiceKey)
   : null;
 
 function detectDeviceType(userAgent: string): string {
@@ -67,7 +75,46 @@ export async function GET(
   const { slug } = await params;
   if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
 
-  // Check A/B tests first
+  // Check rotator collections first
+  const { data: rotatorCollection } = await supabase
+    .from("collections")
+    .select("id")
+    .eq("rotator_slug", slug)
+    .eq("is_rotator", true)
+    .limit(1)
+    .maybeSingle();
+
+  if (rotatorCollection) {
+    // Get all active links in this collection
+    const { data: rotatorLinks } = await supabase
+      .from("links")
+      .select("id, destination_url, slug")
+      .eq("collection_id", rotatorCollection.id)
+      .eq("is_active", true);
+
+    if (rotatorLinks && rotatorLinks.length > 0) {
+      // Random pick
+      const randomBytes = new Uint8Array(1);
+      crypto.getRandomValues(randomBytes);
+      const picked = rotatorLinks[randomBytes[0] % rotatorLinks.length];
+      const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+
+      // Track click on the picked link
+      supabase.from("link_clicks").insert({
+        link_id: picked.id,
+        ip_address: ip,
+        user_agent: request.headers.get("user-agent"),
+        country: request.headers.get("x-vercel-ip-country") || null,
+        device_type: detectDeviceType(request.headers.get("user-agent") || ""),
+      }).then(() => {});
+
+      return NextResponse.redirect(ensureAbsoluteUrl(picked.destination_url), { status: 302 });
+    }
+
+    return NextResponse.redirect(new URL("/not-found", request.url), { status: 302 });
+  }
+
+  // Check A/B tests
   const { data: abTest } = await supabase
     .from("ab_tests")
     .select("*")
@@ -82,12 +129,31 @@ export async function GET(
 
   const { data: link, error } = await supabase
     .from("links")
-    .select("id, destination_url, redirect_rules, is_active")
+    .select("id, destination_url, redirect_rules, is_active, team_id")
     .eq("slug", slug)
     .single();
 
   if (error || !link) return NextResponse.redirect(new URL("/not-found", request.url), { status: 302 });
   if (!link.is_active) return NextResponse.redirect(new URL("/paused", request.url), { status: 302 });
+
+  // Detect TikTok in-app browser
+  const userAgent = request.headers.get("user-agent") || "";
+  const isTikTok = /TikTok|BytedanceWebview|musical_ly/i.test(userAgent);
+
+  if (isTikTok && link.team_id) {
+    const { data: teamSettings } = await supabase
+      .from("team_settings")
+      .select("tiktok_browser_mode")
+      .eq("team_id", link.team_id)
+      .single();
+
+    if (teamSettings?.tiktok_browser_mode === "overlay") {
+      // Show the "Open in browser" overlay page instead of redirecting
+      const overlayUrl = new URL("/tiktok-open", request.url);
+      overlayUrl.searchParams.set("url", ensureAbsoluteUrl(link.destination_url));
+      return NextResponse.redirect(overlayUrl, { status: 302 });
+    }
+  }
 
   const isDev = process.env.NODE_ENV === "development";
   const url = new URL(request.url);
@@ -152,32 +218,13 @@ async function handleABTest(request: NextRequest, test: any) {
     variant = randomBytes[0] < 128 ? "a" : "b";
     destinationUrl = variant === "a" ? test.variant_a_url : test.variant_b_url;
 
-    // Auto-optimization check
-    if (test.auto_optimize) {
-      const totalConversions = test.variant_a_conversions + test.variant_b_conversions;
-      if (totalConversions >= test.min_conversions) {
-        const rateA = test.variant_a_visits > 0 ? test.variant_a_conversions / test.variant_a_visits : 0;
-        const rateB = test.variant_b_visits > 0 ? test.variant_b_conversions / test.variant_b_visits : 0;
-        const threshold = test.threshold_percent / 100;
-
-        if (rateA > 0 && rateB > 0) {
-          if (rateA > rateB * (1 + threshold)) {
-            // A wins
-            supabase!.from("ab_tests").update({
-              winner: "a",
-              winner_selected_at: new Date().toISOString(),
-              status: "completed",
-            }).eq("id", test.id).then(() => {});
-          } else if (rateB > rateA * (1 + threshold)) {
-            // B wins
-            supabase!.from("ab_tests").update({
-              winner: "b",
-              winner_selected_at: new Date().toISOString(),
-              status: "completed",
-            }).eq("id", test.id).then(() => {});
-          }
-        }
-      }
+    // Auto-optimization — kicked off async so it doesn't block the redirect.
+    // Uses service-role client so it can read team_members/users for the
+    // winner email (anon RLS would block that lookup).
+    if (test.auto_optimize && supabaseAdmin) {
+      finalizeABWinnerIfReady(supabaseAdmin, test).catch((err) => {
+        console.error("A/B winner finalization failed:", err);
+      });
     }
   }
 

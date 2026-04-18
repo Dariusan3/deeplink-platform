@@ -18,6 +18,7 @@ import {
   QrCode,
   FolderOpen,
   FolderMinus,
+  Star,
 } from "lucide-react";
 import { toast } from "sonner";
 import { QrDialog } from "@/components/qr/qr-dialog";
@@ -49,6 +50,7 @@ interface LinkCardProps {
   onToggleActive: (id: string, active: boolean) => void;
   onDelete: (id: string) => void;
   onResetClicks: (id: string) => void;
+  onToggleFavorite?: (id: string, favorite: boolean) => void;
   selected?: boolean;
   onToggleSelect?: () => void;
   collections?: CollectionOption[];
@@ -60,6 +62,7 @@ export function LinkCard({
   onToggleActive,
   onDelete,
   onResetClicks,
+  onToggleFavorite,
   selected,
   onToggleSelect,
   collections,
@@ -143,6 +146,23 @@ export function LinkCard({
                 >
                   {link.is_active ? "Live" : "Paused"}
                 </div>
+                {onToggleFavorite && (
+                  <button
+                    onClick={() => onToggleFavorite(link.id, !link.is_favorite)}
+                    title={link.is_favorite ? "Remove from favorites" : "Add to favorites"}
+                    className={cn(
+                      "shrink-0 transition-all",
+                      link.is_favorite
+                        ? "text-amber-400 hover:text-amber-300"
+                        : "text-neutral-600 hover:text-amber-400"
+                    )}
+                  >
+                    <Star
+                      className="w-4 h-4"
+                      fill={link.is_favorite ? "currentColor" : "none"}
+                    />
+                  </button>
+                )}
               </div>
 
               <div className="flex items-center gap-2 mb-4">
@@ -163,7 +183,7 @@ export function LinkCard({
                 </button>
               </div>
 
-              <div className="flex items-center gap-6">
+              <div className="flex items-center gap-6 flex-wrap">
                 <div className="flex flex-col">
                   <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500 mb-0.5">
                     Destination
@@ -180,6 +200,44 @@ export function LinkCard({
                     {link.click_count || 0}
                   </span>
                 </div>
+                <div className="flex flex-col shrink-0">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500 mb-0.5">
+                    Created
+                  </span>
+                  <span className="text-xs text-neutral-400 font-medium">
+                    {new Date(link.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </span>
+                </div>
+                {link.click_goal && link.click_goal > 0 && (
+                  <div className="flex flex-col shrink-0">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500 mb-0.5">
+                      Goal
+                    </span>
+                    <span className="text-xs text-[#00D26A] font-bold">
+                      {link.click_count || 0}/{link.click_goal} {link.click_goal_period || "daily"}
+                    </span>
+                  </div>
+                )}
+                {link.collection_id && collections && (
+                  <div className="flex flex-col shrink-0">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500 mb-0.5">
+                      Collection
+                    </span>
+                    <span className="text-xs text-purple-400 font-medium">
+                      {collections.find((c) => c.id === link.collection_id)?.name || "—"}
+                    </span>
+                  </div>
+                )}
+                {(link.redirect_rules as any[])?.length > 0 && (
+                  <div className="flex flex-col shrink-0">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500 mb-0.5">
+                      Rules
+                    </span>
+                    <span className="text-xs text-amber-400 font-medium">
+                      {(link.redirect_rules as any[]).length} active
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
