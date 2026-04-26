@@ -105,10 +105,6 @@ const faqs = [
     q: "What happens to my links if I cancel?",
     a: "Your links will continue to work on the free plan (500 clicks/month). If you exceed the free tier limit, links will be paused until the next month or until you upgrade.",
   },
-  {
-    q: "What is the affiliate program?",
-    a: "Refer paying users and earn recurring commissions: 10% for 1 active referral, 20% for 2-5 active referrals, and 30% for 5-10 active referrals. The percentage is based on how many active (paying) users you currently have referred.",
-  },
 ];
 
 function FaqItem({ question, answer }: { question: string; answer: string }) {
@@ -444,7 +440,6 @@ export default function PricingPage() {
               <ul className="space-y-2 text-sm text-neutral-500 font-medium">
                 <li><Link href="/dashboard/developer" className="hover:text-white transition-colors">API Documentation</Link></li>
                 <li><Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link></li>
-                <li><Link href="/dashboard/affiliate" className="hover:text-white transition-colors">Affiliate Program</Link></li>
               </ul>
             </div>
             <div>

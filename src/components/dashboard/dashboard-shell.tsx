@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { UsageBanner } from "@/components/dashboard/usage-banner";
 import { FloatingChat } from "@/components/dashboard/floating-chat";
+import { ReferralClaim } from "@/components/partner/referral-claim";
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -23,12 +23,14 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
         {/* Main content */}
         <main className="flex-1 overflow-y-auto relative z-0">
-          <UsageBanner />
           {children}
         </main>
 
         {/* Floating AI Chat */}
         <FloatingChat />
+
+        {/* Pending OAuth referral claim — fires once per session */}
+        <ReferralClaim />
       </div>
     </TooltipProvider>
   );

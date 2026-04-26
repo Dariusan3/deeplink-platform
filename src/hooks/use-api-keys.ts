@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Database } from "@/types/database";
 import { useUser } from "./use-user";
 import { useTeam } from "./use-team";
+import { emit, subscribe } from "@/lib/refresh-bus";
 import { toast } from "sonner";
 
 type ApiKey = Database["public"]["Tables"]["api_keys"]["Row"];
@@ -36,6 +37,10 @@ export function useApiKeys() {
 
   useEffect(() => {
     fetchApiKeys();
+  }, [fetchApiKeys]);
+
+  useEffect(() => {
+    return subscribe("api-keys", () => fetchApiKeys());
   }, [fetchApiKeys]);
 
   const generateApiKey = useCallback(async (name?: string) => {
@@ -72,6 +77,7 @@ export function useApiKeys() {
     }
 
     setApiKeys((prev) => [apiKey, ...prev]);
+    emit("api-keys");
     toast.success("API key generated");
 
     // Return the raw key — this is the only time it's visible
@@ -91,6 +97,7 @@ export function useApiKeys() {
     }
 
     setApiKeys((prev) => prev.filter((k) => k.id !== id));
+    emit("api-keys");
     toast.success("API key revoked");
   }, [supabase]);
 

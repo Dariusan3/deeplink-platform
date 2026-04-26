@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTeam } from "./use-team";
 import { useUser } from "./use-user";
+import { emit, subscribe } from "@/lib/refresh-bus";
 import { toast } from "sonner";
 import { Database } from "@/types/database";
 
@@ -41,6 +42,10 @@ export function useBusinessBrain() {
     }
   }, [activeTeam?.id, fetchEntries]);
 
+  useEffect(() => {
+    return subscribe("business-brain", () => fetchEntries());
+  }, [fetchEntries]);
+
   const addEntry = useCallback(
     async (title: string, content: string) => {
       if (!activeTeam) throw new Error("No active team");
@@ -61,6 +66,7 @@ export function useBusinessBrain() {
       }
 
       setEntries((prev) => [data, ...prev]);
+      emit("business-brain");
       toast.success("Knowledge saved");
       return data;
     },
@@ -84,6 +90,7 @@ export function useBusinessBrain() {
           e.id === id ? { ...e, title, content: { text: content }, updated_at: new Date().toISOString() } : e
         )
       );
+      emit("business-brain");
       toast.success("Updated");
     },
     [supabase]
@@ -99,6 +106,7 @@ export function useBusinessBrain() {
       }
 
       setEntries((prev) => prev.filter((e) => e.id !== id));
+      emit("business-brain");
       toast.success("Knowledge removed");
     },
     [supabase]

@@ -626,6 +626,8 @@ export type Database = {
           full_name: string | null
           id: string
           is_admin: boolean
+          is_partner: boolean
+          partner_activated_at: string | null
           updated_at: string
         }
         Insert: {
@@ -635,6 +637,8 @@ export type Database = {
           full_name?: string | null
           id: string
           is_admin?: boolean
+          is_partner?: boolean
+          partner_activated_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -644,6 +648,8 @@ export type Database = {
           full_name?: string | null
           id?: string
           is_admin?: boolean
+          is_partner?: boolean
+          partner_activated_at?: string | null
           updated_at?: string
         }
         Relationships: []

@@ -27,6 +27,42 @@ import { useLinks } from "@/hooks/use-links";
 import { CreateTeamDialog } from "@/components/teams/create-team-dialog";
 import { Star } from "lucide-react";
 
+// Color tier for the plan badge under the user's name in the sidebar.
+// `free` is muted, paid tiers escalate in saturation: starter blue,
+// growth Tappr green, agency premium amber.
+const PLAN_STYLES: Record<string, { label: string; className: string }> = {
+  free: {
+    label: "Free",
+    className: "bg-neutral-700/50 text-neutral-300 border-neutral-600/40",
+  },
+  starter: {
+    label: "Starter",
+    className: "bg-blue-500/10 text-blue-400 border-blue-500/30",
+  },
+  growth: {
+    label: "Growth",
+    className: "bg-[#00D26A]/10 text-[#00D26A] border-[#00D26A]/30",
+  },
+  agency: {
+    label: "Agency",
+    className: "bg-amber-500/10 text-amber-400 border-amber-500/30",
+  },
+};
+
+function PlanBadge({ plan }: { plan: string }) {
+  const style = PLAN_STYLES[plan.toLowerCase()] ?? PLAN_STYLES.free;
+  return (
+    <span
+      className={cn(
+        "shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-md border text-[8px] font-black uppercase tracking-widest",
+        style.className
+      )}
+    >
+      {style.label}
+    </span>
+  );
+}
+
 const navigation = [
   {
     name: "Dashboard",
@@ -112,15 +148,6 @@ const navigation = [
     ),
   },
   {
-    name: "Affiliate",
-    href: "/dashboard/affiliate",
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-      </svg>
-    ),
-  },
-  {
     name: "Developer API",
     href: "/dashboard/developer",
     icon: (
@@ -166,6 +193,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const { links } = useLinks();
   const starredCollections = collections.filter((c) => c.is_starred);
   const favoriteLinks = links.filter((l) => l.is_favorite);
+  const isPartner = profile?.is_partner === true;
 
   const displayName = profile?.full_name || user?.user_metadata?.full_name || "User";
   const displayEmail = profile?.email || user?.email || "user@example.com";
@@ -312,6 +340,31 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
         </DropdownMenu>
       </div>
 
+      {/* Partner CTA — only visible when activated */}
+      {isPartner && (
+        <div className="px-3 pt-3">
+          <Link
+            href="/partner"
+            className={cn(
+              "flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-black uppercase tracking-widest transition-all",
+              "bg-gradient-to-r from-[#00D26A]/15 to-[#39FF14]/10 border border-[#00D26A]/30 text-[#00D26A] hover:from-[#00D26A]/25 hover:to-[#39FF14]/15 shadow-[0_0_20px_rgba(0,210,106,0.15)]",
+              collapsed && "justify-center px-2"
+            )}
+            title="Partner Dashboard"
+          >
+            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+            {!collapsed && (
+              <>
+                <span>Partner</span>
+                <span className="ml-auto text-[8px] font-black px-1.5 py-0.5 rounded-md bg-[#00D26A] text-black tracking-widest">25%</span>
+              </>
+            )}
+          </Link>
+        </div>
+      )}
+
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {navigation.map((item) => {
@@ -433,7 +486,10 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
             </Avatar>
             {!collapsed && (
               <div className="flex flex-col items-start text-left min-w-0">
-                <span className="text-sm font-medium truncate w-full">{displayName}</span>
+                <div className="flex items-center gap-2 w-full min-w-0">
+                  <span className="text-sm font-medium truncate">{displayName}</span>
+                  {activeTeam?.plan && <PlanBadge plan={activeTeam.plan} />}
+                </div>
                 <span className="text-xs text-muted-foreground truncate w-full">{displayEmail}</span>
               </div>
             )}

@@ -1,8 +1,8 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Database } from "@/types/database";
 import { useUser } from "./use-user";
 import { useTeam } from "./use-team";
+import { emit, subscribe } from "@/lib/refresh-bus";
 import { toast } from "sonner";
 
 import { Link, LinkInsert } from "@/types/links";
@@ -80,6 +80,13 @@ export function useLinks() {
     };
   }, [activeTeam?.id, supabase, fetchLinks]);
 
+  // Cross-instance refresh: every mutation `emit("links")`s, every hook
+  // instance refetches. Fixes the case where the create dialog and the
+  // list use separate useLinks() instances and don't share state.
+  useEffect(() => {
+    return subscribe("links", () => fetchLinks());
+  }, [fetchLinks]);
+
   const createLink = useCallback(async (payload: Omit<LinkInsert, "id" | "created_at" | "updated_at" | "created_by" | "team_id">) => {
     if (!user || !activeTeam) throw new Error("Authentication required");
 
@@ -99,6 +106,7 @@ export function useLinks() {
     }
 
     setLinks((prev) => [data, ...prev]);
+    emit("links");
     return data;
   }, [user, activeTeam, supabase]);
 
@@ -116,6 +124,7 @@ export function useLinks() {
     }
 
     setLinks((prev) => prev.map((l) => (l.id === id ? { ...data, click_count: l.click_count } : l)));
+    emit("links");
     return data;
   }, [supabase]);
 
@@ -132,6 +141,7 @@ export function useLinks() {
     }
 
     setLinks((prev) => prev.filter((l) => l.id !== id));
+    emit("links");
     toast.success("Link decommissioned successfully");
   }, [supabase]);
 
@@ -150,22 +160,7 @@ export function useLinks() {
       toast.error(error.message || "Failed to update favorite");
       throw error;
     }
-  }, [supabase]);
-
-  const resetClicks = useCallback(async (linkId: string) => {
-    const { error } = await supabase
-      .from("link_clicks")
-      .delete()
-      .eq("link_id", linkId);
-
-    if (error) {
-      console.error("Error resetting clicks:", error.message || error);
-      toast.error(error.message || "Failed to reset clicks");
-      throw error;
-    }
-
-    setLinks((prev) => prev.map((l) => (l.id === linkId ? { ...l, click_count: 0 } : l)));
-    toast.success("Telemetry reset successfully");
+    emit("links");
   }, [supabase]);
 
   return {
@@ -175,7 +170,6 @@ export function useLinks() {
     createLink,
     updateLink,
     deleteLink,
-    resetClicks,
     toggleFavorite,
   };
 }

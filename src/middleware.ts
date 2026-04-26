@@ -69,6 +69,27 @@ export default async function middleware(request: NextRequest) {
     }
   }
 
+  // Protect partner routes — must be logged in AND is_partner = true
+  if (request.nextUrl.pathname.startsWith("/partner")) {
+    if (!user) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
+    }
+
+    const { data: profile } = await supabase
+      .from("users")
+      .select("is_partner")
+      .eq("id", user.id)
+      .single();
+
+    if (!profile?.is_partner) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
+    }
+  }
+
   // Redirect authenticated users away from auth pages
   if (
     user &&

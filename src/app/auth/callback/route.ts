@@ -11,11 +11,13 @@ export async function GET(request: Request) {
     const supabase = await createClient();
     const { error, data } = await supabase.auth.exchangeCodeForSession(code);
 
-    if (!error && data.user) {
-      // Process referral code if present in user metadata
-      const refCode = data.user.user_metadata?.referral_code;
-      if (refCode) {
-        await processReferral(refCode, data.user.id, data.user.email || "");
+    if (!error) {
+      // For email signup, the referral code lives in user_metadata.
+      // For Google OAuth, the signup page stashed it in localStorage and
+      // the dashboard shell POSTs to /api/partner/claim-referral on mount.
+      const refCode = data?.user?.user_metadata?.referral_code as string | undefined;
+      if (refCode && data?.user) {
+        await claimPartnerReferral(refCode, data.user.id, data.user.email || "");
       }
 
       const forwardedHost = request.headers.get("x-forwarded-host");
@@ -33,8 +35,10 @@ export async function GET(request: Request) {
   return NextResponse.redirect(`${origin}/login?error=auth_callback_error`);
 }
 
-async function processReferral(refCode: string, userId: string, email: string) {
-  // Use service role to bypass RLS
+// Looks up the partner by code and inserts a partner_referrals row.
+// Idempotent: the (partner_id, referred_user_id) UNIQUE constraint
+// prevents duplicates if the user re-runs the OAuth flow.
+async function claimPartnerReferral(refCode: string, userId: string, email: string) {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceKey) return;
 
@@ -44,36 +48,30 @@ async function processReferral(refCode: string, userId: string, email: string) {
   );
 
   try {
-    // Find the affiliate by referral code
-    const { data: affiliate } = await supabase
-      .from("affiliates")
+    const { data: partner } = await supabase
+      .from("partner_profiles")
       .select("id")
       .eq("referral_code", refCode)
-      .eq("is_active", true)
-      .single();
+      .maybeSingle();
+    if (!partner) return;
 
-    if (!affiliate) return;
-
-    // Check if this user was already referred (prevent duplicates)
-    const { count } = await supabase
-      .from("affiliate_referrals")
-      .select("*", { count: "exact", head: true })
-      .eq("referrer_id", affiliate.id)
-      .eq("referred_email", email);
-
-    if ((count ?? 0) > 0) return;
-
-    // Create the referral record
-    await supabase.from("affiliate_referrals").insert({
-      referrer_id: affiliate.id,
+    await supabase.from("partner_referrals").insert({
+      partner_id: partner.id,
       referred_user_id: userId,
       referred_email: email,
       status: "pending",
-      plan: null,
-      plan_price: 0,
-      commission_rate: 0,
+      monthly_value: 0,
     });
+
+    // Mark the most recent click for this partner as converted (best-effort)
+    await supabase
+      .from("partner_referral_clicks")
+      .update({ converted: true })
+      .eq("partner_id", partner.id)
+      .eq("converted", false)
+      .order("clicked_at", { ascending: false })
+      .limit(1);
   } catch (err) {
-    console.error("Failed to process referral:", err);
+    console.error("Failed to claim partner referral:", err);
   }
 }

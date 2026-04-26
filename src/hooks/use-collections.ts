@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "./use-user";
 import { useTeam } from "./use-team";
+import { emit, subscribe } from "@/lib/refresh-bus";
 import { toast } from "sonner";
 import { Database } from "@/types/database";
 
@@ -74,6 +75,14 @@ export function useCollections() {
     };
   }, [activeTeam?.id, supabase, fetchCollections]);
 
+  // Cross-instance refresh: any collection mutation (or link mutation that
+  // affects link_count) emits — every useCollections() instance refetches.
+  useEffect(() => {
+    const offCollections = subscribe("collections", () => fetchCollections());
+    const offLinks = subscribe("links", () => fetchCollections());
+    return () => { offCollections(); offLinks(); };
+  }, [fetchCollections]);
+
   const createCollection = useCallback(
     async (name: string, description?: string, color?: string, clickGoal?: number, clickGoalPeriod?: string, isRotator?: boolean, isStarred?: boolean) => {
       if (!user || !activeTeam) throw new Error("Authentication required");
@@ -103,6 +112,7 @@ export function useCollections() {
       }
 
       setCollections((prev) => [{ ...data, link_count: 0 }, ...prev]);
+      emit("collections");
       toast.success("Collection created!");
       return data;
     },
@@ -119,6 +129,7 @@ export function useCollections() {
       }
 
       setCollections((prev) => prev.filter((c) => c.id !== id));
+      emit("collections");
       toast.success("Collection deleted");
     },
     [supabase]
@@ -139,6 +150,7 @@ export function useCollections() {
       setCollections((prev) =>
         prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
       );
+      emit("collections");
       toast.success("Collection updated");
     },
     [supabase]
@@ -162,9 +174,10 @@ export function useCollections() {
           ? `Moved ${linkIds.length} link${linkIds.length !== 1 ? "s" : ""} to collection`
           : `Removed ${linkIds.length} link${linkIds.length !== 1 ? "s" : ""} from collection`
       );
-      fetchCollections();
+      emit("links");
+      emit("collections");
     },
-    [supabase, fetchCollections]
+    [supabase]
   );
 
   return {

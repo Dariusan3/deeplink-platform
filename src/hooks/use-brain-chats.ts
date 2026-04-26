@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTeam } from "./use-team";
+import { emit, subscribe } from "@/lib/refresh-bus";
 import { toast } from "sonner";
 import { Database } from "@/types/database";
 import { getBrainChatLimit } from "@/lib/plan-limits";
@@ -58,6 +59,10 @@ export function useBrainChats() {
     }
   }, [activeTeam?.id, fetchChats]);
 
+  useEffect(() => {
+    return subscribe("brain-chats", () => fetchChats());
+  }, [fetchChats]);
+
   const createChat = useCallback(async (): Promise<BrainChat | null> => {
     if (!activeTeam) return null;
 
@@ -83,6 +88,7 @@ export function useBrainChats() {
 
     setChats((prev) => [data, ...prev]);
     setActiveChatId(data.id);
+    emit("brain-chats");
     return data;
   }, [activeTeam, chats.length, chatLimit, supabase]);
 
@@ -111,6 +117,7 @@ export function useBrainChats() {
             : c
         )
       );
+      emit("brain-chats");
     },
     [supabase]
   );
@@ -133,7 +140,9 @@ export function useBrainChats() {
       if (error) {
         toast.error("Failed to delete chat");
         fetchChats(); // restore on error
+        return;
       }
+      emit("brain-chats");
     },
     [supabase, fetchChats]
   );

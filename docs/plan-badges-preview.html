@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Tappr — Plan Badges Preview</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: #000;
+    color: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    min-height: 100vh;
+    padding: 48px 24px;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  h1 {
+    font-size: 32px;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+  }
+  h1 span.green { color: #00D26A; }
+  .sub {
+    font-size: 14px;
+    color: #888;
+    margin-bottom: 40px;
+  }
+
+  /* Sidebar mockup — replicates the actual sidebar bottom section. */
+  .mockup {
+    background: #0a0a0a;
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 16px;
+    padding: 12px;
+    width: 280px;
+    margin-bottom: 48px;
+  }
+  .user-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+  }
+  .user-row + .user-row { margin-top: 6px; }
+  .avatar {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: rgba(0,210,106,0.1);
+    border: 1px solid rgba(0,210,106,0.2);
+    color: #00D26A;
+    font-weight: 900;
+    font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .user-info {
+    display: flex; flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+    flex: 1;
+  }
+  .user-info .row {
+    display: flex; align-items: center; gap: 8px;
+    width: 100%; min-width: 0;
+  }
+  .user-info .name {
+    font-size: 14px; font-weight: 500;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .user-info .email {
+    font-size: 12px; color: #888;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    width: 100%;
+  }
+
+  /* Badge — exact match of the sidebar PlanBadge component. */
+  .badge {
+    flex-shrink: 0;
+    display: inline-flex; align-items: center;
+    padding: 2px 6px;
+    border-radius: 6px;
+    border: 1px solid;
+    font-size: 8px; font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+  }
+  .badge.free    { color: #d4d4d4; background: rgba(64,64,64,0.5);    border-color: rgba(82,82,82,0.4); }
+  .badge.starter { color: #60a5fa; background: rgba(59,130,246,0.1);  border-color: rgba(59,130,246,0.3); }
+  .badge.growth  { color: #00D26A; background: rgba(0,210,106,0.1);   border-color: rgba(0,210,106,0.3); }
+  .badge.agency  { color: #fbbf24; background: rgba(245,158,11,0.1);  border-color: rgba(245,158,11,0.3); }
+
+  /* Side-by-side big swatches with hex codes. */
+  .swatches {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 48px;
+  }
+  .swatch {
+    background: #0a0a0a;
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 16px;
+    padding: 24px;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 16px;
+  }
+  .swatch h3 {
+    font-size: 11px; font-weight: 900;
+    text-transform: uppercase; letter-spacing: 0.25em;
+    color: #888;
+  }
+  .swatch .big-badge {
+    font-size: 11px; padding: 6px 14px;
+    border-radius: 8px;
+    font-weight: 900; text-transform: uppercase;
+    letter-spacing: 0.25em;
+    border: 1px solid;
+  }
+  .swatch dl {
+    display: grid; grid-template-columns: auto 1fr;
+    gap: 4px 12px;
+    font-size: 11px;
+    width: 100%;
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  }
+  .swatch dt { color: #555; }
+  .swatch dd { color: #ccc; }
+
+  h2 {
+    font-size: 18px; font-weight: 900;
+    margin-bottom: 16px;
+  }
+  .label {
+    font-size: 11px; font-weight: 900;
+    text-transform: uppercase; letter-spacing: 0.2em;
+    color: #555; margin-bottom: 12px;
+  }
+
+  .notes {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 12px;
+    padding: 20px;
+    font-size: 13px; color: #aaa;
+    line-height: 1.7;
+  }
+  .notes strong { color: #fff; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Ta<span class="green">ppr</span> — Plan Badges</h1>
+    <p class="sub">Preview of the plan-tier badges shown next to a user's name in the dashboard sidebar. Drop or replace any of the four if you want different colors.</p>
+
+    <p class="label">In context — sidebar mockup</p>
+    <div class="mockup">
+      <div class="user-row">
+        <div class="avatar">JD</div>
+        <div class="user-info">
+          <div class="row">
+            <span class="name">Jane Doe</span>
+            <span class="badge free">Free</span>
+          </div>
+          <span class="email">jane@example.com</span>
+        </div>
+      </div>
+      <div class="user-row">
+        <div class="avatar">JD</div>
+        <div class="user-info">
+          <div class="row">
+            <span class="name">Jane Doe</span>
+            <span class="badge starter">Starter</span>
+          </div>
+          <span class="email">jane@example.com</span>
+        </div>
+      </div>
+      <div class="user-row">
+        <div class="avatar">JD</div>
+        <div class="user-info">
+          <div class="row">
+            <span class="name">Jane Doe</span>
+            <span class="badge growth">Growth</span>
+          </div>
+          <span class="email">jane@example.com</span>
+        </div>
+      </div>
+      <div class="user-row">
+        <div class="avatar">JD</div>
+        <div class="user-info">
+          <div class="row">
+            <span class="name">Jane Doe</span>
+            <span class="badge agency">Agency</span>
+          </div>
+          <span class="email">jane@example.com</span>
+        </div>
+      </div>
+    </div>
+
+    <p class="label">Color swatches with hex codes</p>
+    <div class="swatches">
+      <div class="swatch">
+        <h3>Free</h3>
+        <span class="big-badge" style="color:#d4d4d4; background:rgba(64,64,64,0.5); border-color:rgba(82,82,82,0.4);">Free</span>
+        <dl>
+          <dt>text</dt><dd>#d4d4d4</dd>
+          <dt>bg</dt><dd>rgba(64,64,64,0.5)</dd>
+          <dt>border</dt><dd>rgba(82,82,82,0.4)</dd>
+          <dt>vibe</dt><dd>muted, "default"</dd>
+        </dl>
+      </div>
+      <div class="swatch">
+        <h3>Starter</h3>
+        <span class="big-badge" style="color:#60a5fa; background:rgba(59,130,246,0.1); border-color:rgba(59,130,246,0.3);">Starter</span>
+        <dl>
+          <dt>text</dt><dd>#60a5fa</dd>
+          <dt>bg</dt><dd>rgba(59,130,246,0.1)</dd>
+          <dt>border</dt><dd>rgba(59,130,246,0.3)</dd>
+          <dt>vibe</dt><dd>cool blue, entry paid</dd>
+        </dl>
+      </div>
+      <div class="swatch">
+        <h3>Growth</h3>
+        <span class="big-badge" style="color:#00D26A; background:rgba(0,210,106,0.1); border-color:rgba(0,210,106,0.3);">Growth</span>
+        <dl>
+          <dt>text</dt><dd>#00D26A</dd>
+          <dt>bg</dt><dd>rgba(0,210,106,0.1)</dd>
+          <dt>border</dt><dd>rgba(0,210,106,0.3)</dd>
+          <dt>vibe</dt><dd>brand green, popular tier</dd>
+        </dl>
+      </div>
+      <div class="swatch">
+        <h3>Agency</h3>
+        <span class="big-badge" style="color:#fbbf24; background:rgba(245,158,11,0.1); border-color:rgba(245,158,11,0.3);">Agency</span>
+        <dl>
+          <dt>text</dt><dd>#fbbf24</dd>
+          <dt>bg</dt><dd>rgba(245,158,11,0.1)</dd>
+          <dt>border</dt><dd>rgba(245,158,11,0.3)</dd>
+          <dt>vibe</dt><dd>amber/gold, premium</dd>
+        </dl>
+      </div>
+    </div>
+
+    <h2>Alternatives if any feel off</h2>
+    <div class="notes">
+      <p><strong>Starter</strong> alt: cyan <code style="color:#22d3ee">#22d3ee</code> or indigo <code style="color:#818cf8">#818cf8</code> — keep it cool but less "default Bootstrap blue".</p>
+      <p style="margin-top:8px"><strong>Agency</strong> alt: violet <code style="color:#a855f7">#a855f7</code> or magenta <code style="color:#ec4899">#ec4899</code> — if amber feels too "warning" rather than "premium".</p>
+      <p style="margin-top:8px"><strong>Free</strong> alt: leave background empty (just border + muted text) for an even quieter look.</p>
+    </div>
+  </div>
+</body>
+</html>

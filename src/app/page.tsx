@@ -1,9 +1,12 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { Button } from "@/components/ui/button";
+import { ReferralTracker } from "@/components/partner/referral-tracker";
 
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-black text-white flex flex-col font-sans">
+      <Suspense fallback={null}><ReferralTracker /></Suspense>
       {/* Hero background with radial gradient */}
       <div className="fixed inset-0 -z-10 overflow-hidden">
         <div 

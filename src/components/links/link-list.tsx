@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
 export function LinkList() {
-  const { links, loading, updateLink, deleteLink, resetClicks, toggleFavorite } = useLinks();
+  const { links, loading, updateLink, deleteLink, toggleFavorite } = useLinks();
   const { collections, moveLinksToCollection } = useCollections();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -191,12 +191,10 @@ export function LinkList() {
               link={link}
               onToggleActive={(id, active) => updateLink(id, { is_active: active })}
               onDelete={(id) => deleteLink(id)}
-              onResetClicks={(id) => resetClicks(id)}
               onToggleFavorite={(id, favorite) => toggleFavorite(id, favorite)}
               selected={selectedIds.has(link.id)}
               onToggleSelect={() => handleToggleSelect(link.id)}
               collections={collections.map((c) => ({ id: c.id, name: c.name }))}
-              onMoveToCollection={(linkId, collectionId) => moveLinksToCollection([linkId], collectionId)}
             />
           ))}
         </div>

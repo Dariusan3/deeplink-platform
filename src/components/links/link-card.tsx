@@ -13,12 +13,10 @@ import {
   BarChart3,
   Settings2,
   Trash2,
-  RefreshCw,
   Globe,
   QrCode,
-  FolderOpen,
-  FolderMinus,
   Star,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import { QrDialog } from "@/components/qr/qr-dialog";
@@ -49,28 +47,23 @@ interface LinkCardProps {
   link: LinkType;
   onToggleActive: (id: string, active: boolean) => void;
   onDelete: (id: string) => void;
-  onResetClicks: (id: string) => void;
   onToggleFavorite?: (id: string, favorite: boolean) => void;
   selected?: boolean;
   onToggleSelect?: () => void;
   collections?: CollectionOption[];
-  onMoveToCollection?: (linkId: string, collectionId: string | null) => void;
 }
 
 export function LinkCard({
   link,
   onToggleActive,
   onDelete,
-  onResetClicks,
   onToggleFavorite,
   selected,
   onToggleSelect,
   collections,
-  onMoveToCollection,
 }: LinkCardProps) {
   const router = useRouter();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const [showQr, setShowQr] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -133,7 +126,11 @@ export function LinkCard({
                     <Globe className="w-3.5 h-3.5 text-neutral-500" />
                   )}
                 </div>
-                <h3 className="text-lg font-black text-white truncate">
+                <h3
+                  onClick={() => router.push(`/dashboard/links/${link.id}`)}
+                  className="text-lg font-black text-white truncate cursor-pointer hover:text-[#00D26A] transition-colors"
+                  title="Edit link"
+                >
                   {link.title || "Untitled Link"}
                 </h3>
                 <div
@@ -270,6 +267,13 @@ export function LinkCard({
                   >
                     <DropdownMenuItem
                       className="text-xs font-bold gap-2 focus:bg-[#00D26A]/10 focus:text-[#00D26A]"
+                      onClick={() => router.push(`/dashboard/links/${link.id}`)}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                      Edit Link
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-xs font-bold gap-2 focus:bg-[#00D26A]/10 focus:text-[#00D26A]"
                       onClick={() =>
                         window.open(link.destination_url, "_blank")
                       }
@@ -304,50 +308,6 @@ export function LinkCard({
                     >
                       <QrCode className="w-3.5 h-3.5" />
                       Generate QR
-                    </DropdownMenuItem>
-                    {/* Move to Collection */}
-                    {collections && collections.length > 0 && onMoveToCollection && (
-                      <>
-                        <div className="h-px bg-white/5 my-1" />
-                        <div className="px-2 py-1.5">
-                          <span className="text-[9px] font-black uppercase tracking-widest text-neutral-600">
-                            Move to Collection
-                          </span>
-                        </div>
-                        {link.collection_id && (
-                          <DropdownMenuItem
-                            className="text-xs font-bold gap-2 focus:bg-amber-500/10 focus:text-amber-400"
-                            onClick={() => onMoveToCollection(link.id, null)}
-                          >
-                            <FolderMinus className="w-3.5 h-3.5" />
-                            Remove from Collection
-                          </DropdownMenuItem>
-                        )}
-                        {collections.map((col) => (
-                          <DropdownMenuItem
-                            key={col.id}
-                            className={cn(
-                              "text-xs font-bold gap-2 focus:bg-[#00D26A]/10 focus:text-[#00D26A]",
-                              link.collection_id === col.id && "text-[#00D26A]"
-                            )}
-                            onClick={() => onMoveToCollection(link.id, col.id)}
-                            disabled={link.collection_id === col.id}
-                          >
-                            <FolderOpen className="w-3.5 h-3.5" />
-                            {col.name}
-                          </DropdownMenuItem>
-                        ))}
-                        <div className="h-px bg-white/5 my-1" />
-                      </>
-                    )}
-                    <DropdownMenuItem
-                      onClick={() => setShowResetConfirm(true)}
-                      className="text-neutral-400 hover:text-amber-500 transition-colors"
-                    >
-                      <div className="flex items-center gap-2">
-                        <RefreshCw className="w-3.5 h-3.5" />
-                        Reset Telemetry
-                      </div>
                     </DropdownMenuItem>
                     <div className="h-px bg-white/5 my-1" />
                     <DropdownMenuItem
@@ -424,39 +384,6 @@ export function LinkCard({
         title={link.title || link.slug}
       />
 
-      {/* Reset Clicks Confirmation Dialog */}
-      <Dialog open={showResetConfirm} onOpenChange={setShowResetConfirm}>
-        <DialogContent className="glass-card bg-neutral-900/95 border-amber-500/20 max-w-md p-8 rounded-[32px] shadow-[0_0_100px_rgba(245,158,11,0.05)]">
-          <DialogTitle className="text-2xl font-black text-white mb-2 uppercase tracking-tight italic">
-            Wipe Telemetry?
-          </DialogTitle>
-          <DialogDescription className="text-neutral-400 mb-8 font-medium">
-            This will permanently erase all{" "}
-            <span className="text-amber-500 font-bold">
-              {link.click_count || 0}
-            </span>{" "}
-            click historical data points. This action is irreversible.
-          </DialogDescription>
-          <div className="flex gap-4">
-            <Button
-              variant="outline"
-              onClick={() => setShowResetConfirm(false)}
-              className="flex-1 h-12 rounded-xl border-white/5 hover:bg-white/5 font-bold uppercase text-[10px] tracking-widest text-neutral-400"
-            >
-              Abort
-            </Button>
-            <Button
-              onClick={() => {
-                onResetClicks(link.id);
-                setShowResetConfirm(false);
-              }}
-              className="flex-1 h-12 rounded-xl bg-amber-500 hover:bg-amber-600 text-black font-black uppercase text-[10px] tracking-widest shadow-[0_0_20px_rgba(245,158,11,0.2)] border-none"
-            >
-              Reset Data
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

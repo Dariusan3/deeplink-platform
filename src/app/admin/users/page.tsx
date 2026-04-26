@@ -32,6 +32,7 @@ interface UserWithTeam {
   full_name: string | null;
   created_at: string;
   is_admin: boolean;
+  is_partner: boolean;
   teams: { id: string; name: string; plan: string }[];
   subscription?: { plan: string; status: string; is_free: boolean; expires_at: string | null } | null;
 }
@@ -66,7 +67,7 @@ export default function AdminUsersPage() {
 
     const { data: allUsers } = await supabase
       .from("users")
-      .select("id, email, full_name, created_at, is_admin")
+      .select("id, email, full_name, created_at, is_admin, is_partner")
       .order("created_at", { ascending: false });
 
     if (!allUsers) { setLoading(false); return; }
@@ -162,6 +163,25 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleTogglePartner = async (userId: string, email: string, currentlyPartner: boolean) => {
+    const res = await fetch("/api/admin/partner/activate", {
+      method: currentlyPartner ? "DELETE" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: userId }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      toast.error(data.error || "Failed to update partner status");
+      return;
+    }
+    toast.success(
+      currentlyPartner
+        ? `${email} deactivated as partner`
+        : `${email} is now a partner — referral link generated, welcome email sent`
+    );
+    fetchUsers();
+  };
+
   const handleCancelSubscription = async (teamId: string) => {
     const { error } = await supabase
       .from("subscriptions")
@@ -225,6 +245,11 @@ export default function AdminUsersPage() {
                           ADMIN
                         </span>
                       )}
+                      {user.is_partner && (
+                        <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-[#00D26A]/20 text-[#00D26A] border border-[#00D26A]/30">
+                          PARTNER
+                        </span>
+                      )}
                       <button
                         onClick={() => handleToggleAdmin(user.id, user.email, user.is_admin)}
                         className={cn(
@@ -235,6 +260,17 @@ export default function AdminUsersPage() {
                         )}
                       >
                         {user.is_admin ? "Remove Admin" : "Make Admin"}
+                      </button>
+                      <button
+                        onClick={() => handleTogglePartner(user.id, user.email, user.is_partner)}
+                        className={cn(
+                          "text-[8px] font-black px-1.5 py-0.5 rounded-full border transition-all",
+                          user.is_partner
+                            ? "bg-[#00D26A]/10 text-[#00D26A] border-[#00D26A]/20 hover:bg-[#00D26A]/20"
+                            : "bg-white/5 text-neutral-500 border-white/10 hover:text-[#00D26A] hover:border-[#00D26A]/20"
+                        )}
+                      >
+                        {user.is_partner ? "Deactivate Partner" : "Activate Partner"}
                       </button>
                     </div>
                     <p className="text-[11px] text-neutral-500 truncate">{user.email}</p>

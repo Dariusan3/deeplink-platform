@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Groq from "groq-sdk";
-import { sendAnomalyEmail } from "@/lib/email";
+import { sendAnomalyEmail, sendPartnerMonthlyReportEmail } from "@/lib/email";
 import { finalizeABWinnerIfReady } from "@/lib/ab-testing";
 
 // Uses service role key — this route is called by a cron scheduler, not a browser
@@ -416,10 +416,73 @@ Reply with only the JSON, no other text.`;
     }
   }
 
+  // Partner monthly report — fires only on the 1st of each month so partners
+  // get a recap of the previous month's earnings + new referrals + active count.
+  let partnerReports = 0;
+  const today = new Date();
+  if (today.getUTCDate() === 1) {
+    const prev = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1));
+    const prevMonthKey = prev.toISOString().slice(0, 7);
+    const prevMonthName = prev.toLocaleString("en-US", { month: "long", year: "numeric" });
+    const monthStart = new Date(Date.UTC(prev.getUTCFullYear(), prev.getUTCMonth(), 1)).toISOString();
+    const monthEnd = new Date(Date.UTC(prev.getUTCFullYear(), prev.getUTCMonth() + 1, 1)).toISOString();
+
+    const { data: partners } = await supabase
+      .from("partner_profiles")
+      .select("id, user_id, pending_payout");
+
+    if (partners) {
+      for (const p of partners) {
+        // Total earned for the previous month
+        const { data: earningsRows } = await supabase
+          .from("partner_earnings")
+          .select("amount")
+          .eq("partner_id", p.id)
+          .eq("period_month", `${prevMonthKey}-01`);
+        const totalEarned = (earningsRows ?? []).reduce((s, r) => s + Number(r.amount), 0);
+
+        // New referrals signed in the previous month
+        const { count: newCount } = await supabase
+          .from("partner_referrals")
+          .select("*", { count: "exact", head: true })
+          .eq("partner_id", p.id)
+          .gte("signed_up_at", monthStart)
+          .lt("signed_up_at", monthEnd);
+
+        // Currently active referrals
+        const { count: activeCount } = await supabase
+          .from("partner_referrals")
+          .select("*", { count: "exact", head: true })
+          .eq("partner_id", p.id)
+          .eq("status", "active");
+
+        // Skip silent partners (no activity, no balance)
+        if (!totalEarned && !newCount && Number(p.pending_payout) === 0) continue;
+
+        const { data: u } = await supabase
+          .from("users").select("email, full_name").eq("id", p.user_id).single();
+        if (!u?.email) continue;
+
+        await sendPartnerMonthlyReportEmail({
+          to: u.email,
+          name: u.full_name || u.email.split("@")[0],
+          totalEarned,
+          newReferrals: newCount ?? 0,
+          activeReferrals: activeCount ?? 0,
+          pendingPayout: Number(p.pending_payout),
+          monthName: prevMonthName,
+        }).catch((err) => console.error("Partner monthly email failed:", err));
+
+        partnerReports++;
+      }
+    }
+  }
+
   return NextResponse.json({
     checked: teams.length,
     detected: allAnomalies.length,
     saved: insertAnomalies.length,
     ab_winners_finalized: abWinners,
+    partner_reports_sent: partnerReports,
   });
 }

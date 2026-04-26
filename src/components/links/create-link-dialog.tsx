@@ -19,7 +19,15 @@ import { useCollections } from "@/hooks/use-collections";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-export function CreateLinkDialog() {
+interface CreateLinkDialogProps {
+  // Pre-select a collection — used by the collection detail page so a link
+  // created from there is automatically assigned to that collection.
+  defaultCollectionId?: string | null;
+  // Override the trigger button. Defaults to the green "Create Deeplink" CTA.
+  trigger?: React.ReactElement;
+}
+
+export function CreateLinkDialog({ defaultCollectionId, trigger }: CreateLinkDialogProps = {}) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [title, setTitle] = useState("");
@@ -27,8 +35,8 @@ export function CreateLinkDialog() {
   const [slug, setSlug] = useState("");
 
   // Advanced options
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [collectionId, setCollectionId] = useState<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(!!defaultCollectionId);
+  const [collectionId, setCollectionId] = useState<string | null>(defaultCollectionId ?? null);
   const [clickGoal, setClickGoal] = useState("");
   const [clickGoalPeriod, setClickGoalPeriod] = useState("daily");
   const [notes, setNotes] = useState("");
@@ -100,12 +108,14 @@ export function CreateLinkDialog() {
     setTitle("");
     setDestinationUrl("");
     setSlug("");
-    setCollectionId(null);
+    // Keep the default collection so re-opening the dialog from a collection
+    // page doesn't drop the context.
+    setCollectionId(defaultCollectionId ?? null);
     setClickGoal("");
     setClickGoalPeriod("daily");
     setNotes("");
     setIsActive(true);
-    setShowAdvanced(false);
+    setShowAdvanced(!!defaultCollectionId);
   };
 
   return (
@@ -113,10 +123,12 @@ export function CreateLinkDialog() {
       <DialogTrigger
         id="create-link-dialog-trigger"
         render={
-          <Button className="btn-primary-pulse rounded-xl h-11 px-6 font-black uppercase text-xs tracking-widest gap-2">
-            <Plus className="w-4 h-4" />
-            Create Deeplink
-          </Button>
+          trigger ?? (
+            <Button className="btn-primary-pulse rounded-xl h-11 px-6 font-black uppercase text-xs tracking-widest gap-2">
+              <Plus className="w-4 h-4" />
+              Create Deeplink
+            </Button>
+          )
         }
       />
       <DialogContent className="glass-card bg-black/90 border-white/5 shadow-[0_0_50px_rgba(0,210,106,0.1)] text-white sm:max-w-[480px] max-h-[90vh] overflow-y-auto scrollbar-none">

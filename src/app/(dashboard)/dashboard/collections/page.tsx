@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useCollections } from "@/hooks/use-collections";
 import { useLinks } from "@/hooks/use-links";
 import { CreateCollectionDialog, CollectionsInfo } from "@/components/collections/create-collection-dialog";
+import { AddLinkToCollectionDialog } from "@/components/collections/add-link-to-collection-dialog";
 import {
   FolderOpen,
   Trash2,
@@ -17,7 +18,7 @@ import {
   Target,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -26,6 +27,137 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+
+// Local draft state for the click-goal editor — saving on every keystroke
+// triggers a toast + event-bus refetch that overwrites the in-progress
+// input value, causing visual glitches. We hold a draft, show a Save
+// button when it differs from the persisted value, and confirm before
+// applying the update.
+function CollectionGoalEditor({
+  collectionId,
+  serverGoal,
+  serverPeriod,
+  onSave,
+}: {
+  collectionId: string;
+  serverGoal: number | null;
+  serverPeriod: string | null;
+  onSave: (goal: number | null, period: string | null) => Promise<void>;
+}) {
+  const [draftGoal, setDraftGoal] = useState<string>(serverGoal != null ? String(serverGoal) : "");
+  const [draftPeriod, setDraftPeriod] = useState<string>(serverPeriod || "daily");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Re-sync draft when the active collection or server values change
+  // (e.g. user switches collections, or another tab updates the goal).
+  useEffect(() => {
+    setDraftGoal(serverGoal != null ? String(serverGoal) : "");
+    setDraftPeriod(serverPeriod || "daily");
+  }, [collectionId, serverGoal, serverPeriod]);
+
+  const parsedDraftGoal = draftGoal.trim() === "" ? null : parseInt(draftGoal, 10);
+  const isDirty =
+    (parsedDraftGoal ?? null) !== (serverGoal ?? null) ||
+    draftPeriod !== (serverPeriod || "daily");
+
+  const handleConfirmSave = async () => {
+    if (parsedDraftGoal !== null && (Number.isNaN(parsedDraftGoal) || parsedDraftGoal < 0)) {
+      toast.error("Enter a valid positive number");
+      return;
+    }
+    setSaving(true);
+    try {
+      await onSave(parsedDraftGoal, parsedDraftGoal === null ? null : draftPeriod);
+      setConfirmOpen(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRemove = async () => {
+    setSaving(true);
+    try {
+      await onSave(null, null);
+      setDraftGoal("");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-3">
+        <input
+          type="number"
+          min={0}
+          placeholder="Target clicks"
+          value={draftGoal}
+          onChange={(e) => setDraftGoal(e.target.value)}
+          className="w-32 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm font-bold placeholder:text-neutral-600 focus:outline-none focus:border-[#00D26A]/50"
+        />
+        <select
+          value={draftPeriod}
+          onChange={(e) => setDraftPeriod(e.target.value)}
+          className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm font-bold focus:outline-none focus:border-[#00D26A]/50 [&>option]:bg-black"
+        >
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
+        </select>
+        {isDirty && (
+          <Button
+            onClick={() => setConfirmOpen(true)}
+            disabled={saving}
+            className="bg-[#00D26A] hover:bg-[#00D26A]/90 text-black font-black uppercase text-[10px] tracking-widest rounded-lg h-9 px-4"
+          >
+            Save Goal
+          </Button>
+        )}
+        {serverGoal != null && serverGoal > 0 && !isDirty && (
+          <button
+            onClick={handleRemove}
+            disabled={saving}
+            className="text-xs font-bold text-neutral-500 hover:text-red-400 transition-colors disabled:opacity-50"
+          >
+            Remove goal
+          </button>
+        )}
+      </div>
+
+      {/* Confirmation dialog */}
+      <Dialog open={confirmOpen} onOpenChange={(o) => !saving && setConfirmOpen(o)}>
+        <DialogContent className="glass-card bg-black/95 border-white/10 text-white sm:max-w-100">
+          <DialogTitle className="text-xl font-black tracking-tight text-white uppercase italic">
+            Save Goal Update?
+          </DialogTitle>
+          <DialogDescription className="text-neutral-400 font-medium">
+            New goal: <span className="text-[#00D26A] font-bold">
+              {parsedDraftGoal ?? 0} clicks {draftPeriod}
+            </span>. This replaces the current goal for this collection.
+          </DialogDescription>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="ghost"
+              onClick={() => setConfirmOpen(false)}
+              disabled={saving}
+              className="text-white hover:bg-white/5 font-bold uppercase text-[10px] tracking-widest"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmSave}
+              disabled={saving}
+              className="bg-[#00D26A] hover:bg-[#00D26A]/90 text-black font-black uppercase text-[10px] tracking-widest rounded-lg"
+            >
+              {saving ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
 
 export default function CollectionsPage() {
   const { collections, loading, deleteCollection, updateCollection, moveLinksToCollection } =
@@ -69,28 +201,34 @@ export default function CollectionsPage() {
             Back to Collections
           </button>
 
-          <div className="flex items-center gap-4">
-            <div
-              className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
-              style={{
-                backgroundColor: `${activeCollection.color || "#00D26A"}15`,
-              }}
-            >
-              <FolderOpen
-                className="w-6 h-6"
-                style={{ color: activeCollection.color || "#00D26A" }}
-              />
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-4">
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+                style={{
+                  backgroundColor: `${activeCollection.color || "#00D26A"}15`,
+                }}
+              >
+                <FolderOpen
+                  className="w-6 h-6"
+                  style={{ color: activeCollection.color || "#00D26A" }}
+                />
+              </div>
+              <div>
+                <h2 className="text-3xl font-black tracking-tighter text-white uppercase italic">
+                  {activeCollection.name}
+                </h2>
+                {activeCollection.description && (
+                  <p className="text-sm text-neutral-500">
+                    {activeCollection.description}
+                  </p>
+                )}
+              </div>
             </div>
-            <div>
-              <h2 className="text-3xl font-black tracking-tighter text-white uppercase italic">
-                {activeCollection.name}
-              </h2>
-              {activeCollection.description && (
-                <p className="text-sm text-neutral-500">
-                  {activeCollection.description}
-                </p>
-              )}
-            </div>
+            <AddLinkToCollectionDialog
+              collectionId={activeCollection.id}
+              collectionName={activeCollection.name}
+            />
           </div>
 
           {/* Click Goal Settings */}
@@ -104,49 +242,17 @@ export default function CollectionsPage() {
                   Click Goal
                 </h3>
               </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <input
-                  type="number"
-                  min={0}
-                  placeholder="Target clicks"
-                  value={activeCollection.click_goal ?? ""}
-                  onChange={(e) => {
-                    const val = e.target.value ? parseInt(e.target.value) : null;
-                    updateCollection(activeCollection.id, {
-                      click_goal: val,
-                      click_goal_period: activeCollection.click_goal_period || "daily",
-                    });
-                  }}
-                  className="w-32 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm font-bold placeholder:text-neutral-600 focus:outline-none focus:border-[#00D26A]/50"
-                />
-                <select
-                  value={activeCollection.click_goal_period || "daily"}
-                  onChange={(e) =>
-                    updateCollection(activeCollection.id, {
-                      click_goal: activeCollection.click_goal,
-                      click_goal_period: e.target.value,
-                    })
-                  }
-                  className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm font-bold focus:outline-none focus:border-[#00D26A]/50 [&>option]:bg-black"
-                >
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                </select>
-                {activeCollection.click_goal && activeCollection.click_goal > 0 && (
-                  <button
-                    onClick={() =>
-                      updateCollection(activeCollection.id, {
-                        click_goal: null,
-                        click_goal_period: null,
-                      })
-                    }
-                    className="text-xs font-bold text-neutral-500 hover:text-red-400 transition-colors"
-                  >
-                    Remove goal
-                  </button>
-                )}
-              </div>
+              <CollectionGoalEditor
+                collectionId={activeCollection.id}
+                serverGoal={activeCollection.click_goal}
+                serverPeriod={activeCollection.click_goal_period}
+                onSave={(goal, period) =>
+                  updateCollection(activeCollection.id, {
+                    click_goal: goal,
+                    click_goal_period: period,
+                  })
+                }
+              />
             </CardContent>
           </Card>
 
@@ -160,8 +266,7 @@ export default function CollectionsPage() {
                   No Links in This Collection
                 </h3>
                 <p className="text-sm text-neutral-500 max-w-sm font-medium">
-                  Go to your Links page and use the link menu to add links to
-                  this collection.
+                  Use the <span className="text-[#00D26A] font-bold">Add Link</span> button above to add an existing link or create a new one.
                 </p>
               </div>
             </Card>

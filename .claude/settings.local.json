@@ -38,7 +38,8 @@
       "Bash(gh api:*)",
       "Bash(vercel --prod --yes)",
       "Bash(vercel logs:*)",
-      "Bash(vercel env:*)"
+      "Bash(vercel env:*)",
+      "Read(//Users/osadicidarius/Documents/projects/deeplink-platform/**)"
     ]
   }
 }

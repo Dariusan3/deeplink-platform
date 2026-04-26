@@ -250,3 +250,168 @@ export async function sendContactMessage({
     return { ok: false, reason: "send_failed" };
   }
 }
+
+// ─── Partner system emails ────────────────────────────────
+
+const partnerEmailShell = (innerHtml: string, badge: string) => `
+  <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; background: #000; color: #fff; border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);">
+    <div style="padding: 24px 24px 16px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 20px; font-weight: 900; color: #fff;">Ta<span style="color: #00D26A;">ppr</span></span>
+        <span style="font-size: 10px; font-weight: 800; color: #00D26A; background: rgba(0,210,106,0.1); padding: 2px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.1em;">${badge}</span>
+      </div>
+    </div>
+    <div style="padding: 20px 24px;">${innerHtml}</div>
+    <div style="padding: 16px 24px; text-align: center;">
+      <a href="https://tappr.me/partner" style="display: inline-block; background: #00D26A; color: #000; font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em; padding: 10px 24px; border-radius: 8px; text-decoration: none;">Open Partner Dashboard</a>
+    </div>
+  </div>`;
+
+export async function sendPartnerWelcomeEmail({
+  to,
+  name,
+  referralUrl,
+}: {
+  to: string;
+  name: string;
+  referralUrl: string;
+}) {
+  if (!resend) return;
+  const safeName = escapeHtml(name);
+  const safeUrl = escapeHtml(referralUrl);
+  const html = partnerEmailShell(`
+    <h2 style="font-size: 18px; font-weight: 900; color: #fff; margin: 0 0 8px;">Welcome to the Tappr Partner Program, ${safeName}</h2>
+    <p style="font-size: 14px; color: #999; line-height: 1.6; margin: 0 0 20px;">Your account is now activated. You earn <strong style="color:#00D26A">25% recurring</strong> on every paying customer you refer — for as long as they stay subscribed.</p>
+    <div style="background: rgba(0,210,106,0.05); border: 1px solid rgba(0,210,106,0.15); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+      <p style="font-size: 10px; color: #00D26A; text-transform: uppercase; letter-spacing: 0.15em; font-weight: 800; margin: 0 0 6px;">Your referral link</p>
+      <p style="font-size: 13px; color: #fff; margin: 0; font-family: ui-monospace, monospace; word-break: break-all;">${safeUrl}</p>
+    </div>
+    <p style="font-size: 13px; color: #ccc; line-height: 1.7; margin: 0;">Share this link anywhere — social, email, DMs. Anyone who signs up through it is permanently linked to your partner account. Once they upgrade to a paid plan, you start earning every month.</p>
+  `, "PARTNER ACTIVATED");
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to,
+      subject: "You're now a Tappr Partner — start earning 25%",
+      html,
+    });
+  } catch (err) {
+    console.error("Failed to send partner welcome email:", err);
+  }
+}
+
+export async function sendPartnerReferralConvertedEmail({
+  to,
+  name,
+  referredEmail,
+  plan,
+  monthlyValue,
+  commission,
+}: {
+  to: string;
+  name: string;
+  referredEmail: string;
+  plan: string;
+  monthlyValue: number;
+  commission: number;
+}) {
+  if (!resend) return;
+  const html = partnerEmailShell(`
+    <h2 style="font-size: 18px; font-weight: 900; color: #fff; margin: 0 0 8px;">A referral just converted 🎉</h2>
+    <p style="font-size: 14px; color: #999; line-height: 1.6; margin: 0 0 16px;">Hey ${escapeHtml(name)} — <strong style="color:#fff">${escapeHtml(referredEmail)}</strong> just upgraded to the <strong style="color:#00D26A">${escapeHtml(plan)}</strong> plan.</p>
+    <div style="background: rgba(0,210,106,0.05); border: 1px solid rgba(0,210,106,0.15); border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+      <div style="display: flex; gap: 24px;">
+        <div><p style="font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.1em; margin: 0;">Their plan</p><p style="font-size: 16px; color: #fff; font-weight: 800; margin: 2px 0 0;">$${monthlyValue}/mo</p></div>
+        <div><p style="font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.1em; margin: 0;">Your commission</p><p style="font-size: 16px; color: #00D26A; font-weight: 800; margin: 2px 0 0;">$${commission.toFixed(2)}/mo</p></div>
+      </div>
+    </div>
+    <p style="font-size: 13px; color: #ccc; margin: 0;">Recurring — credited every month they stay subscribed.</p>
+  `, "REFERRAL CONVERTED");
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to,
+      subject: `+$${commission.toFixed(2)}/mo — your referral upgraded`,
+      html,
+    });
+  } catch (err) {
+    console.error("Failed to send referral-converted email:", err);
+  }
+}
+
+export async function sendPartnerPayoutConfirmedEmail({
+  to,
+  name,
+  amount,
+  method,
+  reference,
+}: {
+  to: string;
+  name: string;
+  amount: number;
+  method: string;
+  reference: string | null;
+}) {
+  if (!resend) return;
+  const html = partnerEmailShell(`
+    <h2 style="font-size: 18px; font-weight: 900; color: #fff; margin: 0 0 8px;">Payout sent</h2>
+    <p style="font-size: 14px; color: #999; line-height: 1.6; margin: 0 0 16px;">Hey ${escapeHtml(name)} — your payout has been processed.</p>
+    <div style="background: rgba(0,210,106,0.05); border: 1px solid rgba(0,210,106,0.15); border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+      <p style="font-size: 26px; color: #00D26A; font-weight: 900; margin: 0 0 4px;">$${amount.toFixed(2)}</p>
+      <p style="font-size: 11px; color: #999; margin: 0;">via ${escapeHtml(method)}</p>
+      ${reference ? `<p style="font-size: 11px; color: #666; margin: 6px 0 0;">Ref: ${escapeHtml(reference)}</p>` : ""}
+    </div>
+    <p style="font-size: 13px; color: #ccc; margin: 0;">Thanks for being part of the Tappr Partner Program. Keep sharing your link to earn more.</p>
+  `, "PAYOUT PROCESSED");
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to,
+      subject: `Payout processed: $${amount.toFixed(2)}`,
+      html,
+    });
+  } catch (err) {
+    console.error("Failed to send payout-confirmed email:", err);
+  }
+}
+
+export async function sendPartnerMonthlyReportEmail({
+  to,
+  name,
+  totalEarned,
+  newReferrals,
+  activeReferrals,
+  pendingPayout,
+  monthName,
+}: {
+  to: string;
+  name: string;
+  totalEarned: number;
+  newReferrals: number;
+  activeReferrals: number;
+  pendingPayout: number;
+  monthName: string;
+}) {
+  if (!resend) return;
+  const html = partnerEmailShell(`
+    <h2 style="font-size: 18px; font-weight: 900; color: #fff; margin: 0 0 8px;">${escapeHtml(monthName)} — partner recap</h2>
+    <p style="font-size: 14px; color: #999; line-height: 1.6; margin: 0 0 16px;">Hey ${escapeHtml(name)} — here's how last month went.</p>
+    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px;">
+      <div style="background: rgba(0,210,106,0.05); border: 1px solid rgba(0,210,106,0.15); border-radius: 8px; padding: 12px;"><p style="font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.1em; margin: 0;">Earned</p><p style="font-size: 20px; color: #00D26A; font-weight: 900; margin: 4px 0 0;">$${totalEarned.toFixed(2)}</p></div>
+      <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 12px;"><p style="font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.1em; margin: 0;">New referrals</p><p style="font-size: 20px; color: #fff; font-weight: 900; margin: 4px 0 0;">${newReferrals}</p></div>
+      <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 12px;"><p style="font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.1em; margin: 0;">Active</p><p style="font-size: 20px; color: #fff; font-weight: 900; margin: 4px 0 0;">${activeReferrals}</p></div>
+      <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 12px;"><p style="font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.1em; margin: 0;">Pending payout</p><p style="font-size: 20px; color: #fff; font-weight: 900; margin: 4px 0 0;">$${pendingPayout.toFixed(2)}</p></div>
+    </div>
+    <p style="font-size: 13px; color: #ccc; margin: 0;">${pendingPayout >= 50 ? "You can request a payout anytime — minimum $50 is met." : "Once your pending payout reaches $50 you can request a withdrawal."}</p>
+  `, `${monthName.toUpperCase()} REPORT`);
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to,
+      subject: `Your Tappr Partner recap — ${monthName}`,
+      html,
+    });
+  } catch (err) {
+    console.error("Failed to send partner monthly email:", err);
+  }
+}
