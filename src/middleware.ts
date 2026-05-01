@@ -2,15 +2,11 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export default async function middleware(request: NextRequest) {
-  // Canonical host: redirect www.* → bare host (308 preserves method).
-  // Runs before anything else so we never serve content from www.tappr.me;
-  // browsers, share-pickers and Slack-unfurls all see only tappr.me/<slug>.
-  const host = request.headers.get("host") || "";
-  if (host.toLowerCase().startsWith("www.")) {
-    const url = request.nextUrl.clone();
-    url.host = host.slice(4);
-    return NextResponse.redirect(url, 308);
-  }
+  // Note: canonical host redirect (www.tappr.me → tappr.me) is handled at
+  // the Vercel domain config layer. Doing it here too caused a redirect
+  // loop when Vercel was configured to redirect bare → www at the same time.
+  // Configure: Vercel → Project → Settings → Domains → set tappr.me as the
+  // primary (no redirect) and www.tappr.me to redirect to tappr.me.
 
   let supabaseResponse = NextResponse.next({
     request,
