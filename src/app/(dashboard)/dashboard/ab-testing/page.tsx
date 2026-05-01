@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { getDisplayOrigin } from "@/lib/url-normalize";
 
 // ROI Calculator Component — connected to real A/B test data
 function ROICalculator({ tests }: { tests: ABTest[] }) {
@@ -412,7 +413,7 @@ function TestCard({ test, onSelectWinner, onUpdate, onDelete }: {
   const maxConversions = Math.max(test.variant_a_conversions, test.variant_b_conversions);
   const leading = rateA > rateB ? "a" : rateB > rateA ? "b" : null;
 
-  const testUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/` + test.slug;
+  const testUrl = `${getDisplayOrigin()}/${test.slug}`;
 
   const copyUrl = () => {
     navigator.clipboard.writeText(testUrl);

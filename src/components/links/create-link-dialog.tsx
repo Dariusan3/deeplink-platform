@@ -189,7 +189,7 @@ export function CreateLinkDialog({ defaultCollectionId, trigger }: CreateLinkDia
               </button>
             </div>
             <p className="text-[9px] text-neutral-500 font-bold uppercase tracking-tight">
-              Example: dplnk.co/<span className="text-[#00D26A]">{slug || "magic-slug"}</span>
+              Example: https://tappr.me/<span className="text-[#00D26A]">{slug || "magic-slug"}</span>
             </p>
           </div>
 

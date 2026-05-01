@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Download, FileSpreadsheet, Loader2, Link2, BarChart3, MousePointerClick } from "lucide-react";
 import { useLinks } from "@/hooks/use-links";
 import { useTeam } from "@/hooks/use-team";
+import { getDisplayOrigin } from "@/lib/url-normalize";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -64,7 +65,7 @@ export function ExportDialog() {
         // Export links metadata only
         csv = "Short URL,Slug,Title,Destination URL,Status,Click Goal,Created At\n";
         for (const link of links) {
-          const shortUrl = `${window.location.origin}/${link.slug}`;
+          const shortUrl = `${getDisplayOrigin()}/${link.slug}`;
           csv += `"${shortUrl}","${link.slug}","${(link.title || "").replace(/"/g, '""')}","${link.destination_url}","${link.is_active ? "active" : "paused"}","${link.click_goal || ""}","${link.created_at}"\n`;
         }
       } else if (exportType === "clicks") {
@@ -79,7 +80,7 @@ export function ExportDialog() {
         csv = "Short URL,Date,Country,Device Type,User Agent,Referrer\n";
         for (const click of clicks || []) {
           const link = click.links as any;
-          const shortUrl = `${window.location.origin}/${link?.slug || ""}`;
+          const shortUrl = `${getDisplayOrigin()}/${link?.slug || ""}`;
           csv += `"${shortUrl}","${click.clicked_at}","${click.country || ""}","${click.device_type || ""}","${(click.user_agent || "").replace(/"/g, '""')}","${click.referer || "direct"}"\n`;
         }
       } else {
@@ -94,7 +95,7 @@ export function ExportDialog() {
         csv = "Short URL,Date,Country,Device Type,Browser,Referrer,Destination URL\n";
         for (const click of clicks || []) {
           const link = click.links as any;
-          const shortUrl = `${window.location.origin}/${link?.slug || ""}`;
+          const shortUrl = `${getDisplayOrigin()}/${link?.slug || ""}`;
           // Extract browser from user agent
           const ua = click.user_agent || "";
           let browser = "Unknown";

@@ -19,7 +19,7 @@ import { useLinks } from "@/hooks/use-links";
 import { useCollections } from "@/hooks/use-collections";
 import { RulesDialog } from "@/components/links/rules-dialog";
 import { QrDialog } from "@/components/qr/qr-dialog";
-import { normalizeDestinationUrl } from "@/lib/url-normalize";
+import { normalizeDestinationUrl, buildShortUrl, getDisplayHost } from "@/lib/url-normalize";
 import {
   ArrowLeft,
   Save,
@@ -103,7 +103,7 @@ export default function LinkEditPage() {
   }
 
   const shortUrl = typeof window !== "undefined"
-    ? `${window.location.host}/${link.slug}`
+    ? buildShortUrl(link.slug)
     : `tappr.me/${link.slug}`;
 
   const isValidUrl = (url: string) => /^https?:\/\/.+\..+/.test(url.trim());
@@ -260,7 +260,7 @@ export default function LinkEditPage() {
                     className="bg-white/[0.03] border-white/10 focus:border-[#00D26A]/50 rounded-xl h-11 font-mono"
                   />
                   <p className="text-[10px] text-neutral-500 font-bold">
-                    Will be available at <span className="text-[#00D26A]">{typeof window !== "undefined" ? window.location.host : "tappr.me"}/{slug || "..."}</span>
+                    Will be available at <span className="text-[#00D26A]">https://{getDisplayHost()}/{slug || "..."}</span>
                   </p>
                 </div>
 

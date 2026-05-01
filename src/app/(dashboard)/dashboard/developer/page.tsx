@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { useApiKeys } from "@/hooks/use-api-keys";
+import { getDisplayOrigin } from "@/lib/url-normalize";
 import {
   Key,
   Copy,
@@ -128,7 +129,7 @@ export default function DeveloperApiPage() {
   const [baseUrl, setBaseUrl] = useState("https://yourdomain.com");
 
   useEffect(() => {
-    setBaseUrl(window.location.origin);
+    setBaseUrl(getDisplayOrigin());
   }, []);
 
   const handleGenerateKey = async () => {

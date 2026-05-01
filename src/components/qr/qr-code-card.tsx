@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Download, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { Link as LinkType } from "@/types/links";
+import { buildShortUrl } from "@/lib/url-normalize";
 
 interface QrCodeCardProps {
   link: LinkType;
@@ -15,7 +16,7 @@ interface QrCodeCardProps {
 export function QrCodeCard({ link }: QrCodeCardProps) {
   const svgRef = useRef<HTMLDivElement>(null);
   const shortUrl =
-    typeof window !== "undefined" ? `${window.location.host}/${link.slug}` : link.slug;
+    typeof window !== "undefined" ? buildShortUrl(link.slug) : link.slug;
   const fullUrl = shortUrl.startsWith("http") ? shortUrl : `https://${shortUrl}`;
 
   const handleDownload = () => {

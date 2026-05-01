@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLinks } from "@/hooks/use-links";
 import { useTeam } from "@/hooks/use-team";
 import { useCollections } from "@/hooks/use-collections";
-import { normalizeDestinationUrl } from "@/lib/url-normalize";
+import { normalizeDestinationUrl, buildShortUrl, getDisplayHost } from "@/lib/url-normalize";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -97,7 +97,7 @@ export function QuickCreate() {
 
   const copyShortUrl = () => {
     if (!createdSlug) return;
-    const shortUrl = `${window.location.host}/${createdSlug}`;
+    const shortUrl = buildShortUrl(createdSlug);
     navigator.clipboard.writeText(shortUrl);
     setCopied(true);
     toast.success("Copied to clipboard!");
@@ -105,7 +105,7 @@ export function QuickCreate() {
   };
 
   const shortUrl = createdSlug
-    ? `${typeof window !== "undefined" ? window.location.host : ""}/${createdSlug}`
+    ? `${typeof window !== "undefined" ? getDisplayHost() : ""}/${createdSlug}`
     : "";
 
   return (

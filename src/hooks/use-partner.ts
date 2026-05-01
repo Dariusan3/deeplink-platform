@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "./use-user";
 import { emit, subscribe } from "@/lib/refresh-bus";
+import { getDisplayOrigin } from "@/lib/url-normalize";
 import { toast } from "sonner";
 import type {
   PartnerProfile,
@@ -235,8 +236,7 @@ export function usePartner() {
 
   const referralUrl = useMemo(() => {
     if (!profile?.referral_code) return "";
-    const origin = typeof window !== "undefined" ? window.location.origin : "https://tappr.me";
-    return `${origin}/?ref=${profile.referral_code}`;
+    return `${getDisplayOrigin()}/?ref=${profile.referral_code}`;
   }, [profile?.referral_code]);
 
   return {

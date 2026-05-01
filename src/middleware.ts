@@ -2,6 +2,16 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export default async function middleware(request: NextRequest) {
+  // Canonical host: redirect www.* → bare host (308 preserves method).
+  // Runs before anything else so we never serve content from www.tappr.me;
+  // browsers, share-pickers and Slack-unfurls all see only tappr.me/<slug>.
+  const host = request.headers.get("host") || "";
+  if (host.toLowerCase().startsWith("www.")) {
+    const url = request.nextUrl.clone();
+    url.host = host.slice(4);
+    return NextResponse.redirect(url, 308);
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   });

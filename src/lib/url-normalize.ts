@@ -29,3 +29,26 @@ export function normalizeDestinationUrl(input: string | null | undefined): strin
 
   return value;
 }
+
+// Returns the current host stripped of any leading "www." — used everywhere
+// we display a short URL (`tappr.me/slug` not `www.tappr.me/slug`). Falls
+// back to "tappr.me" during SSR.
+export function getDisplayHost(): string {
+  if (typeof window === "undefined") return "tappr.me";
+  return window.location.host.replace(/^www\./i, "");
+}
+
+// Same idea for full origin — used by export-dialog, partner referral URL,
+// developer API base URL display.
+export function getDisplayOrigin(): string {
+  if (typeof window === "undefined") return "https://tappr.me";
+  const proto = window.location.protocol; // keeps http on localhost dev
+  return `${proto}//${getDisplayHost()}`;
+}
+
+// Convenience: build the FULL short URL for a given slug — with `https://`
+// prefix and no `www.`. Same string in display + clipboard so when the
+// user copies, they get a complete shareable URL.
+export function buildShortUrl(slug: string): string {
+  return `${getDisplayOrigin()}/${slug}`;
+}

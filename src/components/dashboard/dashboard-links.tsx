@@ -6,6 +6,7 @@ import { Link as LinkType } from "@/types/links";
 import { List, Copy, Check, Globe, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
+import { buildShortUrl } from "@/lib/url-normalize";
 
 interface DashboardLinksProps {
   links: LinkType[];
@@ -68,7 +69,7 @@ function LinkRow({ link }: { link: LinkType }) {
   } catch {}
 
   const shortUrl =
-    typeof window !== "undefined" ? `${window.location.host}/${link.slug}` : link.slug;
+    typeof window !== "undefined" ? buildShortUrl(link.slug) : link.slug;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(shortUrl);
