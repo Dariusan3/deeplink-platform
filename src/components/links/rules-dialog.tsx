@@ -18,6 +18,7 @@ import { Link, RedirectRule } from "@/types/links";
 import { useLinks } from "@/hooks/use-links";
 import { DateTimePicker } from "@/components/ui/date-picker";
 import { CountryMultiSelect } from "@/components/ui/country-multiselect";
+import { normalizeDestinationUrl } from "@/lib/url-normalize";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -145,8 +146,14 @@ export function RulesDialog({ link, trigger, open: controlledOpen, onOpenChange:
         }
       }
 
+      // Normalize each rule's destination URL (https + strip www) before save.
+      const normalizedRules = rules.map((r) => ({
+        ...r,
+        destination_url: normalizeDestinationUrl(r.destination_url),
+      }));
+
       await updateLink(link.id, {
-        redirect_rules: rules as any,
+        redirect_rules: normalizedRules as any,
         click_goal: clickGoal,
         click_goal_period: clickGoalPeriod,
       });

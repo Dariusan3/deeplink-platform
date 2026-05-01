@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Upload, FileText, CheckCircle, XCircle, Loader2, Download } from "lucide-react";
 import { useLinks } from "@/hooks/use-links";
+import { normalizeDestinationUrl } from "@/lib/url-normalize";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -39,12 +40,15 @@ function parseCSV(text: string): ParsedRow[] {
   return dataLines
     .map((line) => {
       const cols = line.split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
-      const url = cols[0] || "";
+      const rawUrl = cols[0] || "";
+      // Normalize first (auto-add https, strip www) so a CSV like
+      // `example.com,...` is accepted, not rejected.
+      const url = normalizeDestinationUrl(rawUrl);
       const title = cols[1] || undefined;
       const slug = cols[2] || generateSlug();
 
-      if (!url || !url.startsWith("http")) {
-        return { url, title, slug, status: "error" as const, error: "Invalid URL" };
+      if (!url || !/^https:\/\/.+\..+/.test(url)) {
+        return { url: rawUrl, title, slug, status: "error" as const, error: "Invalid URL" };
       }
       return { url, title, slug, status: "pending" as const };
     })
@@ -87,7 +91,7 @@ export function BulkImportDialog() {
 
       try {
         await createLink({
-          destination_url: row.url,
+          destination_url: normalizeDestinationUrl(row.url),
           slug: row.slug || generateSlug(),
           title: row.title || null,
           is_active: true,

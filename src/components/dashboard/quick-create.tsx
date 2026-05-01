@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLinks } from "@/hooks/use-links";
 import { useTeam } from "@/hooks/use-team";
 import { useCollections } from "@/hooks/use-collections";
+import { normalizeDestinationUrl } from "@/lib/url-normalize";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -66,7 +67,7 @@ export function QuickCreate() {
       const slug = customSlug.trim() || Math.random().toString(36).substring(2, 8);
       await createLink({
         title: linkTitle,
-        destination_url: url,
+        destination_url: normalizeDestinationUrl(url),
         slug,
         is_active: true,
         collection_id: collectionId || undefined,

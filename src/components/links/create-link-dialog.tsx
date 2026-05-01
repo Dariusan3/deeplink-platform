@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { useLinks } from "@/hooks/use-links";
 import { useTeam } from "@/hooks/use-team";
 import { useCollections } from "@/hooks/use-collections";
+import { normalizeDestinationUrl } from "@/lib/url-normalize";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -85,7 +86,7 @@ export function CreateLinkDialog({ defaultCollectionId, trigger }: CreateLinkDia
       const finalSlug = slug || Math.random().toString(36).substring(2, 8);
       await createLink({
         title: title || "New Link",
-        destination_url: destinationUrl,
+        destination_url: normalizeDestinationUrl(destinationUrl),
         slug: finalSlug,
         is_active: isActive,
         collection_id: collectionId || undefined,

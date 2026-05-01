@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { authenticateApiKey } from "@/lib/api-auth";
+import { normalizeDestinationUrl } from "@/lib/url-normalize";
 import { NextRequest } from "next/server";
 
 // GET /api/v1/links — List all links for the team
@@ -54,10 +55,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Normalize first (auto-add https, strip www) so a payload like
+  // `example.com` or `http://www.example.com` is canonicalized.
+  const destination_url = normalizeDestinationUrl(body.destination_url);
+
   // Validate URL
   let destHost: string;
   try {
-    destHost = new URL(body.destination_url).hostname;
+    destHost = new URL(destination_url).hostname;
   } catch {
     return Response.json(
       { error: "destination_url must be a valid URL" },
@@ -80,7 +85,7 @@ export async function POST(request: NextRequest) {
   const { data, error } = await supabase
     .from("links")
     .insert({
-      destination_url: body.destination_url,
+      destination_url,
       slug,
       title: body.title || null,
       team_id: auth.teamId,

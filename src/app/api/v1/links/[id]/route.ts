@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { authenticateApiKey } from "@/lib/api-auth";
+import { normalizeDestinationUrl } from "@/lib/url-normalize";
 import { NextRequest } from "next/server";
 
 // GET /api/v1/links/:id — Get a single link
@@ -43,10 +44,12 @@ export async function PATCH(
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  if (body.destination_url) {
+  let normalizedDestination: string | undefined;
+  if (body.destination_url !== undefined) {
+    normalizedDestination = normalizeDestinationUrl(body.destination_url);
     let destHost: string;
     try {
-      destHost = new URL(body.destination_url).hostname;
+      destHost = new URL(normalizedDestination).hostname;
     } catch {
       return Response.json(
         { error: "destination_url must be a valid URL" },
@@ -66,7 +69,7 @@ export async function PATCH(
   const { data, error } = await supabase
     .from("links")
     .update({
-      ...(body.destination_url !== undefined && { destination_url: body.destination_url }),
+      ...(normalizedDestination !== undefined && { destination_url: normalizedDestination }),
       ...(body.slug !== undefined && { slug: body.slug }),
       ...(body.title !== undefined && { title: body.title }),
       ...(body.is_active !== undefined && { is_active: body.is_active }),

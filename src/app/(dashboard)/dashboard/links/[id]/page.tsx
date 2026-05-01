@@ -19,6 +19,7 @@ import { useLinks } from "@/hooks/use-links";
 import { useCollections } from "@/hooks/use-collections";
 import { RulesDialog } from "@/components/links/rules-dialog";
 import { QrDialog } from "@/components/qr/qr-dialog";
+import { normalizeDestinationUrl } from "@/lib/url-normalize";
 import {
   ArrowLeft,
   Save,
@@ -136,7 +137,7 @@ export default function LinkEditPage() {
 
       await updateLink(link.id, {
         title: title.trim() || null,
-        destination_url: destinationUrl.trim(),
+        destination_url: normalizeDestinationUrl(destinationUrl),
         slug: slug.trim(),
         is_active: isActive,
         collection_id: collectionId,
