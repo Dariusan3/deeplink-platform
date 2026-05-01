@@ -19,7 +19,7 @@ import { useLinks } from "@/hooks/use-links";
 import { useCollections } from "@/hooks/use-collections";
 import { RulesDialog } from "@/components/links/rules-dialog";
 import { QrDialog } from "@/components/qr/qr-dialog";
-import { normalizeDestinationUrl, buildShortUrl, getDisplayHost } from "@/lib/url-normalize";
+import { normalizeDestinationUrl, buildShortUrl, getDisplayHost, sanitizePath } from "@/lib/url-normalize";
 import {
   ArrowLeft,
   Save,
@@ -123,7 +123,7 @@ export default function LinkEditPage() {
       return;
     }
     if (!slug.trim()) {
-      toast.error("Slug is required");
+      toast.error("Custom path is required");
       return;
     }
 
@@ -251,12 +251,12 @@ export default function LinkEditPage() {
 
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase tracking-widest text-[#00D26A]">
-                    Slug
+                    Custom Path
                   </Label>
                   <Input
                     value={slug}
-                    onChange={(e) => setSlug(e.target.value)}
-                    placeholder="custom-slug"
+                    onChange={(e) => setSlug(sanitizePath(e.target.value))}
+                    placeholder="my-custom-path"
                     className="bg-white/[0.03] border-white/10 focus:border-[#00D26A]/50 rounded-xl h-11 font-mono"
                   />
                   <p className="text-[10px] text-neutral-500 font-bold">

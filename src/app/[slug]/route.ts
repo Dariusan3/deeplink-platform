@@ -134,25 +134,41 @@ export async function GET(
     .single();
 
   if (error || !link) return NextResponse.redirect(new URL("/not-found", request.url), { status: 302 });
-  if (!link.is_active) return NextResponse.redirect(new URL("/paused", request.url), { status: 302 });
+
+  // Pull team display preferences once — used by /paused and the
+  // TikTok overlay so they reflect what the team configured in Settings.
+  // We pass the relevant flags as query params instead of having those
+  // public pages re-query Supabase.
+  let tiktokMode: string | undefined;
+  let showAppTap = true;
+  let showBranding = true;
+  if (link.team_id) {
+    const { data: teamSettings } = await supabase
+      .from("team_settings")
+      .select("tiktok_browser_mode, show_app_tap_to_continue, show_branding")
+      .eq("team_id", link.team_id)
+      .single();
+    tiktokMode = teamSettings?.tiktok_browser_mode;
+    if (teamSettings?.show_app_tap_to_continue === false) showAppTap = false;
+    if (teamSettings?.show_branding === false) showBranding = false;
+  }
+
+  if (!link.is_active) {
+    const pausedUrl = new URL("/paused", request.url);
+    if (!showBranding) pausedUrl.searchParams.set("branding", "0");
+    return NextResponse.redirect(pausedUrl, { status: 302 });
+  }
 
   // Detect TikTok in-app browser
   const userAgent = request.headers.get("user-agent") || "";
   const isTikTok = /TikTok|BytedanceWebview|musical_ly/i.test(userAgent);
 
-  if (isTikTok && link.team_id) {
-    const { data: teamSettings } = await supabase
-      .from("team_settings")
-      .select("tiktok_browser_mode")
-      .eq("team_id", link.team_id)
-      .single();
-
-    if (teamSettings?.tiktok_browser_mode === "overlay") {
-      // Show the "Open in browser" overlay page instead of redirecting
-      const overlayUrl = new URL("/tiktok-open", request.url);
-      overlayUrl.searchParams.set("url", ensureAbsoluteUrl(link.destination_url));
-      return NextResponse.redirect(overlayUrl, { status: 302 });
-    }
+  if (isTikTok && tiktokMode === "overlay") {
+    const overlayUrl = new URL("/tiktok-open", request.url);
+    overlayUrl.searchParams.set("url", ensureAbsoluteUrl(link.destination_url));
+    if (!showAppTap) overlayUrl.searchParams.set("tap", "0");
+    if (!showBranding) overlayUrl.searchParams.set("branding", "0");
+    return NextResponse.redirect(overlayUrl, { status: 302 });
   }
 
   const isDev = process.env.NODE_ENV === "development";

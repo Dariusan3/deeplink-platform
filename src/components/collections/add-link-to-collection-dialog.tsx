@@ -83,7 +83,7 @@ export function AddLinkToCollectionDialog({
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search existing links by title, slug or URL"
+            placeholder="Search existing links by title, path or URL"
             className="pl-9 bg-white/[0.03] border-white/10 focus:border-[#00D26A]/50 rounded-xl h-11"
           />
         </div>

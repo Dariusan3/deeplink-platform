@@ -8,7 +8,12 @@
       "Bash(command -v asdf fnm)",
       "Bash(/opt/homebrew/bin/node /opt/homebrew/bin/npx tsc --noEmit)",
       "Bash(export PATH=\"/opt/homebrew/bin:$PATH\")",
-      "Bash(node_modules/.bin/tsc --noEmit)"
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(awk '/dangerouslySetInnerHTML/ {print NR\": \"$0}' /Users/osadicidarius/Documents/projects/deeplink-platform/src/app/\\\\\\(dashboard\\\\\\)/dashboard/brain/page.tsx)",
+      "Bash(awk 'NR==88 || NR==89 || NR==90 {print NR\": [\"$0\"]\"}' /Users/osadicidarius/Documents/projects/deeplink-platform/src/app/api/ai/chat/route.ts)",
+      "Bash(awk 'NR==90 || NR==91 {print NR\": [\"$0\"]\"}' /Users/osadicidarius/Documents/projects/deeplink-platform/src/app/api/ai/chat/route.ts)",
+      "Bash(sed -i '' '90,91d' /Users/osadicidarius/Documents/projects/deeplink-platform/src/app/api/ai/chat/route.ts)",
+      "Bash(sed -n '86,95p' /Users/osadicidarius/Documents/projects/deeplink-platform/src/app/api/ai/chat/route.ts)"
     ]
   }
 }

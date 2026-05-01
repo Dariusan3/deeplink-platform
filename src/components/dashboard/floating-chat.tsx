@@ -7,6 +7,7 @@ import { useTeam } from "@/hooks/use-team";
 import { useLinks } from "@/hooks/use-links";
 import { useCollections } from "@/hooks/use-collections";
 import { useBrainChats, type ChatMessage } from "@/hooks/use-brain-chats";
+import { dispatchAiAction } from "@/lib/ai-action-bus";
 import { Send, Sparkles, X, Minimize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -79,6 +80,21 @@ export function FloatingChat() {
 
     abortRef.current = new AbortController();
     let accumulated = "";
+    const actionSummaries: string[] = [];
+
+    const writeMessage = () => {
+      const actionsBlock = actionSummaries.length
+        ? actionSummaries.map((s) => `✓ ${s}`).join("\n") + (accumulated ? "\n\n" : "")
+        : "";
+      setMessages((prev) => {
+        const updated = [...prev];
+        updated[assistantIndex] = {
+          role: "assistant",
+          content: actionsBlock + accumulated,
+        };
+        return updated;
+      });
+    };
 
     try {
       const res = await fetch("/api/ai/chat", {
@@ -97,15 +113,54 @@ export function FloatingChat() {
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
 
+      // NDJSON parser — server sends one JSON object per line:
+      //   {"type":"text","value":"..."}    text delta
+      //   {"type":"action",...}            tool execution result
+      // The Brain page renders rich action cards; the floating chat is
+      // tiny so we just inline a one-line "✓ <summary>" before the reply.
+      let buffer = "";
       while (reader) {
         const { done, value } = await reader.read();
         if (done) break;
-        accumulated += decoder.decode(value, { stream: true });
-        setMessages((prev) => {
-          const updated = [...prev];
-          updated[assistantIndex] = { role: "assistant", content: accumulated };
-          return updated;
-        });
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const evt = JSON.parse(line);
+            if (evt.type === "text") {
+              accumulated += String(evt.value || "");
+            } else if (evt.type === "action") {
+              const r = evt.result || {};
+              if (r.ok) {
+                actionSummaries.push(String(r.summary || `Did: ${evt.name}`));
+              } else {
+                actionSummaries.push(String(r.error || `Failed: ${evt.name}`));
+              }
+              // Notify open list pages so the new link/collection appears
+              // instantly without a navigation/refresh.
+              dispatchAiAction({
+                name: String(evt.name || ""),
+                args: evt.args || {},
+                result: r,
+              });
+            }
+          } catch {
+            // Drop malformed lines instead of dumping JSON to the user.
+          }
+          writeMessage();
+        }
+      }
+      // Flush any trailing complete line in the buffer.
+      if (buffer.trim()) {
+        try {
+          const evt = JSON.parse(buffer);
+          if (evt.type === "text") {
+            accumulated += String(evt.value || "");
+            writeMessage();
+          }
+        } catch { /* drop */ }
       }
     } catch (err: unknown) {
       if (err instanceof Error && err.name !== "AbortError") {
@@ -125,10 +180,19 @@ export function FloatingChat() {
       // First completed reply creates the chat; subsequent replies update it.
       // Skip on aborts and empty replies. If the team is over the brain-chat
       // limit, silently skip (no toast — this is a background save).
-      if (!abortRef.current?.signal.aborted && accumulated) {
+      // Include action summaries in the saved chat so it matches what
+      // the user saw — otherwise the Brain history loses context about
+      // any tool calls that happened.
+      const persistedContent =
+        (actionSummaries.length
+          ? actionSummaries.map((s) => `✓ ${s}`).join("\n") +
+            (accumulated ? "\n\n" : "")
+          : "") + accumulated;
+
+      if (!abortRef.current?.signal.aborted && persistedContent) {
         const finalMessages: ChatMessage[] = [
           ...newMessages,
-          { role: "assistant", content: accumulated },
+          { role: "assistant", content: persistedContent },
         ];
 
         if (brainChatId) {
@@ -145,11 +209,20 @@ export function FloatingChat() {
     }
   };
 
+  // Lightweight markdown — reuses .brain-prose styles for consistency
+  // with the full Brain page. Escapes HTML before applying inline rules.
   const renderContent = (text: string) => {
-    return text
-      .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')
-      .replace(/^- (.*)/gm, '<span class="flex gap-1.5"><span class="text-[#00D26A] shrink-0">›</span><span>$1</span></span>')
-      .replace(/\n/g, '<br/>');
+    const escape = (s: string) =>
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    let html = escape(text);
+    html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+    html = html.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+    html = html.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, "<em>$1</em>");
+    html = html.replace(/^[-*] (.+)$/gm, "<li>$1</li>");
+    html = html.replace(/(<li>[^<]+<\/li>\n?)+/g, (block) => `<ul>${block.replace(/\n/g, "")}</ul>`);
+    html = html.replace(/\n\n+/g, "</p><p>");
+    html = html.replace(/\n/g, "<br/>");
+    return `<p>${html}</p>`;
   };
 
   return (
@@ -231,19 +304,21 @@ export function FloatingChat() {
                   )}
                   <div
                     className={cn(
-                      "max-w-[85%] rounded-xl px-3 py-2 text-[11px] leading-relaxed",
+                      "max-w-[85%] rounded-xl px-3 py-2",
                       msg.role === "user"
-                        ? "bg-[#00D26A]/10 border border-[#00D26A]/20 text-white"
-                        : "bg-white/5 text-neutral-300"
+                        ? "bg-[#00D26A]/10 border border-[#00D26A]/20 text-white text-[12px] leading-relaxed"
+                        : "bg-white/5"
                     )}
                   >
                     {msg.role === "assistant" ? (
-                      <div dangerouslySetInnerHTML={{ __html: renderContent(msg.content) }} />
+                      <div className="brain-prose" style={{ fontSize: "12.5px", lineHeight: 1.6 }}>
+                        <span dangerouslySetInnerHTML={{ __html: renderContent(msg.content) }} />
+                        {streaming && i === messages.length - 1 && (
+                          <span className="brain-cursor" style={{ width: 6, height: "0.95em" }} />
+                        )}
+                      </div>
                     ) : (
                       msg.content
-                    )}
-                    {msg.role === "assistant" && streaming && i === messages.length - 1 && (
-                      <span className="inline-block w-1 h-3 bg-[#00D26A] ml-0.5 animate-pulse rounded-sm" />
                     )}
                   </div>
                 </div>

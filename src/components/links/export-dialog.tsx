@@ -32,7 +32,7 @@ export function ExportDialog() {
     {
       type: "links",
       label: "Links Only",
-      description: "Slug, title, destination URL, status, created date",
+      description: "Custom path, title, destination URL, status, created date",
       icon: <Link2 className="w-4 h-4" />,
     },
     {
@@ -63,7 +63,7 @@ export function ExportDialog() {
 
       if (exportType === "links") {
         // Export links metadata only
-        csv = "Short URL,Slug,Title,Destination URL,Status,Click Goal,Created At\n";
+        csv = "Short URL,Custom Path,Title,Destination URL,Status,Click Goal,Created At\n";
         for (const link of links) {
           const shortUrl = `${getDisplayOrigin()}/${link.slug}`;
           csv += `"${shortUrl}","${link.slug}","${(link.title || "").replace(/"/g, '""')}","${link.destination_url}","${link.is_active ? "active" : "paused"}","${link.click_goal || ""}","${link.created_at}"\n`;

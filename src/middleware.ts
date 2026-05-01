@@ -96,11 +96,19 @@ export default async function middleware(request: NextRequest) {
     }
   }
 
-  // Redirect authenticated users away from auth pages
+  // Redirect authenticated users away from auth pages and the marketing
+  // landing — they get the dashboard directly. Skip the redirect on `/`
+  // when there's a `?ref=<code>` so partner-link visits keep tracking
+  // even if the visitor is already a logged-in Tappr user.
+  const isLandingForAuthedUser =
+    request.nextUrl.pathname === "/" &&
+    !request.nextUrl.searchParams.has("ref");
+
   if (
     user &&
     (request.nextUrl.pathname.startsWith("/login") ||
-      request.nextUrl.pathname.startsWith("/signup"))
+      request.nextUrl.pathname.startsWith("/signup") ||
+      isLandingForAuthedUser)
   ) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";

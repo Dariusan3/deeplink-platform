@@ -80,11 +80,35 @@ export function useLinks() {
     };
   }, [activeTeam?.id, supabase, fetchLinks]);
 
-  // Cross-instance refresh: every mutation `emit("links")`s, every hook
-  // instance refetches. Fixes the case where the create dialog and the
-  // list use separate useLinks() instances and don't share state.
+  // Cross-instance refresh: every mutation `emit("links", event)`s a typed
+  // event with the row, so every other useLinks() instance applies the
+  // change locally — no extra round-trip. Fall back to fetchLinks() if the
+  // event came in without a payload (bulk ops, deletes from elsewhere).
   useEffect(() => {
-    return subscribe("links", () => fetchLinks());
+    return subscribe("links", (event) => {
+      if (!event || event.kind === "refetch") {
+        fetchLinks();
+        return;
+      }
+      if (event.kind === "create") {
+        const row = event.row as Link;
+        setLinks((prev) =>
+          prev.some((l) => l.id === row.id) ? prev : [row, ...prev]
+        );
+        return;
+      }
+      if (event.kind === "update") {
+        const row = event.row as Link;
+        setLinks((prev) =>
+          prev.map((l) => (l.id === row.id ? { ...row, click_count: l.click_count } : l))
+        );
+        return;
+      }
+      if (event.kind === "delete") {
+        setLinks((prev) => prev.filter((l) => l.id !== event.id));
+        return;
+      }
+    });
   }, [fetchLinks]);
 
   const createLink = useCallback(async (payload: Omit<LinkInsert, "id" | "created_at" | "updated_at" | "created_by" | "team_id">) => {
@@ -106,7 +130,7 @@ export function useLinks() {
     }
 
     setLinks((prev) => [data, ...prev]);
-    emit("links");
+    emit("links", { kind: "create", row: data });
     return data;
   }, [user, activeTeam, supabase]);
 
@@ -124,7 +148,7 @@ export function useLinks() {
     }
 
     setLinks((prev) => prev.map((l) => (l.id === id ? { ...data, click_count: l.click_count } : l)));
-    emit("links");
+    emit("links", { kind: "update", row: data });
     return data;
   }, [supabase]);
 
@@ -141,7 +165,7 @@ export function useLinks() {
     }
 
     setLinks((prev) => prev.filter((l) => l.id !== id));
-    emit("links");
+    emit("links", { kind: "delete", id });
     toast.success("Link decommissioned successfully");
   }, [supabase]);
 
@@ -160,7 +184,8 @@ export function useLinks() {
       toast.error(error.message || "Failed to update favorite");
       throw error;
     }
-    emit("links");
+    // Cross-instance update — favorites toggle in the sidebar without refetch.
+    emit("links", { kind: "refetch" });
   }, [supabase]);
 
   return {

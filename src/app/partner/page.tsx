@@ -9,6 +9,7 @@ import {
   TrendingUp, Users, Wallet, Target, Copy, Check, ArrowRight, Sparkles, Trophy,
 } from "lucide-react";
 import { toast } from "sonner";
+import { PARTNER_MIN_PAYOUT } from "@/lib/partner-config";
 
 export default function PartnerOverviewPage() {
   const {
@@ -62,24 +63,11 @@ export default function PartnerOverviewPage() {
         <h1 className="text-3xl font-black tracking-tighter text-white uppercase italic">Overview</h1>
       </div>
 
-      {/* Pending payout banner */}
-      {Number(profile.pending_payout) >= 50 && (
-        <Card className="glass-card border-[#00D26A]/30 bg-[#00D26A]/5">
-          <CardContent className="p-5 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <Wallet className="w-5 h-5 text-[#00D26A]" />
-              <div>
-                <p className="text-sm font-black text-white">${Number(profile.pending_payout).toFixed(2)} ready to withdraw</p>
-                <p className="text-[10px] text-neutral-400">Above the $50 minimum — request a payout anytime</p>
-              </div>
-            </div>
-            <Button render={<Link href="/partner/earnings" />} nativeButton={false} className="bg-[#00D26A] hover:bg-[#00D26A]/90 text-black font-black uppercase text-[10px] tracking-widest h-9 px-4">
-              Request Payout
-              <ArrowRight className="w-3.5 h-3.5 ml-1" />
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+      {/* Payout progress / withdraw banner — always visible. Shows
+          progress toward the $500 minimum until it's hit, then flips
+          to a "ready to withdraw" state. */}
+      <PayoutProgressCard pending={Number(profile.pending_payout)} />
+
 
       {/* Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -188,5 +176,68 @@ export default function PartnerOverviewPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+function PayoutProgressCard({ pending }: { pending: number }) {
+  const ready = pending >= PARTNER_MIN_PAYOUT;
+  const pct = Math.min(100, Math.max(0, (pending / PARTNER_MIN_PAYOUT) * 100));
+  const remaining = Math.max(0, PARTNER_MIN_PAYOUT - pending);
+
+  return (
+    <Card className={`glass-card ${ready ? "border-[#00D26A]/30 bg-[#00D26A]/5" : "border-white/5"}`}>
+      <CardContent className="p-5">
+        <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            <Wallet className={`w-5 h-5 ${ready ? "text-[#00D26A]" : "text-neutral-500"}`} />
+            <div>
+              {ready ? (
+                <>
+                  <p className="text-sm font-black text-white">${pending.toFixed(2)} ready to withdraw</p>
+                  <p className="text-[10px] text-neutral-400">Above the ${PARTNER_MIN_PAYOUT} minimum — request a payout anytime</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-black text-white">
+                    ${pending.toFixed(2)}{" "}
+                    <span className="text-neutral-500 font-bold">/ ${PARTNER_MIN_PAYOUT}</span>
+                  </p>
+                  <p className="text-[10px] text-neutral-400">
+                    ${remaining.toFixed(2)} more to unlock your first payout
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+          {ready ? (
+            <Button render={<Link href="/partner/earnings" />} nativeButton={false} className="bg-[#00D26A] hover:bg-[#00D26A]/90 text-black font-black uppercase text-[10px] tracking-widest h-9 px-4">
+              Request Payout
+              <ArrowRight className="w-3.5 h-3.5 ml-1" />
+            </Button>
+          ) : (
+            <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500">
+              {pct.toFixed(0)}% there
+            </span>
+          )}
+        </div>
+
+        {/* Progress bar — green fill when ready, neutral while climbing */}
+        <div className="relative h-2 rounded-full bg-white/[0.04] overflow-hidden">
+          <div
+            className={`h-full transition-all duration-700 ${ready ? "bg-[#00D26A] shadow-[0_0_12px_rgba(0,210,106,0.5)]" : "bg-[#00D26A]/60"}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+
+        {/* Tick marks at 25 / 50 / 75 / 100% for context */}
+        <div className="mt-2 flex justify-between text-[9px] font-mono text-neutral-600">
+          <span>$0</span>
+          <span>${(PARTNER_MIN_PAYOUT * 0.25).toFixed(0)}</span>
+          <span>${(PARTNER_MIN_PAYOUT * 0.5).toFixed(0)}</span>
+          <span>${(PARTNER_MIN_PAYOUT * 0.75).toFixed(0)}</span>
+          <span className={ready ? "text-[#00D26A]" : ""}>${PARTNER_MIN_PAYOUT}</span>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

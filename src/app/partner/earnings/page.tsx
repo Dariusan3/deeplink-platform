@@ -9,8 +9,7 @@ import { Label } from "@/components/ui/label";
 import { usePartner } from "@/hooks/use-partner";
 import { Wallet, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const MIN_PAYOUT = 50;
+import { PARTNER_MIN_PAYOUT as MIN_PAYOUT } from "@/lib/partner-config";
 
 export default function PartnerEarningsPage() {
   const { profile, earnings, payouts, requestPayout, activeReferrals } = usePartner();
@@ -63,7 +62,28 @@ export default function PartnerEarningsPage() {
           <CardContent className="p-5">
             <p className="text-[10px] font-black uppercase tracking-widest text-[#00D26A]">Pending Payout</p>
             <p className="text-3xl font-black text-[#00D26A] mt-1">${pending.toFixed(2)}</p>
-            <p className="text-[10px] text-neutral-500 mt-1">Min withdrawal $${MIN_PAYOUT}</p>
+
+            {/* Progress to threshold — same visual story as the overview banner */}
+            {(() => {
+              const ready = pending >= MIN_PAYOUT;
+              const pct = Math.min(100, Math.max(0, (pending / MIN_PAYOUT) * 100));
+              const remaining = Math.max(0, MIN_PAYOUT - pending);
+              return (
+                <>
+                  <div className="mt-3 h-1.5 rounded-full bg-white/[0.04] overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-700 ${ready ? "bg-[#00D26A] shadow-[0_0_10px_rgba(0,210,106,0.45)]" : "bg-[#00D26A]/60"}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-neutral-500 mt-2">
+                    {ready
+                      ? `Above the $${MIN_PAYOUT} minimum — ready to withdraw`
+                      : `$${remaining.toFixed(2)} more to reach $${MIN_PAYOUT} minimum`}
+                  </p>
+                </>
+              );
+            })()}
           </CardContent>
         </Card>
         <Card className="glass-card border-white/5">

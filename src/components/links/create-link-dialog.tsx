@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Link as LinkIcon, Sparkles, Settings2, ChevronDown, ChevronUp, Globe, FolderOpen, StickyNote, Target } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Link as LinkIcon, Sparkles, Settings2, ChevronDown, ChevronUp, Globe, FolderOpen, StickyNote, Target, Copy, Check, ExternalLink, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -16,7 +16,8 @@ import { Label } from "@/components/ui/label";
 import { useLinks } from "@/hooks/use-links";
 import { useTeam } from "@/hooks/use-team";
 import { useCollections } from "@/hooks/use-collections";
-import { normalizeDestinationUrl } from "@/lib/url-normalize";
+import { useSettings } from "@/hooks/use-settings";
+import { normalizeDestinationUrl, sanitizePath, buildShortUrl } from "@/lib/url-normalize";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +35,11 @@ export function CreateLinkDialog({ defaultCollectionId, trigger }: CreateLinkDia
   const [title, setTitle] = useState("");
   const [destinationUrl, setDestinationUrl] = useState("");
   const [slug, setSlug] = useState("");
+  // Post-create success state — populated when settings.show_link_creation_confirmation
+  // is true. The dialog stays open with a copyable success card; otherwise we
+  // toast and close immediately.
+  const [createdSlug, setCreatedSlug] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   // Advanced options
   const [showAdvanced, setShowAdvanced] = useState(!!defaultCollectionId);
@@ -46,11 +52,22 @@ export function CreateLinkDialog({ defaultCollectionId, trigger }: CreateLinkDia
   const { createLink } = useLinks();
   const { activeTeam, loading: teamLoading } = useTeam();
   const { collections } = useCollections();
+  const { settings } = useSettings();
+
+  // Pre-fill destination with team's default_domain when the dialog opens
+  // and the field is empty. User can still override.
+  useEffect(() => {
+    if (open && !destinationUrl && settings?.default_domain) {
+      setDestinationUrl(settings.default_domain);
+    }
+    // We only want to prefill on open transitions, not on every settings change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const handleGenerateSlug = () => {
     const newSlug = Math.random().toString(36).substring(2, 8);
     setSlug(newSlug);
-    toast.success("Magic slug generated!");
+    toast.success("Custom path generated!");
   };
 
   const isValidUrl = (url: string) => {
@@ -93,11 +110,19 @@ export function CreateLinkDialog({ defaultCollectionId, trigger }: CreateLinkDia
         click_goal: clickGoal ? Number(clickGoal) : undefined,
         click_goal_period: clickGoal ? clickGoalPeriod : undefined,
       });
-      toast.success("Deeplink created successfully!");
-      setOpen(false);
-      resetForm();
+
+      // Setting ON (default): keep dialog open with a success card so the
+      //   user can copy / open / generate QR before dismissing.
+      // Setting OFF: toast + close immediately.
+      if (settings?.show_link_creation_confirmation === false) {
+        toast.success("Deeplink created");
+        setOpen(false);
+        resetForm();
+      } else {
+        setCreatedSlug(finalSlug);
+      }
     } catch (error: any) {
-      const message = error.message || "Failed to create link. Slugs must be unique.";
+      const message = error.message || "Failed to create link. Custom paths must be unique.";
       toast.error(message);
       console.error(error);
     } finally {
@@ -109,6 +134,8 @@ export function CreateLinkDialog({ defaultCollectionId, trigger }: CreateLinkDia
     setTitle("");
     setDestinationUrl("");
     setSlug("");
+    setCreatedSlug(null);
+    setCopied(false);
     // Keep the default collection so re-opening the dialog from a collection
     // page doesn't drop the context.
     setCollectionId(defaultCollectionId ?? null);
@@ -117,6 +144,16 @@ export function CreateLinkDialog({ defaultCollectionId, trigger }: CreateLinkDia
     setNotes("");
     setIsActive(true);
     setShowAdvanced(!!defaultCollectionId);
+  };
+
+  const successUrl = createdSlug ? buildShortUrl(createdSlug) : "";
+
+  const copySuccessUrl = () => {
+    if (!successUrl) return;
+    navigator.clipboard.writeText(successUrl);
+    setCopied(true);
+    toast.success("Copied");
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
@@ -136,11 +173,46 @@ export function CreateLinkDialog({ defaultCollectionId, trigger }: CreateLinkDia
         <DialogHeader>
           <DialogTitle className="text-2xl font-black tracking-tight flex items-center gap-2">
             <div className="p-2 rounded-lg bg-[#00D26A]/10 text-[#00D26A]">
-              <LinkIcon className="w-5 h-5" />
+              {createdSlug ? <CheckCircle2 className="w-5 h-5" /> : <LinkIcon className="w-5 h-5" />}
             </div>
-            Generate New Link
+            {createdSlug ? "Link Created" : "Generate New Link"}
           </DialogTitle>
         </DialogHeader>
+
+        {createdSlug ? (
+          <div className="space-y-4 py-4">
+            <div className="p-4 rounded-xl bg-[#00D26A]/5 border border-[#00D26A]/20">
+              <p className="text-[10px] font-black uppercase tracking-widest text-[#00D26A] mb-2">Your short URL</p>
+              <p className="text-sm font-bold text-white break-all font-mono">{successUrl}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                onClick={copySuccessUrl}
+                className="h-11 rounded-xl bg-[#00D26A] hover:bg-[#00D26A]/90 text-black font-black uppercase text-[10px] tracking-widest gap-2"
+              >
+                {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                {copied ? "Copied" : "Copy"}
+              </Button>
+              <Button
+                onClick={() => window.open(successUrl, "_blank")}
+                variant="outline"
+                className="h-11 rounded-xl border-white/10 bg-white/[0.02] text-[10px] font-black uppercase tracking-widest hover:bg-white/[0.06] gap-2"
+              >
+                <ExternalLink className="w-3.5 h-3.5" /> Open
+              </Button>
+            </div>
+            <p className="text-[10px] text-neutral-500 text-center">
+              Tip: turn off this confirmation in Settings → Display.
+            </p>
+            <Button
+              onClick={() => { setOpen(false); resetForm(); }}
+              variant="ghost"
+              className="w-full h-10 text-xs font-black uppercase tracking-widest text-neutral-400 hover:text-white"
+            >
+              Done
+            </Button>
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="space-y-5 py-4">
           <div className="space-y-2">
             <Label htmlFor="title" className="text-[10px] font-black uppercase tracking-widest text-[#00D26A]">
@@ -169,27 +241,27 @@ export function CreateLinkDialog({ defaultCollectionId, trigger }: CreateLinkDia
           </div>
           <div className="space-y-2">
             <Label htmlFor="slug" className="text-[10px] font-black uppercase tracking-widest text-[#00D26A]">
-              Custom Slug (Optional)
+              Custom Path (Optional)
             </Label>
             <div className="relative">
               <Input
                 id="slug"
-                placeholder="summer-promo"
+                placeholder="summer-promo (any path)"
                 className="bg-white/[0.03] border-white/10 focus:border-[#00D26A]/50 rounded-xl pr-10"
                 value={slug}
-                onChange={(e) => setSlug(e.target.value)}
+                onChange={(e) => setSlug(sanitizePath(e.target.value))}
               />
               <button
                 type="button"
                 onClick={handleGenerateSlug}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-[#39FF14] transition-colors"
-                title="Generate random slug"
+                title="Generate random path"
               >
                 <Sparkles className="w-4 h-4" />
               </button>
             </div>
             <p className="text-[9px] text-neutral-500 font-bold uppercase tracking-tight">
-              Example: https://tappr.me/<span className="text-[#00D26A]">{slug || "magic-slug"}</span>
+              Example: https://tappr.me/<span className="text-[#00D26A]">{slug || "your-path"}</span>
             </p>
           </div>
 
@@ -301,6 +373,7 @@ export function CreateLinkDialog({ defaultCollectionId, trigger }: CreateLinkDia
             </Button>
           </DialogFooter>
         </form>
+        )}
       </DialogContent>
     </Dialog>
   );

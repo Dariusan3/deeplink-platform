@@ -23,6 +23,7 @@ import { useLinks } from "@/hooks/use-links";
 import { useCollections } from "@/hooks/use-collections";
 import { useBusinessBrain } from "@/hooks/use-business-brain";
 import { useBrainChats, type ChatMessage } from "@/hooks/use-brain-chats";
+import { dispatchAiAction } from "@/lib/ai-action-bus";
 import {
   Send,
   Sparkles,
@@ -55,8 +56,18 @@ const SUGGESTED_PROMPTS = [
   { icon: <Cpu className="w-4 h-4" />, text: "What device types are my audience using?" },
 ];
 
+// Display-only state: each message can carry tool actions taken by the AI.
+// Persistence keeps only text content — actions are runtime side-effects
+// surfaced as inline cards.
+type ActionEvent = {
+  name: string;
+  args: unknown;
+  result: { ok: boolean; data?: unknown; error?: string; summary?: string };
+};
+type DisplayMessage = ChatMessage & { actions?: ActionEvent[] };
+
 export default function BrainPage() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -158,7 +169,69 @@ export default function BrainPage() {
     setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
     abortRef.current = new AbortController();
-    let accumulated = "";
+
+    // Typewriter buffer — Groq sometimes returns big chunks (300+ chars at
+    // once). Without smoothing, the message appears in jumps. We keep the
+    // full server text in `target`, and a separate rAF loop advances the
+    // visible `displayed` toward it at ~120 chars/sec, scaling up if the
+    // backlog gets large so long answers don't feel sluggish.
+    let target = "";
+    let displayed = "";
+    let rafId: number | null = null;
+    let streamDone = false;
+    let lastTickTime = performance.now();
+    const collectedActions: ActionEvent[] = [];
+
+    const writeMessage = (text: string) => {
+      setMessages((prev) => {
+        const next = [...prev];
+        next[assistantIndex] = {
+          role: "assistant",
+          content: text,
+          actions: collectedActions.slice(),
+        };
+        return next;
+      });
+    };
+
+    // When an action arrives mid-stream:
+    //   1. push it into the message's action list (UI card renders)
+    //   2. broadcast on the refresh bus so any open list page (links,
+    //      collections, sidebar Favorites) updates without a refresh
+    const pushAction = (action: ActionEvent) => {
+      collectedActions.push(action);
+      writeMessage(displayed);
+      dispatchAiAction({
+        name: action.name,
+        args:
+          action.args && typeof action.args === "object"
+            ? (action.args as Record<string, unknown>)
+            : {},
+        result: action.result,
+      });
+    };
+
+    const tick = (now: number) => {
+      const dt = (now - lastTickTime) / 1000;
+      lastTickTime = now;
+      const gap = target.length - displayed.length;
+
+      if (gap > 0) {
+        // 120 c/s baseline; speed up when the gap is wide so big chunks
+        // catch up gracefully without leaving the user waiting.
+        const baseRate = 120;
+        const catchUp = gap > 80 ? gap * 1.2 : 0;
+        const advance = Math.max(1, Math.ceil((baseRate + catchUp) * dt));
+        displayed = target.slice(0, displayed.length + advance);
+        writeMessage(displayed);
+      }
+
+      if (!streamDone || displayed.length < target.length) {
+        rafId = requestAnimationFrame(tick);
+      } else {
+        rafId = null;
+      }
+    };
 
     try {
       const res = await fetch("/api/ai/chat", {
@@ -177,35 +250,74 @@ export default function BrainPage() {
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
 
+      // Start the typewriter once we know the request succeeded.
+      lastTickTime = performance.now();
+      rafId = requestAnimationFrame(tick);
+
+      // NDJSON parser — server sends one JSON object per line. We buffer
+      // partial lines across chunk boundaries.
+      let buffer = "";
       while (reader) {
         const { done, value } = await reader.read();
         if (done) break;
-        accumulated += decoder.decode(value, { stream: true });
-        setMessages((prev) => {
-          const updated = [...prev];
-          updated[assistantIndex] = { role: "assistant", content: accumulated };
-          return updated;
-        });
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        // Last fragment may be incomplete — keep it in the buffer.
+        buffer = lines.pop() || "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const evt = JSON.parse(line) as
+              | { type: "text"; value: string }
+              | ({ type: "action" } & ActionEvent);
+            if (evt.type === "text") {
+              target += evt.value;
+            } else if (evt.type === "action") {
+              const { name, args, result } = evt as ActionEvent & { type: "action" };
+              pushAction({ name, args, result });
+            }
+          } catch {
+            // Malformed line — skip rather than break the stream
+          }
+        }
       }
+      // Flush any trailing partial line if it's complete JSON.
+      if (buffer.trim()) {
+        try {
+          const evt = JSON.parse(buffer) as { type: "text"; value: string };
+          if (evt.type === "text") target += evt.value;
+        } catch { /* drop */ }
+      }
+      streamDone = true;
     } catch (err: unknown) {
+      streamDone = true;
       if (err instanceof Error && err.name !== "AbortError") {
-        setMessages((prev) => {
-          const updated = [...prev];
-          updated[assistantIndex] = {
-            role: "assistant",
-            content: "Sorry, I couldn't connect to the AI. Make sure your API key is set.",
-          };
-          return updated;
-        });
+        if (rafId !== null) cancelAnimationFrame(rafId);
+        rafId = null;
+        target = "Sorry, I couldn't connect to the AI. Make sure your API key is set.";
+        writeMessage(target);
+        displayed = target;
       }
     } finally {
+      // Wait for the typewriter to finish draining before flipping streaming
+      // off — otherwise the cursor disappears mid-cascade.
+      const drain = () =>
+        new Promise<void>((resolve) => {
+          const check = () => {
+            if (rafId === null) resolve();
+            else setTimeout(check, 50);
+          };
+          check();
+        });
+      await drain();
+
       setStreaming(false);
 
       // Auto-save chat after streaming completes (skip if aborted)
-      if (!abortRef.current?.signal.aborted && accumulated) {
+      if (!abortRef.current?.signal.aborted && target) {
         const finalMessages: ChatMessage[] = [
           ...newMessages,
-          { role: "assistant", content: accumulated },
+          { role: "assistant", content: target },
         ];
 
         if (activeChatId) {
@@ -266,15 +378,88 @@ export default function BrainPage() {
     setEditContent(text);
   };
 
+  // Markdown → HTML for assistant messages. Output is wrapped in
+  // `.brain-prose` (see globals.css) for typography. We escape user-visible
+  // HTML before applying markdown, so model output can't smuggle markup.
   const renderContent = (text: string) => {
-    return text
-      .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')
-      .replace(/^### (.*)/gm, '<h3 class="text-sm font-black text-[#00D26A] uppercase tracking-widest mt-4 mb-2">$1</h3>')
-      .replace(/^## (.*)/gm, '<h2 class="text-base font-black text-white mt-4 mb-2">$1</h2>')
-      .replace(/^- (.*)/gm, '<li class="flex gap-2 text-sm"><span class="text-[#00D26A] shrink-0">›</span><span>$1</span></li>')
-      .replace(/(<li.*<\/li>\n?)+/g, '<ul class="space-y-1 my-2">$&</ul>')
-      .replace(/\n\n/g, '<br/><br/>')
-      .replace(/\n/g, '<br/>');
+    const escape = (s: string) =>
+      s
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+    let html = escape(text);
+
+    // Code blocks (```lang\ncode``` or ```code```) — handle first so their
+    // contents aren't touched by inline rules below.
+    const codeBlocks: string[] = [];
+    html = html.replace(/```(?:\w+)?\n?([\s\S]*?)```/g, (_, code) => {
+      const i = codeBlocks.push(code) - 1;
+      return ` CODEBLOCK${i} `;
+    });
+
+    // Inline code
+    html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+
+    // Bold + italic
+    html = html.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+    html = html.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, "<em>$1</em>");
+
+    // Headings
+    html = html.replace(/^### (.+)$/gm, "<h3>$1</h3>");
+    html = html.replace(/^## (.+)$/gm, "<h2>$1</h2>");
+    html = html.replace(/^# (.+)$/gm, "<h1>$1</h1>");
+
+    // Bullet + numbered lists
+    html = html.replace(/^[-*] (.+)$/gm, "UL$1");
+    html = html.replace(/(UL[^\n]+(?:\nUL[^\n]+)*)/g, (block) => {
+      const items = block
+        .split(/\n/)
+        .map((line) => line.replace(/^UL/, "").trim())
+        .filter(Boolean)
+        .map((item) => `<li>${item}</li>`)
+        .join("");
+      return `<ul>${items}</ul>`;
+    });
+    html = html.replace(/^\d+\. (.+)$/gm, "OL$1");
+    html = html.replace(/(OL[^\n]+(?:\nOL[^\n]+)*)/g, (block) => {
+      const items = block
+        .split(/\n/)
+        .map((line) => line.replace(/^OL/, "").trim())
+        .filter(Boolean)
+        .map((item) => `<li>${item}</li>`)
+        .join("");
+      return `<ol>${items}</ol>`;
+    });
+
+    // Blockquotes
+    html = html.replace(/^&gt; (.+)$/gm, "<blockquote>$1</blockquote>");
+
+    // Links — markdown `[text](url)`
+    html = html.replace(
+      /\[([^\]]+)\]\(((?:https?:\/\/|\/)[^)\s]+)\)/g,
+      '<a href="$2" target="_blank" rel="noreferrer">$1</a>'
+    );
+
+    // Paragraphs — split on blank lines, wrap in <p>
+    const blocks = html.split(/\n{2,}/).map((block) => {
+      const trimmed = block.trim();
+      if (!trimmed) return "";
+      // Don't wrap if it's already a block-level element.
+      if (/^<(h\d|ul|ol|blockquote|pre| CODEBLOCK)/.test(trimmed)) {
+        return trimmed;
+      }
+      // Inside a paragraph, single newline = soft break.
+      return `<p>${trimmed.replace(/\n/g, "<br/>")}</p>`;
+    });
+    html = blocks.join("");
+
+    // Restore code blocks last so their <pre><code> escapes aren't double-mangled.
+    html = html.replace(/ CODEBLOCK(\d+) /g, (_, i) => {
+      return `<pre><code>${codeBlocks[Number(i)]}</code></pre>`;
+    });
+
+    return html;
   };
 
   const showLimitBadge = chatLimit !== Infinity && chats.length >= chatLimit * 0.8;
@@ -495,19 +680,28 @@ export default function BrainPage() {
                       )}
                       <div
                         className={cn(
-                          "max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed",
+                          "max-w-[80%] rounded-2xl px-5 py-4",
                           msg.role === "user"
-                            ? "bg-[#00D26A]/10 border border-[#00D26A]/20 text-white"
-                            : "glass-card text-neutral-300"
+                            ? "bg-[#00D26A]/10 border border-[#00D26A]/20 text-white text-[15px] leading-[1.6]"
+                            : "glass-card"
                         )}
                       >
                         {msg.role === "assistant" ? (
-                          <div dangerouslySetInnerHTML={{ __html: renderContent(msg.content) }} />
+                          <div className="brain-prose">
+                            {msg.actions && msg.actions.length > 0 && (
+                              <div className="not-prose mb-3 space-y-2">
+                                {msg.actions.map((a, idx) => (
+                                  <ActionCard key={idx} action={a} />
+                                ))}
+                              </div>
+                            )}
+                            <span dangerouslySetInnerHTML={{ __html: renderContent(msg.content) }} />
+                            {streaming && i === messages.length - 1 && (
+                              <span className="brain-cursor" />
+                            )}
+                          </div>
                         ) : (
                           msg.content
-                        )}
-                        {msg.role === "assistant" && streaming && i === messages.length - 1 && (
-                          <span className="inline-block w-1.5 h-4 bg-[#00D26A] ml-1 animate-pulse rounded-sm" />
                         )}
                       </div>
                     </div>
@@ -712,3 +906,57 @@ export default function BrainPage() {
     </TooltipProvider>
   );
 }
+
+// Action card — surfaces every tool call the AI made, with its result.
+// Green border when the action succeeded, red when it failed. The
+// summary line comes from the tool itself; we render args inline as a
+// hint so the user can verify what was actually done.
+function ActionCard({ action }: { action: { name: string; args: unknown; result: { ok: boolean; data?: unknown; error?: string; summary?: string } } }) {
+  const { name, args, result } = action;
+  const ok = result.ok;
+  const label = ACTION_LABELS[name] || name;
+
+  return (
+    <div
+      className={`rounded-lg border px-3 py-2.5 text-xs ${
+        ok
+          ? "border-[#00D26A]/25 bg-[#00D26A]/[0.04]"
+          : "border-red-500/30 bg-red-500/[0.04]"
+      }`}
+    >
+      <div className="flex items-center gap-2 mb-1">
+        <span
+          className={`inline-flex items-center gap-1 font-mono text-[9px] tracking-[0.14em] uppercase px-1.5 py-0.5 rounded ${
+            ok ? "bg-[#00D26A]/10 text-[#00D26A]" : "bg-red-500/10 text-red-400"
+          }`}
+        >
+          {ok ? "✓ Action" : "✗ Failed"}
+        </span>
+        <span className="text-neutral-300 font-bold">{label}</span>
+      </div>
+      <p className={ok ? "text-neutral-300" : "text-red-300"}>
+        {ok ? result.summary || "Done." : result.error || "Tool execution failed."}
+      </p>
+      {ok && args && typeof args === "object" && Object.keys(args).length > 0 ? (
+        <details className="mt-1.5">
+          <summary className="cursor-pointer text-[10px] text-neutral-500 hover:text-neutral-300">
+            Show details
+          </summary>
+          <pre className="mt-1 p-2 rounded bg-black/40 text-[10px] text-neutral-400 font-mono overflow-x-auto">
+{JSON.stringify(args, null, 2)}
+          </pre>
+        </details>
+      ) : null}
+    </div>
+  );
+}
+
+const ACTION_LABELS: Record<string, string> = {
+  list_links: "Listed links",
+  list_collections: "Listed collections",
+  create_link: "Created link",
+  create_collection: "Created collection",
+  move_link_to_collection: "Moved link",
+  update_link: "Updated link",
+  toggle_link_favorite: "Toggled favorite",
+};

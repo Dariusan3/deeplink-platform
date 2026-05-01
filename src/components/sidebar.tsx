@@ -368,7 +368,13 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {navigation.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+          // Dashboard root must match exactly — otherwise every nested
+          // page (/dashboard/links, /dashboard/qr-codes, etc.) would also
+          // light it up next to the real active section.
+          const isActive =
+            item.href === "/dashboard"
+              ? pathname === "/dashboard"
+              : pathname === item.href || pathname.startsWith(item.href + "/");
           const linkContent = (
             <Link
               key={item.name}
@@ -495,11 +501,17 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
             )}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuItem 
-              nativeButton={false} 
+            <DropdownMenuItem
+              nativeButton={false}
               render={<Link href="/dashboard/settings" className="w-full" />}
             >
               Settings
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              nativeButton={false}
+              render={<Link href="/dashboard/billing" className="w-full" />}
+            >
+              Billing
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem

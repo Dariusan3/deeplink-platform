@@ -111,7 +111,7 @@ export function BulkImportDialog() {
   };
 
   const downloadTemplate = () => {
-    const csv = `destination_url,title,custom_slug\nhttps://example.com/page1,My First Link,my-link-1\nhttps://example.com/page2,My Second Link,`;
+    const csv = `destination_url,title,custom_path\nhttps://example.com/page1,My First Link,my-link-1\nhttps://example.com/page2,My Second Link,`;
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -175,7 +175,7 @@ export function BulkImportDialog() {
               <p className="text-sm font-bold text-white">Drop your CSV file here</p>
               <p className="text-xs text-neutral-500 mt-1">or click to browse</p>
               <p className="text-[10px] text-neutral-600 mt-3">
-                Columns: destination_url, title (optional), custom_slug (optional)
+                Columns: destination_url, title (optional), custom_path (optional)
               </p>
             </div>
           )}

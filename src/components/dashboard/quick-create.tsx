@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link as LinkIcon, Copy, Check, Settings2, ChevronUp, FolderOpen, Target, Sparkles, StickyNote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLinks } from "@/hooks/use-links";
 import { useTeam } from "@/hooks/use-team";
 import { useCollections } from "@/hooks/use-collections";
-import { normalizeDestinationUrl, buildShortUrl, getDisplayHost } from "@/lib/url-normalize";
+import { useSettings } from "@/hooks/use-settings";
+import { normalizeDestinationUrl, buildShortUrl, getDisplayHost, sanitizePath } from "@/lib/url-normalize";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +31,14 @@ export function QuickCreate() {
   const { createLink } = useLinks();
   const { activeTeam } = useTeam();
   const { collections } = useCollections();
+  const { settings } = useSettings();
+
+  // Pre-fill the URL field with the team's default_domain on first mount.
+  // We don't overwrite if the user has already typed something.
+  useEffect(() => {
+    if (!url && settings?.default_domain) setUrl(settings.default_domain);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings?.default_domain]);
 
   const isValidUrl = (u: string) => /^https?:\/\/.+\..+/.test(u.trim());
 
@@ -75,19 +84,31 @@ export function QuickCreate() {
         click_goal_period: clickGoal ? clickGoalPeriod : undefined,
       });
 
-      setCreatedSlug(slug);
-      toast.success("Link created!");
+      const showConfirm = settings?.show_link_creation_confirmation !== false;
 
-      // Reset after 5 seconds
-      setTimeout(() => {
-        setCreatedSlug(null);
+      if (showConfirm) {
+        // Show the success card with copy/QR for ~5s.
+        setCreatedSlug(slug);
+        toast.success("Link created!");
+        setTimeout(() => {
+          setCreatedSlug(null);
+          setUrl("");
+          setCustomSlug("");
+          setTitle("");
+          setCollectionId(null);
+          setClickGoal("");
+          setShowAdvanced(false);
+        }, 5000);
+      } else {
+        // Setting OFF — skip the in-card confirmation, reset instantly.
+        toast.success("Link created");
         setUrl("");
         setCustomSlug("");
         setTitle("");
         setCollectionId(null);
         setClickGoal("");
         setShowAdvanced(false);
-      }, 5000);
+      }
     } catch (error: any) {
       toast.error(error.message || "Failed to create link");
     } finally {
@@ -197,12 +218,12 @@ export function QuickCreate() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-[9px] font-black uppercase tracking-widest text-neutral-500 flex items-center gap-1">
-                <Sparkles className="w-2.5 h-2.5 text-[#00D26A]" /> Custom Slug
+                <Sparkles className="w-2.5 h-2.5 text-[#00D26A]" /> Custom Path
               </Label>
               <Input
-                placeholder="my-promo"
+                placeholder="my-promo (any path)"
                 value={customSlug}
-                onChange={(e) => setCustomSlug(e.target.value)}
+                onChange={(e) => setCustomSlug(sanitizePath(e.target.value))}
                 className="h-9 bg-white/[0.03] border-white/10 rounded-lg text-xs"
               />
             </div>

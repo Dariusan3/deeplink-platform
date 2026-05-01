@@ -1,13 +1,24 @@
 // Tiny in-process event bus so a hook instance in a dialog can notify
-// another hook instance in a list to refetch — without depending on
-// Supabase Realtime publication being configured.
+// another hook instance in a list — without depending on Supabase Realtime
+// publication being configured.
 //
-// Pattern: the mutation method (createLink, deleteCollection, etc.) calls
-// `emit("links")` after a successful write. Every useLinks() instance
-// subscribes via `subscribe("links", fetchLinks)` and refetches when notified.
+// Two modes:
 //
-// Fires only on explicit user actions, never on a timer or focus event —
-// safe to attach without producing surprise refreshes.
+// 1. Plain notify (no payload). Subscribers re-fetch the list. Used by
+//    bulk operations, delete with no row, or any case where we don't have
+//    the new data in memory.
+//      emit("links");
+//      subscribe("links", () => fetchLinks());
+//
+// 2. With a typed payload. The bus carries the row (or id) so subscribers
+//    can apply the change optimistically without a server round-trip —
+//    new items appear instantly after the dialog closes.
+//      emit("links", { kind: "create", row });
+//      subscribe("links", (event) => {
+//        if (event?.kind === "create") setLinks((prev) => [event.row, ...prev]);
+//      });
+//
+// Fires only on explicit user actions, never on a timer or focus event.
 
 type Resource =
   | "links"
@@ -19,16 +30,22 @@ type Resource =
   | "teams"
   | "partner-data";
 
-type Listener = () => void;
+export type ResourceEvent<T = unknown> =
+  | { kind: "create"; row: T }
+  | { kind: "update"; row: T }
+  | { kind: "delete"; id: string }
+  | { kind: "refetch" };
+
+type Listener = (event?: ResourceEvent) => void;
 
 const listeners = new Map<Resource, Set<Listener>>();
 
-export function emit(resource: Resource): void {
+export function emit(resource: Resource, event?: ResourceEvent): void {
   const set = listeners.get(resource);
   if (!set) return;
   for (const fn of set) {
     try {
-      fn();
+      fn(event);
     } catch (err) {
       console.error(`refresh-bus listener for ${resource} threw:`, err);
     }

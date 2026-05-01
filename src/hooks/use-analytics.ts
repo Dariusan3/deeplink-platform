@@ -4,6 +4,8 @@ import { useState, useCallback, useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTeam } from "./use-team";
 import { useLinks } from "./use-links";
+import { useSettings } from "./use-settings";
+import { dateKeyInTimezone, getHourInTimezone } from "@/lib/format-date";
 
 export interface DailyClickData {
   date: string;
@@ -45,6 +47,8 @@ type TimeRange = "7d" | "14d" | "30d" | "90d" | "all";
 
 export function useAnalytics(timeRange: TimeRange = "30d", collectionId?: string | null) {
   const { activeTeam } = useTeam();
+  const { settings } = useSettings();
+  const tz = settings?.timezone || "UTC";
   const { links } = useLinks();
   const [dailyClicks, setDailyClicks] = useState<DailyClickData[]>([]);
   const [geoData, setGeoData] = useState<GeoData[]>([]);
@@ -101,24 +105,24 @@ export function useAnalytics(timeRange: TimeRange = "30d", collectionId?: string
     const clicks = (data || []) as { clicked_at: string; country: string | null; device_type: string | null; referer: string | null; link_id: string; user_agent: string | null }[];
     setTotalClicks(clicks.length);
 
-    // Daily clicks
+    // Daily clicks — bucket in the team's timezone so a click at 23:30
+    // in Bucharest belongs to that local day, not the UTC day.
     const byDate: Record<string, number> = {};
     clicks.forEach((c) => {
-      const d = c.clicked_at.split("T")[0];
+      const d = dateKeyInTimezone(c.clicked_at, tz);
       byDate[d] = (byDate[d] || 0) + 1;
     });
     const dailyArr: DailyClickData[] = [];
     if (timeRange === "all" && clicks.length > 0) {
-      // For "all", build from earliest click to today
+      // For "all", build from earliest click to today — labels in user TZ.
       const allDates = Object.keys(byDate).sort();
       const earliest = new Date(allDates[0] + "T00:00:00");
       const today = new Date();
-      today.setHours(0, 0, 0, 0);
       const diffDays = Math.ceil((today.getTime() - earliest.getTime()) / (1000 * 60 * 60 * 24));
       for (let i = diffDays; i >= 0; i--) {
         const d = new Date(today);
         d.setDate(d.getDate() - i);
-        const ds = d.toISOString().split("T")[0];
+        const ds = dateKeyInTimezone(d, tz);
         dailyArr.push({ date: ds, count: byDate[ds] || 0 });
       }
     } else {
@@ -126,7 +130,7 @@ export function useAnalytics(timeRange: TimeRange = "30d", collectionId?: string
       for (let i = days - 1; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
-        const ds = d.toISOString().split("T")[0];
+        const ds = dateKeyInTimezone(d, tz);
         dailyArr.push({ date: ds, count: byDate[ds] || 0 });
       }
     }
@@ -217,7 +221,7 @@ export function useAnalytics(timeRange: TimeRange = "30d", collectionId?: string
     const byHour: Record<number, number> = {};
     for (let h = 0; h < 24; h++) byHour[h] = 0;
     clicks.forEach((c) => {
-      const hour = new Date(c.clicked_at).getHours();
+      const hour = getHourInTimezone(c.clicked_at, tz);
       byHour[hour] = (byHour[hour] || 0) + 1;
     });
     const hourlyArr = Object.entries(byHour)
@@ -226,7 +230,7 @@ export function useAnalytics(timeRange: TimeRange = "30d", collectionId?: string
     setHourlyData(hourlyArr);
 
     setLoading(false);
-  }, [links, timeRange, collectionId, supabase]);
+  }, [links, timeRange, collectionId, supabase, tz]);
 
   useEffect(() => {
     fetchAnalytics();

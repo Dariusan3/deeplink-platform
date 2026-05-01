@@ -1,11 +1,34 @@
 "use client";
 
+import { useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
 function TikTokOverlayContent() {
   const searchParams = useSearchParams();
   const url = searchParams.get("url") || "";
+  // Flags injected by the redirect route based on team_settings.
+  // Defaults preserve existing UI when params are absent.
+  const showAppTap = searchParams.get("tap") !== "0";
+  const showBranding = searchParams.get("branding") !== "0";
+
+  // When the team disabled the "Open in browser" tutorial UI, just
+  // forward the visitor to the destination as soon as possible.
+  useEffect(() => {
+    if (!showAppTap && url) {
+      window.location.replace(url);
+    }
+  }, [showAppTap, url]);
+
+  // Render an empty placeholder during the auto-redirect — the user
+  // shouldn't see the instructional UI flash.
+  if (!showAppTap) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-pink-500/30 border-t-pink-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6 text-center relative overflow-hidden">
@@ -66,10 +89,12 @@ function TikTokOverlayContent() {
           )}
         </div>
 
-        {/* Branding */}
-        <p className="text-[9px] text-neutral-700 pt-4">
-          Powered by <span className="font-bold">Tappr</span>
-        </p>
+        {/* Branding — premium teams can hide via Settings → Redirect Page */}
+        {showBranding && (
+          <p className="text-[9px] text-neutral-700 pt-4">
+            Powered by <span className="font-bold">Tappr</span>
+          </p>
+        )}
       </div>
     </div>
   );

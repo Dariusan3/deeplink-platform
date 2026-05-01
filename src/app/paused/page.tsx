@@ -4,8 +4,13 @@ import { motion } from "framer-motion";
 import { ShieldAlert, ArrowLeft, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 
-export default function PausedPage() {
+function PausedContent() {
+  // Branding flag passed by [slug]/route.ts when team_settings.show_branding
+  // is false. Defaults to ON (free tier always shows branding).
+  const showBranding = useSearchParams().get("branding") !== "0";
   return (
     <div className="min-h-screen bg-[#000000] flex flex-col items-center justify-center p-4 relative overflow-hidden">
       {/* Background Polish */}
@@ -38,19 +43,35 @@ export default function PausedPage() {
             className="w-full btn-primary h-14 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-[0_0_30px_rgba(0,210,106,0.2)]"
           />
           
-          <p className="text-[10px] text-neutral-600 font-black uppercase tracking-[0.3em]">
-            Tappr Neural Protection Active
-          </p>
+          {showBranding && (
+            <p className="text-[10px] text-neutral-600 font-black uppercase tracking-[0.3em]">
+              Tappr Neural Protection Active
+            </p>
+          )}
         </div>
       </motion.div>
 
-      {/* Footer Branding */}
-      <div className="mt-12 relative z-10 flex items-center gap-2 opacity-30 hover:opacity-100 transition-opacity duration-500">
-        <div className="w-6 h-6 rounded-lg bg-[#00D26A] flex items-center justify-center">
-          <div className="w-3 h-3 bg-black rounded-sm rotate-45" />
+      {/* Footer Branding — hidden when team_settings.show_branding is off (premium) */}
+      {showBranding && (
+        <div className="mt-12 relative z-10 flex items-center gap-2 opacity-30 hover:opacity-100 transition-opacity duration-500">
+          <div className="w-6 h-6 rounded-lg bg-[#00D26A] flex items-center justify-center">
+            <div className="w-3 h-3 bg-black rounded-sm rotate-45" />
+          </div>
+          <span className="text-white font-black uppercase text-[10px] tracking-widest italic">Tappr.co</span>
         </div>
-        <span className="text-white font-black uppercase text-[10px] tracking-widest italic">Tappr.co</span>
-      </div>
+      )}
     </div>
+  );
+}
+
+export default function PausedPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#00D26A]/30 border-t-[#00D26A] rounded-full animate-spin" />
+      </div>
+    }>
+      <PausedContent />
+    </Suspense>
   );
 }

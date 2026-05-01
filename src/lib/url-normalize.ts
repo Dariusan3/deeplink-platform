@@ -52,3 +52,20 @@ export function getDisplayOrigin(): string {
 export function buildShortUrl(slug: string): string {
   return `${getDisplayOrigin()}/${slug}`;
 }
+
+// Sanitize a custom path on input — runs in the onChange handler so the
+// user can never end up with an invalid character in the field.
+// Rules:
+//   - Trim leading/trailing whitespace
+//   - Replace any inner whitespace run with a single `-`
+//   - Drop anything that isn't [A-Za-z0-9 _ -]
+//   - Collapse runs of `-` into a single `-`
+// We keep case as-is (URLs are case-sensitive — don't surprise the user).
+export function sanitizePath(input: string): string {
+  if (!input) return "";
+  return input
+    .replace(/^\s+/, "")              // leading whitespace
+    .replace(/\s+/g, "-")             // inner whitespace → dash
+    .replace(/[^A-Za-z0-9_-]/g, "")   // strip everything else
+    .replace(/-{2,}/g, "-");          // collapse double-dashes
+}

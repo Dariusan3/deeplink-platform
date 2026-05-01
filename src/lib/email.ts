@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { PARTNER_MIN_PAYOUT } from "@/lib/partner-config";
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
@@ -402,7 +403,7 @@ export async function sendPartnerMonthlyReportEmail({
       <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 12px;"><p style="font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.1em; margin: 0;">Active</p><p style="font-size: 20px; color: #fff; font-weight: 900; margin: 4px 0 0;">${activeReferrals}</p></div>
       <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 12px;"><p style="font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.1em; margin: 0;">Pending payout</p><p style="font-size: 20px; color: #fff; font-weight: 900; margin: 4px 0 0;">$${pendingPayout.toFixed(2)}</p></div>
     </div>
-    <p style="font-size: 13px; color: #ccc; margin: 0;">${pendingPayout >= 50 ? "You can request a payout anytime — minimum $50 is met." : "Once your pending payout reaches $50 you can request a withdrawal."}</p>
+    <p style="font-size: 13px; color: #ccc; margin: 0;">${pendingPayout >= PARTNER_MIN_PAYOUT ? `You can request a payout anytime — minimum $${PARTNER_MIN_PAYOUT} is met.` : `Once your pending payout reaches $${PARTNER_MIN_PAYOUT} you can request a withdrawal.`}</p>
   `, `${monthName.toUpperCase()} REPORT`);
   try {
     await resend.emails.send({

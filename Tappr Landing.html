@@ -1,0 +1,1231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Tappr — Smart links for people who can't afford guessing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&family=Geist+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#000000;
+    --bg-2:#070707;
+    --surface:#0a0a0a;
+    --surface-2:#111111;
+    --line:#1a1a1a;
+    --line-2:#262626;
+    --line-3:#333333;
+    --ink:#ededed;
+    --ink-2:#a1a1a1;
+    --muted:#737373;
+    --muted-2:#525252;
+    --green:#00D26A;
+    --green-soft:#00D26A1f;
+    --green-glow:#00D26A55;
+    --red:#ff5a4f;
+    --amber:#f5a524;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);}
+
+  /* ── Subtle motion system ─────────────────────────── */
+  @media (prefers-reduced-motion: no-preference){
+    .reveal{opacity:0;transform:translateY(14px);transition:opacity .9s cubic-bezier(.2,.6,.2,1), transform .9s cubic-bezier(.2,.6,.2,1);will-change:opacity, transform;}
+    .reveal.in{opacity:1;transform:none;}
+    .reveal-1{transition-delay:.05s;}
+    .reveal-2{transition-delay:.12s;}
+    .reveal-3{transition-delay:.19s;}
+    .reveal-4{transition-delay:.26s;}
+    .reveal-5{transition-delay:.33s;}
+    .stagger > *{opacity:0;transform:translateY(10px);transition:opacity .7s cubic-bezier(.2,.6,.2,1), transform .7s cubic-bezier(.2,.6,.2,1);}
+    .stagger.in > *{opacity:1;transform:none;}
+    .stagger.in > *:nth-child(1){transition-delay:.04s;}
+    .stagger.in > *:nth-child(2){transition-delay:.10s;}
+    .stagger.in > *:nth-child(3){transition-delay:.16s;}
+    .stagger.in > *:nth-child(4){transition-delay:.22s;}
+    .stagger.in > *:nth-child(5){transition-delay:.28s;}
+    .stagger.in > *:nth-child(6){transition-delay:.34s;}
+    /* tiny hover lift for cells/buttons */
+    .btn, .row-card, .rule-row, .problem-cell, .price{transition:transform .25s cubic-bezier(.2,.6,.2,1), border-color .25s ease, background .2s ease, box-shadow .25s ease, color .2s ease;}
+    .btn-primary:hover, .btn-green:hover{transform:translateY(-1px);}
+    .problem-cell:hover{background:#080808;}
+    /* shimmer on hairlines (very subtle, opt-in via .shimmer) */
+    @keyframes shimmer{0%{background-position:-200% 0;}100%{background-position:200% 0;}}
+    .shimmer-line{
+      background:linear-gradient(90deg, transparent 0%, transparent 40%, #00D26A66 50%, transparent 60%, transparent 100%);
+      background-size:200% 100%;
+      animation:shimmer 4.5s linear infinite;
+    }
+    /* hero glow drift */
+    @keyframes drift{
+      0%,100%{opacity:.6;transform:translate(0,0) scale(1);}
+      50%{opacity:1;transform:translate(20px,-10px) scale(1.06);}
+    }
+    .hero-visual::before{animation:drift 8s ease-in-out infinite;}
+  }
+
+  body{
+    font-family:"Geist","Inter",system-ui,sans-serif;
+    font-size:15px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    overflow-x:hidden;
+  }
+  ::selection{background:var(--green);color:#000;}
+  a{color:inherit;text-decoration:none;}
+
+  /* ── Type ──────────────────────────────────────────── */
+  .ulabel{
+    font-family:"Geist Mono",monospace;
+    font-weight:500;
+    font-size:11px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--muted);
+  }
+  .ulabel.green{color:var(--green);}
+  h1,h2,h3,h4{font-family:"Geist",sans-serif;font-weight:600;letter-spacing:-0.04em;margin:0;color:#fff;}
+  .display{
+    font-family:"Geist",sans-serif;font-weight:600;
+    font-size:clamp(48px, 8vw, 116px);line-height:0.92;letter-spacing:-0.05em;
+  }
+  .display .serif{
+    font-family:"Geist",sans-serif;font-style:normal;font-weight:300;
+    color:var(--ink-2);letter-spacing:-0.04em;
+  }
+  h2{
+    font-family:"Geist",sans-serif;font-weight:600;
+    font-size:clamp(36px, 5vw, 64px);line-height:0.98;letter-spacing:-0.04em;
+  }
+  h2 .serif{font-family:"Geist",sans-serif;font-style:normal;font-weight:300;color:var(--ink-2);letter-spacing:-0.04em;}
+  h3{font-size:clamp(20px, 1.6vw, 24px);line-height:1.2;letter-spacing:-0.02em;font-weight:600;}
+  p{margin:0;}
+  .lede{color:var(--ink-2);font-size:16px;line-height:1.55;max-width:60ch;}
+  .mono{font-family:"Geist Mono",monospace;}
+
+  /* ── Layout ────────────────────────────────────────── */
+  .wrap{max-width:1280px;margin:0 auto;padding:0 24px;}
+  section{position:relative;}
+
+  /* hairline rule (Vercel signature) */
+  hr.hair{border:none;border-top:1px solid var(--line);margin:0;}
+  .hair-x{position:relative;}
+  .hair-x::before, .hair-x::after{
+    content:"";position:absolute;top:0;bottom:0;width:1px;background:var(--line);
+  }
+  .hair-x::before{left:24px;}
+  .hair-x::after{right:24px;}
+
+  /* ── Buttons ───────────────────────────────────────── */
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    height:40px;padding:0 18px;border-radius:8px;
+    font-family:"Geist",sans-serif;font-weight:500;font-size:14px;letter-spacing:-0.005em;
+    border:1px solid transparent;cursor:pointer;
+    transition:transform .12s ease, background .12s ease, border-color .12s ease, color .12s ease;
+  }
+  .btn-primary{
+    background:#fff;color:#000;border-color:#fff;
+  }
+  .btn-primary:hover{background:#ededed;border-color:#ededed;}
+  .btn-green{
+    background:var(--green);color:#001a0c;border-color:var(--green);
+  }
+  .btn-green:hover{filter:brightness(1.05);}
+  .btn-ghost{
+    background:transparent;color:#fff;border-color:var(--line-2);
+  }
+  .btn-ghost:hover{border-color:var(--line-3);background:var(--surface);}
+  .btn-sm{height:32px;padding:0 12px;font-size:13px;border-radius:6px;}
+  .btn .arrow{width:13px;height:13px;}
+
+  /* ── NAV (Vercel-style: tight, hairline, mono badge) ─ */
+  .nav{
+    position:sticky;top:0;z-index:50;
+    background:rgba(0,0,0,0.72);
+    backdrop-filter:blur(12px) saturate(160%);
+    -webkit-backdrop-filter:blur(12px) saturate(160%);
+    border-bottom:1px solid var(--line);
+  }
+  .nav-inner{
+    display:flex;align-items:center;gap:32px;
+    height:60px;
+  }
+  .logo{
+    display:inline-flex;align-items:center;gap:10px;
+    font-weight:600;font-size:16px;letter-spacing:-0.03em;color:#fff;
+  }
+  .logo .mark{
+    width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;
+  }
+  .logo .mark svg{display:block;}
+  .nav-divider{width:1px;height:18px;background:var(--line-2);}
+  .nav-badge{
+    font-family:"Geist Mono",monospace;font-size:11px;color:var(--muted);
+    border:1px solid var(--line-2);border-radius:5px;padding:2px 6px;
+    background:var(--surface);
+  }
+  .nav-links{display:flex;gap:24px;color:var(--ink-2);font-size:13.5px;margin-left:8px;}
+  .nav-links a{transition:color .12s ease;}
+  .nav-links a:hover{color:#fff;}
+  .nav-right{display:flex;align-items:center;gap:8px;margin-left:auto;}
+  .nav-right .signin{color:var(--ink-2);font-size:13.5px;padding:0 10px;}
+  .nav-right .signin:hover{color:#fff;}
+  @media(max-width:760px){
+    .nav-links, .nav-badge, .nav-divider, .nav-right .signin{display:none;}
+  }
+
+  /* ── HERO (display type left, live visual right) ───── */
+  .hero{position:relative;border-bottom:1px solid var(--line);overflow:hidden;}
+  .hero-grid{
+    display:grid;grid-template-columns:1.05fr 1fr;
+    min-height:680px;
+  }
+  @media(max-width:1080px){
+    .hero-grid{grid-template-columns:1fr;}
+  }
+  .hero-copy{
+    padding:80px 56px 80px 0;
+    border-right:1px solid var(--line);
+    display:flex;flex-direction:column;justify-content:center;gap:32px;
+  }
+  @media(max-width:1080px){
+    .hero-copy{border-right:none;border-bottom:1px solid var(--line);padding:56px 0;}
+  }
+  .hero-copy .pill{
+    display:inline-flex;align-items:center;gap:10px;
+    padding:5px 12px 5px 5px;border-radius:999px;
+    border:1px solid var(--line-2);background:var(--surface);
+    font-size:12.5px;color:var(--ink-2);width:fit-content;
+  }
+  .hero-copy .pill .tag{
+    background:var(--green-soft);color:var(--green);
+    font-family:"Geist Mono",monospace;font-weight:500;font-size:10px;letter-spacing:0.12em;
+    padding:3px 7px;border-radius:999px;
+  }
+  .hero-copy .pill .arr{color:var(--muted);}
+  .hero-copy .display .strike{
+    color:var(--muted-2);
+    text-decoration:line-through;
+    text-decoration-thickness:2px;
+    text-decoration-color:var(--muted);
+  }
+  .hero-copy .display .green{color:var(--green);}
+  .hero-copy .sub{color:var(--ink-2);font-size:17px;line-height:1.5;max-width:48ch;}
+  .hero-cta{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  .hero-cta .meta{color:var(--muted);font-size:12.5px;display:inline-flex;gap:14px;flex-wrap:wrap;margin-left:6px;}
+  .hero-cta .meta span{display:inline-flex;align-items:center;gap:5px;}
+  .hero-cta .meta .tick{color:var(--green);}
+
+  .hero-visual{
+    padding:48px 0 48px 56px;
+    display:flex;align-items:center;justify-content:flex-start;
+    position:relative;
+  }
+  @media(max-width:1080px){
+    .hero-visual{padding:32px 0 56px;}
+  }
+  .hero-visual::before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(420px 320px at 70% 50%, #00D26A1a, transparent 70%);
+  }
+
+  /* ── Live router product card (Linear-flavored) ────── */
+  .live-card{
+    width:100%;max-width:560px;
+    background:var(--surface);
+    border:1px solid var(--line-2);
+    border-radius:14px;
+    overflow:hidden;
+    box-shadow:
+      0 0 0 1px var(--line),
+      0 30px 80px -30px rgba(0,0,0,0.9),
+      0 0 120px -40px var(--green-glow);
+    position:relative;
+  }
+  .live-card-head{
+    display:flex;align-items:center;gap:10px;
+    padding:10px 14px;border-bottom:1px solid var(--line-2);
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+  }
+  .live-card-head .traffic{display:flex;gap:6px;}
+  .live-card-head .traffic i{width:10px;height:10px;border-radius:50%;background:var(--line-3);display:inline-block;}
+  .live-card-head .url{
+    flex:1;font-family:"Geist Mono",monospace;font-size:12px;color:var(--ink-2);
+    background:#0d0d0d;border:1px solid var(--line-2);border-radius:6px;
+    padding:5px 10px;display:flex;align-items:center;gap:6px;
+  }
+  .live-card-head .url .dim{color:var(--muted);}
+  .live-card-head .url .green{color:var(--green);}
+  .live-card-head .live-pill{
+    display:inline-flex;align-items:center;gap:6px;
+    font-family:"Geist Mono",monospace;font-size:10px;letter-spacing:0.14em;color:var(--green);
+    border:1px solid #00D26A55;border-radius:999px;padding:3px 8px;background:var(--green-soft);
+  }
+  .live-card-head .live-pill .pulse{
+    width:6px;height:6px;border-radius:50%;background:var(--green);
+    box-shadow:0 0 0 0 var(--green-glow);
+    animation:pulse 1.6s ease-out infinite;
+  }
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 var(--green-glow);}
+    70%{box-shadow:0 0 0 8px transparent;}
+    100%{box-shadow:0 0 0 0 transparent;}
+  }
+
+  .live-body{
+    display:grid;grid-template-columns:1fr 1px 1fr;gap:0;
+    padding:0;
+    position:relative;
+  }
+  .live-body .col-divider{background:var(--line-2);}
+  .live-col{padding:18px;display:flex;flex-direction:column;gap:10px;min-width:0;}
+  .live-col .col-h{
+    display:flex;align-items:center;justify-content:space-between;
+    font-family:"Geist Mono",monospace;font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);
+    padding-bottom:8px;border-bottom:1px solid var(--line);
+  }
+  .live-col .col-h .count{color:var(--ink-2);}
+
+  .row-card{
+    display:flex;align-items:center;gap:10px;
+    padding:10px;border-radius:8px;
+    background:#0d0d0d;border:1px solid var(--line-2);
+    position:relative;transition:border-color .25s ease, transform .25s ease;
+  }
+  .row-card.live-row{
+    border-color:var(--green);
+    box-shadow:0 0 0 1px var(--green), 0 0 30px -8px var(--green-glow);
+  }
+  .row-card .flag{
+    width:28px;height:28px;border-radius:7px;flex-shrink:0;
+    background:#161616;border:1px solid var(--line-2);
+    display:inline-flex;align-items:center;justify-content:center;font-size:14px;
+  }
+  .row-card .meta{min-width:0;flex:1;}
+  .row-card .meta .top{font-size:13px;color:#fff;font-weight:500;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .row-card .meta .bot{font-family:"Geist Mono",monospace;font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .row-card .badge{
+    font-family:"Geist Mono",monospace;font-size:9.5px;letter-spacing:0.12em;color:var(--muted);
+    border:1px solid var(--line-2);border-radius:4px;padding:2px 5px;flex-shrink:0;
+  }
+  .row-card.live-row .badge{color:var(--green);border-color:#00D26A55;}
+
+  .live-foot{
+    border-top:1px solid var(--line-2);
+    padding:10px 14px;
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    font-family:"Geist Mono",monospace;font-size:11px;color:var(--muted);
+    background:#070707;
+  }
+  .live-foot .rule{color:var(--ink-2);}
+  .live-foot .rule .k{color:var(--muted);}
+  .live-foot .rule .v{color:var(--green);}
+  .live-foot .ts{color:var(--muted-2);}
+
+  /* Hint line in card footer */
+  .live-hint{
+    border-top:1px solid var(--line-2);
+    padding:10px 14px;
+    font-family:"Geist Mono",monospace;font-size:11px;color:var(--muted);
+    background:#080808;letter-spacing:0.01em;
+    display:flex;align-items:center;gap:8px;
+  }
+  .live-hint::before{content:"";width:10px;height:1px;background:var(--green);}
+  .row-card{cursor:pointer;}
+  .row-card:hover{border-color:var(--line-3);}
+
+  /* ── Logo strip / proof bar ────────────────────────── */
+  .strip{
+    border-bottom:1px solid var(--line);
+    padding:28px 0;
+    display:flex;align-items:center;gap:32px;flex-wrap:wrap;justify-content:center;
+    color:var(--muted);font-size:13px;
+  }
+  .strip .stat{display:flex;align-items:baseline;gap:8px;}
+  .strip .stat b{color:#fff;font-weight:600;letter-spacing:-0.01em;font-size:15px;}
+  .strip .stat .mono{font-family:"Geist Mono",monospace;color:var(--muted-2);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;}
+  .strip .dot{width:3px;height:3px;border-radius:50%;background:var(--line-3);}
+
+  /* ── BENTO (Vercel signature feature grid) ─────────── */
+  .section{padding:120px 0;border-bottom:1px solid var(--line);}
+  .section-head{
+    display:flex;align-items:flex-end;justify-content:space-between;gap:32px;
+    margin-bottom:48px;
+  }
+  @media(max-width:760px){.section-head{flex-direction:column;align-items:flex-start;}}
+  .section-head .left{max-width:680px;display:flex;flex-direction:column;gap:14px;}
+  .section-head .left .ulabel{display:flex;align-items:center;gap:10px;}
+  .section-head .left .ulabel::before{content:"";width:14px;height:1px;background:var(--green);}
+  .section-head .right{color:var(--muted);font-size:13.5px;max-width:36ch;text-align:right;font-family:"Geist Mono",monospace;}
+  @media(max-width:760px){.section-head .right{text-align:left;}}
+
+  /* problem: 3-up with hairline borders, no rounded outer */
+  .problem-grid{
+    display:grid;grid-template-columns:repeat(3,1fr);
+    border:1px solid var(--line);border-radius:14px;overflow:hidden;
+    background:var(--bg-2);
+  }
+  @media(max-width:900px){.problem-grid{grid-template-columns:1fr;}}
+  .problem-cell{
+    padding:32px;display:flex;flex-direction:column;gap:16px;
+    border-right:1px solid var(--line);min-height:280px;position:relative;
+  }
+  .problem-cell:last-child{border-right:none;}
+  @media(max-width:900px){
+    .problem-cell{border-right:none;border-bottom:1px solid var(--line);}
+    .problem-cell:last-child{border-bottom:none;}
+  }
+  .problem-cell .num{font-family:"Geist Mono",monospace;font-size:11px;color:var(--muted);letter-spacing:0.14em;}
+  .problem-cell h3{font-size:22px;letter-spacing:-0.02em;line-height:1.15;}
+  .problem-cell p{color:var(--ink-2);font-size:14.5px;line-height:1.55;}
+  .problem-cell .resolve{
+    margin-top:auto;padding-top:14px;border-top:1px dashed var(--line-2);
+    color:var(--green);font-family:"Geist Mono",monospace;font-size:11.5px;font-weight:500;
+    display:flex;align-items:center;gap:8px;letter-spacing:-0.005em;
+  }
+
+  /* BENTO bento layout for product features */
+  .bento{
+    display:grid;
+    grid-template-columns:repeat(6, 1fr);
+    grid-auto-rows:minmax(220px, auto);
+    gap:1px;
+    background:var(--line);
+    border:1px solid var(--line);border-radius:16px;overflow:hidden;
+  }
+  .bento > *{background:var(--bg);}
+  .bento-cell{
+    padding:32px;display:flex;flex-direction:column;gap:18px;position:relative;overflow:hidden;
+  }
+  .bento-cell .head{display:flex;align-items:center;gap:10px;}
+  .bento-cell .head .num{font-family:"Geist Mono",monospace;font-size:11px;color:var(--muted);letter-spacing:0.14em;}
+  .bento-cell h3{
+    font-family:"Geist",sans-serif;font-size:clamp(22px, 1.8vw, 28px);
+    letter-spacing:-0.025em;line-height:1.1;color:#fff;font-weight:600;
+  }
+  .bento-cell h3 .serif{font-family:"Geist",sans-serif;font-style:normal;font-weight:300;color:var(--ink-2);}
+  .bento-cell p{color:var(--ink-2);font-size:14.5px;line-height:1.55;max-width:46ch;}
+
+  .b-routing{grid-column:span 4;grid-row:span 2;}
+  .b-ai      {grid-column:span 2;grid-row:span 1;}
+  .b-alerts  {grid-column:span 2;grid-row:span 1;}
+  .b-ab      {grid-column:span 3;grid-row:span 1;}
+  .b-api     {grid-column:span 3;grid-row:span 1;}
+  @media(max-width:1080px){
+    .bento{grid-template-columns:repeat(2,1fr);}
+    .b-routing{grid-column:span 2;grid-row:auto;}
+    .b-ai, .b-alerts, .b-ab, .b-api{grid-column:span 2;}
+  }
+
+  /* Routing visual inside bento */
+  .routing-art{
+    flex:1;margin:0 -32px -32px;padding:24px 32px 32px;
+    border-top:1px solid var(--line);
+    background:linear-gradient(180deg, transparent, #00D26A06);
+    display:flex;flex-direction:column;gap:10px;
+    min-height:300px;justify-content:flex-end;
+  }
+  .rule-row{
+    display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;
+    background:var(--surface);border:1px solid var(--line-2);border-radius:10px;
+    padding:10px 14px;font-family:"Geist Mono",monospace;font-size:12.5px;
+    transition:border-color .2s ease, transform .2s ease;
+  }
+  .rule-row:hover{border-color:var(--line-3);}
+  .rule-row.active{border-color:var(--green);box-shadow:0 0 0 1px var(--green), 0 0 30px -10px var(--green-glow);}
+  .rule-row .if{color:var(--ink-2);}
+  .rule-row .if .k, .rule-row .then .k{color:var(--muted);}
+  .rule-row .if .v{color:#fff;}
+  .rule-row .arr{color:var(--green);font-weight:600;}
+  .rule-row .then{color:var(--ink-2);}
+  .rule-row .then .v{color:var(--green);}
+  .rule-row.add{
+    border-style:dashed;color:var(--muted);justify-content:center;display:flex;
+    transition:color .2s ease, border-color .2s ease;
+  }
+  .rule-row.add:hover{color:var(--green);border-color:var(--green);}
+
+  /* AI compact */
+  .ai-art{
+    flex:1;display:flex;flex-direction:column;gap:8px;justify-content:flex-end;
+    margin-top:8px;
+  }
+  .ai-q{
+    font-family:"Geist Mono",monospace;font-size:12px;color:var(--muted);
+    padding:8px 10px;border-radius:8px;border:1px solid var(--line-2);background:#0d0d0d;
+    align-self:flex-start;max-width:80%;
+  }
+  .ai-q::before{content:"› ";color:var(--green);}
+  .ai-a{
+    border:1px solid #00D26A33;border-radius:10px;padding:10px 12px;
+    background:linear-gradient(180deg, #00D26A0d, transparent);
+    font-size:13.5px;line-height:1.5;color:var(--ink);
+  }
+  .ai-a b{color:#fff;font-weight:600;}
+  .ai-a .stat{font-family:"Geist Mono",monospace;color:var(--green);font-weight:600;}
+
+  /* Alert compact */
+  .alert-art{
+    margin-top:auto;border:1px solid #ff5a4f55;border-radius:10px;overflow:hidden;
+    background:linear-gradient(180deg, #ff5a4f0a, transparent 70%);
+  }
+  .alert-art .ah{
+    display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line-2);
+  }
+  .alert-art .tag{
+    font-family:"Geist Mono",monospace;font-size:10px;letter-spacing:0.14em;color:#ff8c83;
+    background:#ff5a4f1a;border:1px solid #ff5a4f55;padding:2px 7px;border-radius:999px;
+  }
+  .alert-art .ah .lbl{font-size:12.5px;color:var(--ink-2);font-family:"Geist Mono",monospace;}
+  .alert-art .body{padding:12px;display:flex;flex-direction:column;gap:10px;}
+  .alert-art .num{font-family:"Geist",sans-serif;font-size:32px;font-weight:600;letter-spacing:-0.04em;color:#ff8c83;line-height:1;}
+  .alert-art .meta{color:var(--muted);font-size:12px;font-family:"Geist Mono",monospace;}
+  .alert-art .why{font-size:12.5px;color:var(--ink-2);line-height:1.5;}
+
+  /* AB compact */
+  .ab-art{
+    margin-top:auto;display:flex;flex-direction:column;gap:8px;
+  }
+  .ab-row{
+    display:flex;flex-direction:column;gap:6px;
+    background:var(--surface);border:1px solid var(--line-2);border-radius:10px;padding:10px 12px;
+  }
+  .ab-row .top{display:flex;justify-content:space-between;align-items:center;}
+  .ab-row .nm{font-family:"Geist Mono",monospace;font-size:12.5px;color:var(--ink-2);}
+  .ab-row .nm .ltr{font-weight:600;margin-right:6px;}
+  .ab-row.win .nm .ltr{color:var(--green);}
+  .ab-row.lose .nm .ltr{color:var(--muted);}
+  .ab-row .pct{font-family:"Geist",sans-serif;font-weight:600;font-size:16px;letter-spacing:-0.02em;}
+  .ab-row.win .pct{color:var(--green);}
+  .ab-row.lose .pct{color:var(--muted);}
+  .ab-bar{height:5px;border-radius:999px;background:var(--line-2);overflow:hidden;}
+  .ab-bar .fill{height:100%;border-radius:inherit;}
+  .ab-row.win .fill{background:var(--green);box-shadow:0 0 12px var(--green-glow);}
+  .ab-row.lose .fill{background:var(--line-3);}
+
+  /* API/code block */
+  .code-art{
+    margin-top:auto;
+    background:#070707;border:1px solid var(--line-2);border-radius:10px;
+    overflow:hidden;
+  }
+  .code-art .h{
+    padding:8px 12px;border-bottom:1px solid var(--line-2);
+    display:flex;align-items:center;justify-content:space-between;
+    font-family:"Geist Mono",monospace;font-size:11px;color:var(--muted);
+  }
+  .code-art .h .lang{color:var(--green);}
+  .code-art pre{
+    margin:0;padding:14px;font-family:"Geist Mono",monospace;font-size:12.5px;line-height:1.6;color:var(--ink-2);
+    overflow:auto;
+  }
+  .code-art pre .kw{color:#c099ff;}
+  .code-art pre .str{color:#a3e635;}
+  .code-art pre .com{color:var(--muted);}
+  .code-art pre .fn{color:var(--green);}
+  .code-art pre .num{color:#fbbf24;}
+  .code-art pre .key{color:#7dd3fc;}
+
+  /* ── FOUNDER NOTE ─────────────────────────────────── */
+  .founder-row{
+    display:grid;grid-template-columns:240px 1fr;gap:64px;align-items:flex-start;
+  }
+  @media(max-width:880px){.founder-row{grid-template-columns:1fr;gap:24px;}}
+  .founder-row .left{display:flex;flex-direction:column;gap:12px;}
+  .founder-row .left .ulabel{display:flex;align-items:center;gap:10px;}
+  .founder-row .left .ulabel::before{content:"";width:14px;height:1px;background:var(--green);}
+  .founder-row .left .name{color:var(--ink);font-size:15px;font-weight:500;}
+  .founder-row .left .role{color:var(--muted);font-size:13px;}
+  .founder-text{display:flex;flex-direction:column;gap:24px;}
+  .founder-text p{
+    font-family:"Geist",sans-serif;
+    font-size:clamp(20px, 2vw, 28px);line-height:1.3;letter-spacing:-0.025em;color:var(--ink);font-weight:400;
+  }
+  .founder-text p .serif{font-family:"Geist",sans-serif;font-style:normal;font-weight:300;color:var(--ink-2);}
+  .founder-text p .green{color:var(--green);}
+  .founder-text p strong{color:#fff;font-weight:600;}
+
+  /* ── PRICING ──────────────────────────────────────── */
+  .pricing{
+    display:grid;grid-template-columns:repeat(3,1fr);
+    border:1px solid var(--line);border-radius:16px;overflow:hidden;
+    background:var(--line);gap:1px;
+  }
+  @media(max-width:900px){.pricing{grid-template-columns:1fr;}}
+  .price{
+    background:var(--bg);
+    padding:32px;display:flex;flex-direction:column;gap:20px;position:relative;
+  }
+  .price.featured{
+    background:linear-gradient(180deg, #00D26A0a, transparent 60%) , var(--bg);
+  }
+  .price.featured::before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    border:1px solid #00D26A66;border-radius:0;
+    box-shadow:inset 0 0 80px -30px var(--green-glow);
+  }
+  .price .tier{
+    display:flex;align-items:center;gap:8px;
+  }
+  .price .tier .name{font-family:"Geist Mono",monospace;font-size:11.5px;letter-spacing:0.18em;color:var(--ink-2);text-transform:uppercase;}
+  .price.featured .tier .name{color:var(--green);}
+  .price .badge{
+    font-family:"Geist Mono",monospace;font-size:10px;letter-spacing:0.14em;
+    color:var(--green);background:var(--green-soft);border:1px solid #00D26A55;padding:2px 7px;border-radius:999px;
+  }
+  .price .amount{
+    display:flex;align-items:baseline;gap:6px;
+    font-family:"Geist",sans-serif;font-weight:600;letter-spacing:-0.04em;line-height:1;color:#fff;
+  }
+  .price .amount .num{font-size:48px;}
+  .price .amount .per{font-size:14px;color:var(--muted);font-weight:500;letter-spacing:0;}
+  .price .blurb{color:var(--ink-2);font-size:14px;line-height:1.5;}
+  .price ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px;}
+  .price li{
+    display:flex;gap:10px;align-items:flex-start;color:var(--ink-2);font-size:14px;line-height:1.5;
+  }
+  .price li svg{flex-shrink:0;margin-top:3px;color:var(--green);}
+  .price .cta{margin-top:auto;}
+  .price .cta .btn{width:100%;}
+  .price hr{border:none;border-top:1px solid var(--line);margin:0;}
+
+  /* ── FINAL CTA ────────────────────────────────────── */
+  .final{
+    text-align:center;padding:160px 0;position:relative;overflow:hidden;
+    border-bottom:1px solid var(--line);
+  }
+  .final::before{
+    content:"";position:absolute;inset:0;
+    background:
+      radial-gradient(600px 280px at 50% 0%, var(--green-glow), transparent 70%),
+      radial-gradient(800px 400px at 50% 100%, #00D26A22, transparent 70%);
+    pointer-events:none;
+  }
+  .final h2{
+    font-size:clamp(48px, 8vw, 96px);letter-spacing:-0.05em;line-height:0.94;font-weight:600;
+  }
+  .final h2 .serif{font-family:"Geist",sans-serif;font-style:normal;font-weight:300;color:var(--ink-2);}
+  .final h2 .green{color:var(--green);}
+  .final .sub{margin:24px auto 36px;color:var(--ink-2);font-size:16px;max-width:50ch;}
+  .final .btn{height:48px;padding:0 22px;font-size:15px;}
+
+  /* ── FOOTER ───────────────────────────────────────── */
+  footer{padding:72px 0 36px;}
+  .foot-grid{display:grid;grid-template-columns:1.6fr repeat(3,1fr);gap:40px;}
+  @media(max-width:880px){.foot-grid{grid-template-columns:1fr 1fr;gap:32px;}}
+  @media(max-width:560px){.foot-grid{grid-template-columns:1fr;}}
+  .foot-col h4{font-family:"Geist Mono",monospace;font-weight:500;font-size:11px;letter-spacing:0.18em;color:var(--muted);text-transform:uppercase;margin:0 0 14px;}
+  .foot-col ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px;}
+  .foot-col a{color:var(--ink-2);font-size:13.5px;}
+  .foot-col a:hover{color:#fff;}
+  .foot-brand p{color:var(--ink-2);font-size:13.5px;max-width:36ch;margin:14px 0 0;}
+  .foot-bottom{
+    margin-top:56px;padding-top:24px;border-top:1px solid var(--line);
+    display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;
+    color:var(--muted);font-size:12.5px;font-family:"Geist Mono",monospace;
+  }
+  .foot-bottom .socials{display:flex;gap:6px;}
+  .foot-bottom .socials a{
+    width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;
+    border:1px solid var(--line-2);border-radius:6px;color:var(--ink-2);
+  }
+  .foot-bottom .socials a:hover{border-color:var(--green);color:var(--green);background:var(--green-soft);}
+
+  /* ── Mark (logo SVG container helper) ─────────────── */
+  .mark-svg{width:22px;height:22px;}
+
+</style>
+</head>
+<body>
+
+  <!-- ── NAV ── -->
+  <header class="nav">
+    <div class="wrap nav-inner">
+      <a class="logo" href="#">
+        <span class="mark">
+          <svg class="mark-svg" viewBox="0 0 24 24" fill="none">
+            <rect x="0.5" y="0.5" width="23" height="23" rx="6.5" stroke="#262626"/>
+            <path d="M7 8h10M12 8v10" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+            <circle cx="12" cy="18" r="2.4" fill="#00D26A"/>
+          </svg>
+        </span>
+        <span>Tappr</span>
+      </a>
+      <span class="nav-divider"></span>
+      <span class="nav-badge">v0.4 — Beta</span>
+      <nav class="nav-links">
+        <a href="#features">Product</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#api">API</a>
+        <a href="#changelog">Changelog</a>
+        <a href="#docs">Docs</a>
+      </nav>
+      <div class="nav-right">
+        <a class="signin" href="#">Sign in</a>
+        <a class="btn btn-ghost btn-sm" href="#">Book a demo</a>
+        <a class="btn btn-primary btn-sm" href="#">
+          Start free
+          <svg class="arrow" viewBox="0 0 16 16" fill="none"><path d="M3 8h10m-4-4 4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── HERO ── -->
+  <section class="hero">
+    <div class="wrap">
+      <div class="hero-grid">
+        <!-- LEFT: copy -->
+        <div class="hero-copy stagger">
+          <div class="pill">
+            <span class="tag">NEW</span>
+            <span>AI Brain explains your traffic in plain English</span>
+            <span class="arr">→</span>
+          </div>
+
+          <h1 class="display">
+            Bitly says<br/>
+            <span class="strike">2,400 clicks</span>.<br/>
+            <span class="serif">It doesn't say</span><br/>
+            <span class="green">1,800 were bots.</span>
+          </h1>
+
+          <p class="sub">
+            Tappr does. Smart routing, real-time anomaly alerts, and an AI that explains your traffic — for creators &amp; marketers who can't afford guessing.
+          </p>
+
+          <div class="hero-cta">
+            <a class="btn btn-primary" href="#">
+              Start free — no card
+              <svg class="arrow" viewBox="0 0 16 16" fill="none"><path d="M3 8h10m-4-4 4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+            <a class="btn btn-ghost" href="#features">
+              See how it works
+            </a>
+          </div>
+
+          <div class="hero-cta">
+            <div class="meta">
+              <span><svg width="12" height="12" viewBox="0 0 16 16" fill="none" class="tick"><path d="m3 8 3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> No credit card</span>
+              <span><svg width="12" height="12" viewBox="0 0 16 16" fill="none" class="tick"><path d="m3 8 3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> 500 clicks/mo, free forever</span>
+              <span><svg width="12" height="12" viewBox="0 0 16 16" fill="none" class="tick"><path d="m3 8 3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Up in 60 seconds</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: live product card -->
+        <div class="hero-visual">
+          <div class="live-card reveal reveal-3" id="live-card">
+            <div class="live-card-head">
+              <div class="traffic"><i></i><i></i><i></i></div>
+              <div class="url">
+                <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style="color:var(--muted)"><rect x="3" y="7" width="10" height="7" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M5 7V5a3 3 0 1 1 6 0v2" stroke="currentColor" stroke-width="1.4"/></svg>
+                <span class="dim">tappr.me</span><span class="green">/promo</span>
+              </div>
+              <span class="live-pill"><span class="pulse"></span>LIVE</span>
+            </div>
+
+            <div class="live-body">
+              <div class="live-col">
+                <div class="col-h"><span>Visitor</span><span class="count" id="visitor-count">3,402 today</span></div>
+                <div class="row-card live-row" data-i="0">
+                  <span class="flag">🇺🇸</span>
+                  <div class="meta">
+                    <div class="top">US · Desktop</div>
+                    <div class="bot">via twitter.com/ad</div>
+                  </div>
+                  <span class="badge">CH 124</span>
+                </div>
+                <div class="row-card" data-i="1">
+                  <span class="flag">🇷🇴</span>
+                  <div class="meta">
+                    <div class="top">RO · Mobile</div>
+                    <div class="bot">via instagram.com/bio</div>
+                  </div>
+                  <span class="badge">iOS 17</span>
+                </div>
+                <div class="row-card" data-i="2">
+                  <span class="flag">🇹🇹</span>
+                  <div class="meta">
+                    <div class="top">TT · In-app</div>
+                    <div class="bot">via tiktok.com/@you</div>
+                  </div>
+                  <span class="badge">WEBVIEW</span>
+                </div>
+              </div>
+
+              <div class="col-divider"></div>
+
+              <div class="live-col">
+                <div class="col-h"><span>Resolves to</span><span class="count">3 destinations</span></div>
+                <div class="row-card live-row" data-i="0">
+                  <span class="flag" style="background:#00D26A14;border-color:#00D26A55;color:var(--green);font-size:11px;">US</span>
+                  <div class="meta">
+                    <div class="top">App Store</div>
+                    <div class="bot">apps.apple.com/us/app</div>
+                  </div>
+                  <span class="badge">iOS DL</span>
+                </div>
+                <div class="row-card" data-i="1">
+                  <span class="flag" style="font-size:11px;">RO</span>
+                  <div class="meta">
+                    <div class="top">Localized shop</div>
+                    <div class="bot">ro.ourshop.com/promo</div>
+                  </div>
+                  <span class="badge">RON</span>
+                </div>
+                <div class="row-card" data-i="2">
+                  <span class="flag" style="font-size:11px;">WA</span>
+                  <div class="meta">
+                    <div class="top">WhatsApp fallback</div>
+                    <div class="bot">wa.me/15551234</div>
+                  </div>
+                  <span class="badge">CHAT</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="live-foot">
+              <span class="rule" id="active-rule"><span class="k">if</span> country=<span class="v">US</span> ∧ device=<span class="v">desktop</span></span>
+              <span class="ts mono" id="ts">resolved 12ms ago</span>
+            </div>
+            <div class="live-hint">Click any visitor to see how it routes.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── PROOF STRIP ── -->
+  <div class="wrap">
+    <div class="strip reveal">
+      <div class="stat"><span class="mono">CLICKS ROUTED</span><b>1.4B+</b></div>
+      <span class="dot"></span>
+      <div class="stat"><span class="mono">BOTS BLOCKED</span><b>312M</b></div>
+      <span class="dot"></span>
+      <div class="stat"><span class="mono">P50 LATENCY</span><b>14ms</b></div>
+      <span class="dot"></span>
+      <div class="stat"><span class="mono">UPTIME</span><b>99.99%</b></div>
+      <span class="dot"></span>
+      <div class="stat"><span class="mono">EDGE NODES</span><b>38</b></div>
+    </div>
+  </div>
+
+  <!-- ── PROBLEM ── -->
+  <section class="section">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="left">
+          <span class="ulabel">The problem</span>
+          <h2>Three things Bitly doesn't<br/>tell you about <span class="serif">your traffic.</span></h2>
+        </div>
+        <div class="right">
+          Every link you ship is a black box.<br/>Here's what's hiding inside it.
+        </div>
+      </div>
+
+      <div class="problem-grid stagger">
+        <article class="problem-cell">
+          <span class="num">/01</span>
+          <h3>Your top link just died and you don't know.</h3>
+          <p>When a creator deletes their post, your IG-bio link goes to zero overnight. You'll find out next Monday.</p>
+          <div class="resolve">→ Tappr alerts you in under an hour</div>
+        </article>
+        <article class="problem-cell">
+          <span class="num">/02</span>
+          <h3>Half your "viral" traffic is bots.</h3>
+          <p>One referrer pumping 1,800 fake clicks looks great in the dashboard — until you check conversion the next day.</p>
+          <div class="resolve">→ Concentration risk, flagged early</div>
+        </article>
+        <article class="problem-cell">
+          <span class="num">/03</span>
+          <h3>You'll miss your goal — and it's too late to fix it.</h3>
+          <p>By day 25 you're 60% behind. The campaign is dead. Tappr forecasts the miss on day 15 and tells you why.</p>
+          <div class="resolve">→ Forecast + suggested action</div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── PRODUCT (BENTO) ── -->
+  <section class="section" id="features">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="left">
+          <span class="ulabel">The product</span>
+          <h2>Built for the way you<br/><span class="serif">actually distribute</span> links.</h2>
+        </div>
+        <div class="right">
+          Five surfaces. One link.<br/>Zero guessing.
+        </div>
+      </div>
+
+      <div class="bento stagger">
+        <!-- 01 — Smart routing (hero cell) -->
+        <div class="bento-cell b-routing">
+          <div class="head">
+            <span class="num">/01</span>
+            <span class="ulabel green">Smart routing</span>
+          </div>
+          <h3>One link. <span class="serif">Every context.</span></h3>
+          <p>Set rules per country, device, time of day, day of week, or date range. Top-down, deterministic, evaluated at the edge in &lt;15ms.</p>
+
+          <div class="routing-art">
+            <div class="rule-row active">
+              <div class="if"><span class="k">if</span> country=<span class="v">US</span> ∧ device=<span class="v">mobile</span></div>
+              <div class="arr">→</div>
+              <div class="then"><span class="v">apps.apple.com/...</span></div>
+            </div>
+            <div class="rule-row">
+              <div class="if"><span class="k">if</span> country=<span class="v">RO</span> ∧ device=<span class="v">desktop</span></div>
+              <div class="arr">→</div>
+              <div class="then"><span class="v">ro.ourshop.com</span></div>
+            </div>
+            <div class="rule-row">
+              <div class="if"><span class="k">if</span> weekday=<span class="v">SAT|SUN</span></div>
+              <div class="arr">→</div>
+              <div class="then"><span class="v">/weekend-lp</span></div>
+            </div>
+            <div class="rule-row">
+              <div class="if"><span class="k">if</span> ua=<span class="v">tiktok-webview</span></div>
+              <div class="arr">→</div>
+              <div class="then"><span class="v">wa.me/...</span></div>
+            </div>
+            <div class="rule-row add">+ add rule</div>
+          </div>
+        </div>
+
+        <!-- 02 — AI Brain -->
+        <div class="bento-cell b-ai">
+          <div class="head">
+            <span class="num">/02</span>
+            <span class="ulabel green">AI Brain</span>
+          </div>
+          <h3>Just <span class="serif">ask.</span></h3>
+          <p>Plain-English questions. Sourced answers. Suggested actions you can actually take.</p>
+
+          <div class="ai-art">
+            <div class="ai-q">why did /promo lose traffic?</div>
+            <div class="ai-a">
+              Down <span class="stat">67%</span> in 12h. <b>84%</b> of clicks came from <b>instagram.com/p/abc</b> — that referrer dropped to <b>0</b>. Likely cause: post deleted.
+            </div>
+          </div>
+        </div>
+
+        <!-- 03 — Alerts -->
+        <div class="bento-cell b-alerts">
+          <div class="head">
+            <span class="num">/03</span>
+            <span class="ulabel green">Real-time alerts</span>
+          </div>
+          <h3>A <span class="serif">smoke alarm</span> for traffic.</h3>
+
+          <div class="alert-art">
+            <div class="ah">
+              <span class="tag">DROP</span>
+              <span class="lbl">/promo</span>
+            </div>
+            <div class="body">
+              <div class="num">−67%</div>
+              <div class="meta">clicks · last 12h vs 7d baseline</div>
+              <div class="why">Single referrer provided 84% of traffic — now 0.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 04 — A/B -->
+        <div class="bento-cell b-ab">
+          <div class="head">
+            <span class="num">/04</span>
+            <span class="ulabel green">A/B testing</span>
+          </div>
+          <h3>Auto-pick <span class="serif">the winner.</span></h3>
+          <p>Cryptographic 50/50, statistical-significance gating, automatic promotion.</p>
+
+          <div class="ab-art">
+            <div class="ab-row win">
+              <div class="top">
+                <span class="nm"><span class="ltr">A</span>/landing-v1</span>
+                <span class="pct">7.4%</span>
+              </div>
+              <div class="ab-bar"><div class="fill" style="width:88%"></div></div>
+            </div>
+            <div class="ab-row lose">
+              <div class="top">
+                <span class="nm"><span class="ltr">B</span>/landing-v2</span>
+                <span class="pct">4.1%</span>
+              </div>
+              <div class="ab-bar"><div class="fill" style="width:49%"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 05 — API/Edge -->
+        <div class="bento-cell b-api" id="api">
+          <div class="head">
+            <span class="num">/05</span>
+            <span class="ulabel green">Developer API</span>
+          </div>
+          <h3>Routing as <span class="serif">infrastructure.</span></h3>
+          <p>Programmatic links, server-side rules, webhooks for every event. Edge-replicated globally.</p>
+
+          <div class="code-art">
+            <div class="h">
+              <span><span class="lang">POST</span> /v1/links</span>
+              <span>cURL</span>
+            </div>
+<pre><span class="com"># create a smart link with 2 rules</span>
+<span class="kw">curl</span> https://api.tappr.me/v1/links \
+  -H <span class="str">"Authorization: Bearer $TAPPR_KEY"</span> \
+  -d <span class="str">'{
+    "slug": "promo",
+    "rules": [
+      { "if": { "country": "US", "device": "mobile" },
+        "then": "apps.apple.com/us/app/yours" },
+      { "if": { "country": "RO" },
+        "then": "ro.ourshop.com/promo" }
+    ]
+  }'</span></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FOUNDER NOTE ── -->
+  <section class="section" id="why">
+    <div class="wrap">
+      <div class="founder-row reveal">
+        <div class="left">
+          <span class="ulabel">From the team</span>
+          <div class="name">Tappr Labs</div>
+          <div class="role">Built in Bucharest &amp; Brooklyn</div>
+        </div>
+        <div class="founder-text">
+          <p>We tried Bitly. It told us a campaign got clicks — <span class="serif">not which clicks were bots</span>, why a link suddenly died, or which post we should reshare.</p>
+          <p>We tried Linktree. It looks fine on a phone. It's not built for routing, it's not built for analysis, and <span class="serif">it's definitely not built</span> for anyone running paid campaigns.</p>
+          <p>So we built <span class="green">Tappr</span> — for the people who actually depend on links working, knowing why they work, and reacting fast when they don't.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── PRICING ── -->
+  <section class="section" id="pricing">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="left">
+          <span class="ulabel">Pricing</span>
+          <h2>Start free.<br/>Upgrade when you <span class="serif">outgrow it.</span></h2>
+        </div>
+        <div class="right">
+          No credit card to start.<br/>Free plan stays free.
+        </div>
+      </div>
+
+      <div class="pricing stagger">
+        <article class="price">
+          <div class="tier"><span class="name">FREE</span></div>
+          <div class="amount"><span class="num">$0</span></div>
+          <p class="blurb">Everything you need to ship one link and trust it.</p>
+          <hr/>
+          <ul>
+            <li><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="m3 8 3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> 500 clicks / month</li>
+            <li><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="m3 8 3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> All routing rules</li>
+            <li><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="m3 8 3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> AI Brain (10 questions/mo)</li>
+            <li><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="m3 8 3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Email alerts</li>
+          </ul>
+          <div class="cta"><a class="btn btn-ghost" href="#">Get started, free →</a></div>
+        </article>
+
+        <article class="price featured">
+          <div class="tier">
+            <span class="name">GROWTH</span>
+            <span class="badge">★ MOST POPULAR</span>
+          </div>
+          <div class="amount"><span class="num">$29</span><span class="per">/mo</span></div>
+          <p class="blurb">For creators &amp; teams running real campaigns.</p>
+          <hr/>
+          <ul>
+            <li><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="m3 8 3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> 100,000 clicks / month</li>
+            <li><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="m3 8 3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Everything in Starter, plus —</li>
+            <li><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="m3 8 3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Instagram funnel kit</li>
+            <li><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="m3 8 3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Developer API + webhooks</li>
+            <li><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="m3 8 3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Partner program access</li>
+          </ul>
+          <div class="cta"><a class="btn btn-green" href="#">Try Growth →</a></div>
+        </article>
+
+        <article class="price">
+          <div class="tier"><span class="name">STARTER</span></div>
+          <div class="amount"><span class="num">$9</span><span class="per">/mo</span></div>
+          <p class="blurb">When you've outgrown 500 clicks but not yet a team.</p>
+          <hr/>
+          <ul>
+            <li><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="m3 8 3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> 10,000 clicks / month</li>
+            <li><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="m3 8 3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Unlimited AI Brain</li>
+            <li><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="m3 8 3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> A/B testing &amp; auto-routing</li>
+            <li><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="m3 8 3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Priority alerts</li>
+          </ul>
+          <div class="cta"><a class="btn btn-ghost" href="#">Try Starter →</a></div>
+        </article>
+      </div>
+
+      <div style="text-align:center;margin-top:32px;color:var(--muted);font-size:13.5px;">
+        See full comparison · <a href="#" style="color:var(--green);">tappr.me/pricing →</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FINAL CTA ── -->
+  <section class="final">
+    <div class="wrap reveal">
+      <h2>Stop losing clicks<br/>you can't <span class="green serif">explain.</span></h2>
+      <p class="sub">Free plan. No credit card. 500 clicks per month, forever.</p>
+      <a class="btn btn-primary" href="#">
+        Start free — no card
+        <svg class="arrow" viewBox="0 0 16 16" fill="none"><path d="M3 8h10m-4-4 4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+      <div style="margin-top:18px;color:var(--muted);font-size:12.5px;font-family:'Geist Mono',monospace;letter-spacing:0.05em;">
+        Cancel anytime · Your data is yours · SOC 2 Type II in progress
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FOOTER ── -->
+  <footer>
+    <div class="wrap">
+      <div class="foot-grid">
+        <div class="foot-col foot-brand">
+          <a class="logo" href="#" style="color:#fff;">
+            <span class="mark">
+              <svg class="mark-svg" viewBox="0 0 24 24" fill="none">
+                <rect x="0.5" y="0.5" width="23" height="23" rx="6.5" stroke="#262626"/>
+                <path d="M7 8h10M12 8v10" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+                <circle cx="12" cy="18" r="2.4" fill="#00D26A"/>
+              </svg>
+            </span>
+            <span>Tappr</span>
+          </a>
+          <p>Smart links for people who can't afford guessing. Built at the edge, in 38 cities.</p>
+        </div>
+        <div class="foot-col">
+          <h4>Product</h4>
+          <ul>
+            <li><a href="#">Pricing</a></li>
+            <li><a href="#">Smart routing</a></li>
+            <li><a href="#">AI Brain</a></li>
+            <li><a href="#">Alerts</a></li>
+            <li><a href="#">A/B testing</a></li>
+          </ul>
+        </div>
+        <div class="foot-col">
+          <h4>Developers</h4>
+          <ul>
+            <li><a href="#">API reference</a></li>
+            <li><a href="#">Webhooks</a></li>
+            <li><a href="#">Status</a></li>
+            <li><a href="#">Changelog</a></li>
+          </ul>
+        </div>
+        <div class="foot-col">
+          <h4>Company</h4>
+          <ul>
+            <li><a href="#">About</a></li>
+            <li><a href="#">Contact</a></li>
+            <li><a href="#">Terms</a></li>
+            <li><a href="#">Privacy</a></li>
+            <li><a href="#">Security</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="foot-bottom">
+        <div>tappr.me · v0.4 · 2026 — Made for creators who hate guessing.</div>
+        <div class="socials">
+          <a href="#" aria-label="X">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M9.3 7 14 1.5h-1.5L8.6 6 5.4 1.5H1l5 7L1 14.5h1.5l4-4.7 3.4 4.7H15L9.3 7Zm-1.5 1.7-.4-.6L3 2.6h1.7L8 7.4l.4.6 4 5.7h-1.7L7.8 8.6Z"/></svg>
+          </a>
+          <a href="#" aria-label="GitHub">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 0 0-2.5 15.6c.4 0 .5-.2.5-.4v-1.4C3.7 14.3 3.3 13 3.3 13c-.3-.7-.7-.9-.7-.9-.6-.4 0-.4 0-.4.6 0 1 .7 1 .7.6 1 1.6.7 2 .5 0-.5.2-.8.4-1-1.7-.2-3.6-.9-3.6-4 0-.8.3-1.5.8-2-.1-.2-.4-1 .1-2 0 0 .6-.2 2 .7a7 7 0 0 1 3.6 0c1.4-1 2-.7 2-.7.5 1 .2 1.8.1 2 .5.5.8 1.2.8 2 0 3-1.9 3.7-3.6 4 .3.2.5.7.5 1.4v2c0 .2.1.4.5.4A8 8 0 0 0 8 0Z"/></svg>
+          </a>
+          <a href="#" aria-label="LinkedIn">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M3.6 4.3a1.4 1.4 0 1 1 0-2.8 1.4 1.4 0 0 1 0 2.8ZM2.4 5.3h2.4v8.4H2.4V5.3Zm4 0h2.3v1.1h.1c.3-.6 1.1-1.3 2.3-1.3 2.4 0 2.9 1.6 2.9 3.7v4.9h-2.4V9.3c0-1 0-2.2-1.4-2.2s-1.6 1-1.6 2.1v4.5H6.3V5.3Z"/></svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Reveal-on-scroll — gentle, one-shot, respects prefers-reduced-motion
+    (function(){
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        document.querySelectorAll('.reveal, .stagger').forEach(el => el.classList.add('in'));
+        return;
+      }
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            e.target.classList.add('in');
+            io.unobserve(e.target);
+          }
+        });
+      }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+      document.querySelectorAll('.reveal, .stagger').forEach(el => io.observe(el));
+    })();
+  </script>
+
+  <script>
+    // Live router: auto-cycle, pauses when user clicks a visitor row
+    (function(){
+      const visitorRows = document.querySelectorAll('#live-card .live-col:first-child .row-card');
+      const destRows = document.querySelectorAll('#live-card .live-col:last-child .row-card');
+      const rule = document.getElementById('active-rule');
+      const ts = document.getElementById('ts');
+      const visitorCount = document.getElementById('visitor-count');
+
+      const scenarios = [
+        { i:0, rule:'<span class="k">if</span> country=<span class="v">US</span> ∧ device=<span class="v">desktop</span>' },
+        { i:1, rule:'<span class="k">if</span> country=<span class="v">RO</span> ∧ device=<span class="v">mobile</span>' },
+        { i:2, rule:'<span class="k">if</span> ua=<span class="v">tiktok-webview</span>' }
+      ];
+
+      let idx = 0;
+      let n = 3402;
+      let autoT;
+      let resumeT;
+
+      function render(i){
+        idx = i;
+        visitorRows.forEach(r => r.classList.toggle('live-row', parseInt(r.dataset.i,10)===i));
+        destRows.forEach(r => r.classList.toggle('live-row', parseInt(r.dataset.i,10)===i));
+        rule.innerHTML = scenarios[i].rule;
+        n += Math.floor(1 + Math.random()*4);
+        visitorCount.textContent = n.toLocaleString() + ' today';
+        const ms = 8 + Math.floor(Math.random()*14);
+        ts.textContent = 'resolved ' + ms + 'ms ago';
+      }
+
+      function startAuto(){
+        clearInterval(autoT);
+        autoT = setInterval(() => render((idx+1) % 3), 2400);
+      }
+
+      visitorRows.forEach(r => {
+        r.addEventListener('click', () => {
+          clearInterval(autoT);
+          clearTimeout(resumeT);
+          render(parseInt(r.dataset.i,10));
+          resumeT = setTimeout(startAuto, 8000);
+        });
+      });
+
+      startAuto();
+    })();
+  </script>
+
+</body>
+</html>

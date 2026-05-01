@@ -9,6 +9,15 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useSettings } from "@/hooks/use-settings";
 import { useUser } from "@/hooks/use-user";
+import { useTeam } from "@/hooks/use-team";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { Settings2, Link2, Monitor, Save, Loader2, Unplug, ExternalLink, Plug } from "lucide-react";
@@ -105,6 +114,11 @@ function Toggle({
 export default function SettingsPage() {
   const { settings, loading, updateSettings } = useSettings();
   const { user, profile, refreshProfile } = useUser();
+  const { activeTeam } = useTeam();
+  // "Show Tappr Branding" toggle is premium-gated. Free + starter still
+  // see Tappr branding on paused/tiktok-open pages; growth + agency can
+  // disable it.
+  const isPaidPlan = activeTeam?.plan === "growth" || activeTeam?.plan === "agency";
   const supabase = useMemo(() => createClient(), []);
   const { integration: igIntegration, isConnected: igConnected, disconnect: igDisconnect, loading: igLoading } = useInstagram();
   const [activeTab, setActiveTab] = useState<SettingsTab>("link-settings");
@@ -185,8 +199,36 @@ export default function SettingsPage() {
     setSaving(false);
   };
 
+  // Purge state — type-to-confirm modal. Refuses to fire unless the
+  // user types the team name exactly.
+  const [purgeOpen, setPurgeOpen] = useState(false);
+  const [purgeConfirm, setPurgeConfirm] = useState("");
+  const [purging, setPurging] = useState(false);
+
   const handlePurgeData = async () => {
-    toast.error("This action is not yet implemented.");
+    if (!activeTeam) return;
+    if (purgeConfirm.trim().toLowerCase() !== activeTeam.name.trim().toLowerCase()) {
+      toast.error("Team name doesn't match");
+      return;
+    }
+    setPurging(true);
+    try {
+      const res = await fetch("/api/team/purge-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ team_id: activeTeam.id, confirm_name: purgeConfirm }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Failed to purge data");
+        return;
+      }
+      toast.success("All team data wiped. Reload to see the empty state.");
+      setPurgeOpen(false);
+      setPurgeConfirm("");
+    } finally {
+      setPurging(false);
+    }
   };
 
   return (
@@ -385,13 +427,19 @@ export default function SettingsPage() {
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="px-8 pb-8">
-                        <Button
-                          variant="destructive"
-                          onClick={handlePurgeData}
-                          className="h-11 px-8 rounded-xl font-black uppercase text-[10px] tracking-[0.2em] bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all border border-red-500/30"
-                        >
-                          Purge All Data
-                        </Button>
+                        <div className="space-y-3">
+                          <p className="text-xs text-neutral-400 leading-relaxed">
+                            Permanently deletes every link, click history, collection, A/B test, and AI Brain chat for the active team. Members,
+                            settings, and the team itself stay intact. This cannot be undone.
+                          </p>
+                          <Button
+                            variant="destructive"
+                            onClick={() => setPurgeOpen(true)}
+                            className="h-11 px-8 rounded-xl font-black uppercase text-[10px] tracking-[0.2em] bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all border border-red-500/30"
+                          >
+                            Purge All Data
+                          </Button>
+                        </div>
                       </CardContent>
                     </Card>
                   </>
@@ -431,7 +479,18 @@ export default function SettingsPage() {
                             Display &quot;Powered by Tappr&quot; on the redirect page
                           </p>
                         </div>
-                        <Toggle checked={true} onChange={() => toast.error("Upgrade to Premium to disable branding")} premium disabled />
+                        <Toggle
+                          checked={isPaidPlan ? showBranding : true}
+                          onChange={(v) => {
+                            if (!isPaidPlan) {
+                              toast.error("Upgrade to Growth or Agency to disable branding");
+                              return;
+                            }
+                            setShowBranding(v);
+                          }}
+                          premium={!isPaidPlan}
+                          disabled={!isPaidPlan}
+                        />
                       </div>
 
                       {/* TikTok Browser */}
@@ -626,6 +685,53 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {/* Purge confirmation — type the team name to enable the destructive button */}
+      <Dialog open={purgeOpen} onOpenChange={(o) => { if (!purging) setPurgeOpen(o); }}>
+        <DialogContent className="glass-card bg-black/95 border-red-500/30 sm:max-w-100">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-black tracking-tight text-red-400 uppercase italic">
+              Purge All Team Data?
+            </DialogTitle>
+            <DialogDescription className="text-neutral-400 font-medium">
+              This deletes every link, click record, collection, A/B test, and AI Brain chat for{" "}
+              <span className="text-white font-bold">{activeTeam?.name}</span>. Cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label className="text-[10px] font-black uppercase tracking-widest text-red-400">
+              Type the team name to confirm
+            </Label>
+            <Input
+              value={purgeConfirm}
+              onChange={(e) => setPurgeConfirm(e.target.value)}
+              placeholder={activeTeam?.name || ""}
+              className="bg-white/[0.03] border-red-500/20 focus:border-red-500/50 rounded-xl h-11"
+              autoFocus
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="ghost"
+              onClick={() => { setPurgeOpen(false); setPurgeConfirm(""); }}
+              disabled={purging}
+              className="text-white hover:bg-white/5 font-bold uppercase text-[10px] tracking-widest"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handlePurgeData}
+              disabled={
+                purging ||
+                purgeConfirm.trim().toLowerCase() !== (activeTeam?.name || "").trim().toLowerCase()
+              }
+              className="bg-red-500 hover:bg-red-600 text-white font-black uppercase text-[10px] tracking-widest rounded-lg disabled:opacity-50"
+            >
+              {purging ? "Purging…" : "Purge Everything"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

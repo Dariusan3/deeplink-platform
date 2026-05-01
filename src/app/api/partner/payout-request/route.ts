@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSsr } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
-
-const MIN_PAYOUT = 50;
+import { PARTNER_MIN_PAYOUT as MIN_PAYOUT } from "@/lib/partner-config";
 
 export async function POST(request: NextRequest) {
   const ssr = await createSsr();
