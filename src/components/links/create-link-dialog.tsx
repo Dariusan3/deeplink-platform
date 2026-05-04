@@ -260,8 +260,8 @@ export function CreateLinkDialog({ defaultCollectionId, trigger }: CreateLinkDia
                 <Sparkles className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-[9px] text-neutral-500 font-bold uppercase tracking-tight">
-              Example: https://tappr.me/<span className="text-[#00D26A]">{slug || "your-path"}</span>
+            <p className="text-[9px] text-neutral-500 font-bold tracking-tight">
+              <span className="uppercase">Example: https://tappr.me/</span><span className="text-[#00D26A]">{slug || "your-path"}</span>
             </p>
           </div>
 

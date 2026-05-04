@@ -136,7 +136,7 @@ export function useCollections() {
   );
 
   const updateCollection = useCallback(
-    async (id: string, updates: { click_goal?: number | null; click_goal_period?: string | null; is_starred?: boolean; is_rotator?: boolean; rotator_slug?: string | null }) => {
+    async (id: string, updates: { name?: string; description?: string | null; color?: string; click_goal?: number | null; click_goal_period?: string | null; is_starred?: boolean; is_rotator?: boolean; rotator_slug?: string | null }) => {
       const { error } = await supabase
         .from("collections")
         .update(updates)

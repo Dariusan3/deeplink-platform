@@ -7,9 +7,11 @@ import { useCollections } from "@/hooks/use-collections";
 import { useLinks } from "@/hooks/use-links";
 import { CreateCollectionDialog, CollectionsInfo } from "@/components/collections/create-collection-dialog";
 import { AddLinkToCollectionDialog } from "@/components/collections/add-link-to-collection-dialog";
+import { EditCollectionDialog } from "@/components/collections/edit-collection-dialog";
 import {
   FolderOpen,
   Trash2,
+  Pencil,
   Link as LinkIcon,
   ArrowLeft,
   ExternalLink,
@@ -164,6 +166,7 @@ export default function CollectionsPage() {
     useCollections();
   const { links } = useLinks();
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
   const [activeCollectionId, setActiveCollectionId] = useState<string | null>(
     null
   );
@@ -409,17 +412,32 @@ export default function CollectionsPage() {
                         )}
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeleteId(col.id);
-                      }}
-                      className="h-8 w-8 text-neutral-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all shrink-0"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditId(col.id);
+                        }}
+                        className="h-8 w-8 text-neutral-600 hover:text-[#00D26A]"
+                        title="Edit collection"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteId(col.id);
+                        }}
+                        className="h-8 w-8 text-neutral-600 hover:text-red-500"
+                        title="Delete collection"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 mt-4">
                     <LinkIcon className="w-3.5 h-3.5 text-neutral-500" />
@@ -438,6 +456,13 @@ export default function CollectionsPage() {
           </div>
         )}
       </div>
+
+      {/* Edit collection */}
+      <EditCollectionDialog
+        collection={collections.find((c) => c.id === editId) || null}
+        open={!!editId}
+        onOpenChange={(o) => { if (!o) setEditId(null); }}
+      />
 
       {/* Delete confirmation */}
       <Dialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
