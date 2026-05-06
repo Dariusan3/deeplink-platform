@@ -278,12 +278,12 @@ export default function LinkEditPage() {
               </CardContent>
             </Card>
 
-            {/* Organization */}
+            {/* Collection & Goals */}
             <Card className="glass-card border-white/5">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-black flex items-center gap-2">
                   <Target className="w-4 h-4 text-[#00D26A]" />
-                  Organization & Goals
+                  Collection & Goals
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
