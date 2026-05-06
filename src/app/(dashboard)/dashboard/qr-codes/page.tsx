@@ -1,14 +1,29 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { Header } from "@/components/header";
 import { useLinks } from "@/hooks/use-links";
 import { QrCodeCard } from "@/components/qr/qr-code-card";
+import { LinkPagination } from "@/components/links/link-pagination";
 import { Card } from "@/components/ui/card";
 import { QrCode } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function QrCodesPage() {
   const { links, loading } = useLinks();
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(24);
+
+  const pagedLinks = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return links.slice(start, start + pageSize);
+  }, [links, page, pageSize]);
+
+  // Snap back to page 1 when page size changes — otherwise switching from
+  // 12 to 96 per page can leave you on an empty page.
+  useEffect(() => {
+    setPage(1);
+  }, [pageSize]);
 
   return (
     <>
@@ -47,10 +62,22 @@ export default function QrCodesPage() {
             </div>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 pb-20">
-            {links.map((link) => (
-              <QrCodeCard key={link.id} link={link} />
-            ))}
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {pagedLinks.map((link) => (
+                <QrCodeCard key={link.id} link={link} />
+              ))}
+            </div>
+
+            <div className="pb-20">
+              <LinkPagination
+                page={page}
+                pageSize={pageSize}
+                total={links.length}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+              />
+            </div>
           </div>
         )}
       </div>

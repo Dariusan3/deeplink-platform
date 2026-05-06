@@ -64,14 +64,16 @@ BUSINESS CONTEXT:
 ${analyticsContext?.businessContext || "No business knowledge added yet."}
 
 Action rules:
-- For destructive actions (delete, mass-update, slug changes that break inbound links), confirm with the user FIRST in plain English, then call the tool only after they agree.
-- Reads (list_links, list_collections) — call freely whenever you need fresh IDs.
+- For destructive or mass actions (delete, pause-all, activate-all, mass move, slug changes that break inbound links), confirm with the user in plain English first, then call the tool ONLY after they agree.
+- For mass actions on many links at once, ALWAYS use 'bulk_update_links' (with scope: all/active/paused/by_collection/by_ids). Never loop 'update_link' for the same change across many links.
+- The links and collections in the context above include real 'id' fields (UUIDs). Pass that 'id' as 'link_id' / 'collection_id' — never pass the slug or name as an id.
+- Reads (list_links, list_collections) — call freely whenever you need fresh data.
 - Always normalize URLs the user gives you (assume https if missing).
-- After taking an action, briefly confirm what you did in 1–2 sentences. Don't repeat back the JSON.
-- If a tool fails, show the error, suggest a fix, don't retry blindly.
-- You can chain tools: e.g. "list_links" with a search → pick the matching id → "move_link_to_collection".
+- After taking an action, briefly confirm what you did in 1–2 sentences in the user's language. Don't repeat back the JSON.
+- Tool errors come back as short, user-safe messages. Quote them naturally in the user's language and suggest a next step. NEVER mention raw codes like "uuid", "RLS", "constraint", stack traces, or column names — these are confusing for non-technical users.
+- You can chain tools: e.g. list_links → identify the right id → update_link.
 
-Format text answers in markdown with bullets, never JSON in your text reply.`;
+Format text answers in markdown with bullets, never JSON in your text reply. Reply in the same language the user wrote (Romanian → Romanian, English → English, etc.).`;
 
   const conversationMessages: Groq.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: "system", content: systemPrompt },
@@ -95,7 +97,7 @@ Format text answers in markdown with bullets, never JSON in your text reply.`;
         // Tool-call loop. The model can call tools multiple times before
         // emitting its final text answer. Cap iterations to keep latency
         // bounded and avoid infinite loops if the model misbehaves.
-        const MAX_TOOL_HOPS = 5;
+        const MAX_TOOL_HOPS = 8;
         for (let hop = 0; hop < MAX_TOOL_HOPS; hop++) {
           // Non-streaming call when we expect tool calls — Groq returns
           // a single response with `tool_calls` populated (or content).
@@ -139,9 +141,15 @@ Format text answers in markdown with bullets, never JSON in your text reply.`;
           for (const call of toolCalls) {
             if (call.type !== "function") continue;
             const fnName = call.function.name;
+            // Guard against the model emitting `arguments: "null"` or
+            // anything non-object — JSON.parse("null") returns null, which
+            // would have crashed the tool body on `args.search`.
             let parsedArgs: Record<string, unknown> = {};
             try {
-              parsedArgs = JSON.parse(call.function.arguments || "{}");
+              const parsed = JSON.parse(call.function.arguments || "{}");
+              if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+                parsedArgs = parsed as Record<string, unknown>;
+              }
             } catch {
               parsedArgs = {};
             }
@@ -168,11 +176,13 @@ Format text answers in markdown with bullets, never JSON in your text reply.`;
           }
         }
 
-        // Hit the loop cap — flush whatever final reasoning the model can give.
-        sendText("\n\n_(Max tool hops reached. Refine your request and try again.)_");
+        // Hit the loop cap — give the user a friendly nudge, no internals.
+        sendText("\n\n_(I had to stop after a long chain of actions. Could you rephrase or break the request into smaller steps?)_");
       } catch (error) {
-        const errMsg = error instanceof Error ? error.message : "AI error";
-        sendText(`\n\nError: ${errMsg}`);
+        // Never surface raw error.message — log server-side, show neutral
+        // text to the user.
+        console.error("[ai/chat] stream error:", error);
+        sendText("\n\nSomething went wrong on my side. Please try again.");
       } finally {
         controller.close();
       }

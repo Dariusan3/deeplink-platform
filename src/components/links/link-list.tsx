@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useLinks } from "@/hooks/use-links";
 import { useCollections } from "@/hooks/use-collections";
 import { LinkCard } from "./link-card";
 import { LinkToolbar, StatusFilter, SortBy } from "./link-toolbar";
+import { LinkPagination } from "./link-pagination";
 import { Card } from "@/components/ui/card";
 import { Link as LinkIcon } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,6 +20,8 @@ export function LinkList() {
   const [collectionFilter, setCollectionFilter] = useState<string | null>(null);
   const [dateFilter, setDateFilter] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(12);
 
   const filteredLinks = useMemo(() => {
     let result = links;
@@ -72,10 +75,23 @@ export function LinkList() {
     return result;
   }, [links, searchQuery, statusFilter, sortBy, collectionFilter, dateFilter]);
 
-  const allSelected = filteredLinks.length > 0 && filteredLinks.every((l) => selectedIds.has(l.id));
+  // Reset to first page whenever the filter set or page size changes —
+  // otherwise users land on an empty page after narrowing results.
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, statusFilter, sortBy, collectionFilter, dateFilter, pageSize]);
+
+  const pagedLinks = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredLinks.slice(start, start + pageSize);
+  }, [filteredLinks, page, pageSize]);
+
+  const allSelected = pagedLinks.length > 0 && pagedLinks.every((l) => selectedIds.has(l.id));
 
   const handleSelectAll = () => {
-    setSelectedIds(new Set(filteredLinks.map((l) => l.id)));
+    // Selects only the rows visible on the current page — matches
+    // user expectation when paginating.
+    setSelectedIds(new Set(pagedLinks.map((l) => l.id)));
   };
 
   const handleDeselectAll = () => {
@@ -184,20 +200,32 @@ export function LinkList() {
           <p className="text-sm font-bold text-neutral-500">No links match your filters</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-6 pb-20">
-          {filteredLinks.map((link) => (
-            <LinkCard
-              key={link.id}
-              link={link}
-              onToggleActive={(id, active) => updateLink(id, { is_active: active })}
-              onDelete={(id) => deleteLink(id)}
-              onToggleFavorite={(id, favorite) => toggleFavorite(id, favorite)}
-              selected={selectedIds.has(link.id)}
-              onToggleSelect={() => handleToggleSelect(link.id)}
-              collections={collections.map((c) => ({ id: c.id, name: c.name }))}
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-6">
+            {pagedLinks.map((link) => (
+              <LinkCard
+                key={link.id}
+                link={link}
+                onToggleActive={(id, active) => updateLink(id, { is_active: active })}
+                onDelete={(id) => deleteLink(id)}
+                onToggleFavorite={(id, favorite) => toggleFavorite(id, favorite)}
+                selected={selectedIds.has(link.id)}
+                onToggleSelect={() => handleToggleSelect(link.id)}
+                collections={collections.map((c) => ({ id: c.id, name: c.name }))}
+              />
+            ))}
+          </div>
+
+          <div className="pb-20">
+            <LinkPagination
+              page={page}
+              pageSize={pageSize}
+              total={filteredLinks.length}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
             />
-          ))}
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

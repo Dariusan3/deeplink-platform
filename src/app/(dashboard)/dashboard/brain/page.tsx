@@ -135,6 +135,7 @@ export default function BrainPage() {
     dailyTrend: dailyClicks.slice(-14),
     teamName: activeTeam?.name,
     links: links.map((l) => ({
+      id: l.id,
       slug: l.slug,
       title: l.title,
       destination: l.destination_url,

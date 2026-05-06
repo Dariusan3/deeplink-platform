@@ -54,12 +54,15 @@ export function FloatingChat() {
     dailyTrend: dailyClicks.slice(-7),
     teamName: activeTeam?.name,
     links: links.slice(0, 20).map((l) => ({
+      id: l.id,
       slug: l.slug,
       title: l.title,
       destination: l.destination_url,
       active: l.is_active,
+      collectionId: l.collection_id,
     })),
     collections: collections.map((c) => ({
+      id: c.id,
       name: c.name,
       linkCount: c.link_count || 0,
       clickGoal: c.click_goal,
