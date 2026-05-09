@@ -5,6 +5,9 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Check, ChevronDown, Gift, Building2, Link2, Image, BarChart3, Shuffle, QrCode, Globe, Smartphone, Languages, CalendarOff, Shield, Tag, ShoppingCart, Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { UpgradeButton } from "@/components/billing/upgrade-button";
+
+type PlanKey = "starter" | "growth" | "agency";
 
 type BillingPeriod = "monthly" | "yearly";
 
@@ -289,9 +292,8 @@ export default function PricingPage() {
                     <FeatureList features={plan.features} />
                   </div>
 
-                  <Button
-                    render={<Link href="/signup" />}
-                    nativeButton={false}
+                  <UpgradeButton
+                    plan={plan.name.toLowerCase() as PlanKey}
                     className={cn(
                       "w-full h-12 rounded-xl font-black text-xs tracking-widest",
                       plan.popular
@@ -300,7 +302,7 @@ export default function PricingPage() {
                     )}
                   >
                     {plan.cta} &nbsp;&rarr;
-                  </Button>
+                  </UpgradeButton>
                 </div>
               );
             })}

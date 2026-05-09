@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 import { CreditCard, Calendar, ArrowUpRight, Crown, Zap, Sparkles, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { UpgradeButton } from "@/components/billing/upgrade-button";
 
 type Subscription = {
   id: string;
@@ -115,10 +116,10 @@ export default function BillingPage() {
 
               <div className="flex items-center gap-2">
                 {plan === "free" ? (
-                  <Button render={<Link href="/pricing" />} nativeButton={false} className="btn-primary-pulse h-10 px-5 rounded-xl text-black font-black uppercase text-xs tracking-widest gap-2">
+                  <UpgradeButton plan="growth" className="btn-primary-pulse h-10 px-5 rounded-xl text-black font-black uppercase text-xs tracking-widest gap-2">
                     Upgrade
                     <ArrowUpRight className="w-4 h-4" />
-                  </Button>
+                  </UpgradeButton>
                 ) : (
                   <>
                     <Button render={<Link href="/pricing" />} nativeButton={false} variant="outline" className="h-10 rounded-xl border-white/10 bg-white/[0.02] text-[10px] font-black uppercase tracking-widest hover:bg-[#00D26A]/10 hover:text-[#00D26A]">
