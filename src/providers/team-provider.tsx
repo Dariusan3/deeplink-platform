@@ -17,7 +17,7 @@ interface TeamContextType {
   deleteTeam: (id: string) => Promise<void>;
 }
 
-const TeamContext = createContext<TeamContextType | undefined>(undefined);
+export const TeamContext = createContext<TeamContextType | undefined>(undefined);
 
 export function TeamProvider({ children }: { children: ReactNode }) {
   const { user, loading: userLoading } = useUserContext();

@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useContext, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { useTeam } from "@/hooks/use-team";
-import { useUser } from "@/hooks/use-user";
+import { TeamContext } from "@/providers/team-provider";
+import { UserContext } from "@/providers/user-provider";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -23,18 +23,22 @@ export function UpgradeButton({
   className?: string;
   variant?: "default" | "outline" | "ghost";
 }) {
-  const { activeTeam } = useTeam();
-  const { user } = useUser();
+  // The pricing page is statically prerendered and rendered outside the
+  // dashboard providers — so we read the contexts raw and treat "undefined"
+  // (no provider) the same as "not signed in": send the visitor to /signup.
+  const teamCtx = useContext(TeamContext);
+  const userCtx = useContext(UserContext);
+  const activeTeam = teamCtx?.activeTeam ?? null;
+  const user = userCtx?.user ?? null;
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
   const handleClick = async () => {
-    if (!user) {
+    if (!user || !activeTeam) {
+      // Either not signed in, or signed in but viewing /pricing (no team
+      // context). Either way, push to signup — after auth the dashboard
+      // wraps them in a TeamProvider and they can come back here.
       router.push("/signup");
-      return;
-    }
-    if (!activeTeam) {
-      toast.error("Pick a team first");
       return;
     }
 
