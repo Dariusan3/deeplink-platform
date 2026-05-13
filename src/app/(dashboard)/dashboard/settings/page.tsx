@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useSettings } from "@/hooks/use-settings";
 import { useUser } from "@/hooks/use-user";
-import { useTeam } from "@/hooks/use-team";
 import {
   Dialog,
   DialogContent,
@@ -20,8 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import { Settings2, Link2, Monitor, Save, Loader2, Unplug, ExternalLink, Plug } from "lucide-react";
-import { useInstagram } from "@/hooks/use-instagram";
+import { Link2, Monitor, Save, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TIMEZONES = [
@@ -44,7 +42,7 @@ const TIMEZONES = [
   "Pacific/Auckland",
 ];
 
-type SettingsTab = "link-settings" | "display" | "redirect" | "integrations";
+type SettingsTab = "link-settings" | "display";
 
 const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
   {
@@ -56,16 +54,6 @@ const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
     id: "display",
     label: "Display Settings",
     icon: <Monitor className="w-4 h-4" />,
-  },
-  {
-    id: "redirect",
-    label: "Link Redirect Page",
-    icon: <Settings2 className="w-4 h-4" />,
-  },
-  {
-    id: "integrations",
-    label: "Integrations",
-    icon: <Plug className="w-4 h-4" />,
   },
 ];
 
@@ -114,13 +102,7 @@ function Toggle({
 export default function SettingsPage() {
   const { settings, loading, updateSettings } = useSettings();
   const { user, profile, refreshProfile } = useUser();
-  const { activeTeam } = useTeam();
-  // "Show Tappr Branding" toggle is premium-gated. Free + starter still
-  // see Tappr branding on paused/tiktok-open pages; growth + agency can
-  // disable it.
-  const isPaidPlan = activeTeam?.plan === "growth" || activeTeam?.plan === "agency";
   const supabase = useMemo(() => createClient(), []);
-  const { integration: igIntegration, isConnected: igConnected, disconnect: igDisconnect, loading: igLoading } = useInstagram();
   const [activeTab, setActiveTab] = useState<SettingsTab>("link-settings");
   const [saving, setSaving] = useState(false);
 
@@ -129,9 +111,6 @@ export default function SettingsPage() {
   const [showConfirmation, setShowConfirmation] = useState(true);
   const [timezone, setTimezone] = useState("UTC");
   const [defaultDomain, setDefaultDomain] = useState("");
-  const [showAppTap, setShowAppTap] = useState(true);
-  const [showBranding, setShowBranding] = useState(true);
-  const [tiktokBrowserMode, setTiktokBrowserMode] = useState("overlay");
 
   // Sync settings to local state
   useEffect(() => {
@@ -139,9 +118,6 @@ export default function SettingsPage() {
       setShowConfirmation(settings.show_link_creation_confirmation);
       setTimezone(settings.timezone);
       setDefaultDomain(settings.default_domain);
-      setShowAppTap(settings.show_app_tap_to_continue);
-      setShowBranding(settings.show_branding);
-      setTiktokBrowserMode(settings.tiktok_browser_mode || "overlay");
     }
   }, [settings]);
 
@@ -182,54 +158,13 @@ export default function SettingsPage() {
   const handleSaveLinkSettings = async () => {
     setSaving(true);
     try {
-      await updateSettings({ default_domain: defaultDomain });
+      // Domain is fixed to tappr.me — the UI input is read-only. We still
+      // persist it so older accounts get normalised on next save.
+      await updateSettings({ default_domain: "tappr.me" });
     } catch {}
     setSaving(false);
   };
 
-  const handleSaveRedirectSettings = async () => {
-    setSaving(true);
-    try {
-      await updateSettings({
-        show_app_tap_to_continue: showAppTap,
-        show_branding: showBranding,
-        tiktok_browser_mode: tiktokBrowserMode,
-      });
-    } catch {}
-    setSaving(false);
-  };
-
-  // Purge state — type-to-confirm modal. Refuses to fire unless the
-  // user types the team name exactly.
-  const [purgeOpen, setPurgeOpen] = useState(false);
-  const [purgeConfirm, setPurgeConfirm] = useState("");
-  const [purging, setPurging] = useState(false);
-
-  const handlePurgeData = async () => {
-    if (!activeTeam) return;
-    if (purgeConfirm.trim().toLowerCase() !== activeTeam.name.trim().toLowerCase()) {
-      toast.error("Team name doesn't match");
-      return;
-    }
-    setPurging(true);
-    try {
-      const res = await fetch("/api/team/purge-data", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ team_id: activeTeam.id, confirm_name: purgeConfirm }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        toast.error(data.error || "Failed to purge data");
-        return;
-      }
-      toast.success("All team data wiped. Reload to see the empty state.");
-      setPurgeOpen(false);
-      setPurgeConfirm("");
-    } finally {
-      setPurging(false);
-    }
-  };
 
   return (
     <>
@@ -388,350 +323,26 @@ export default function SettingsPage() {
                           <div className="space-y-1">
                             <p className="font-bold text-white text-sm">Default Domain</p>
                             <p className="text-xs text-neutral-500 font-medium">
-                              This domain will be pre-selected when creating new links
+                              All Tappr short links are served from <span className="text-white font-bold">tappr.me</span>. Custom domains aren&apos;t available yet.
                             </p>
                           </div>
-                          <Input
-                            value={defaultDomain}
-                            onChange={(e) => setDefaultDomain(e.target.value)}
-                            placeholder="https://yourdomain.com"
-                            className="h-11 bg-white/[0.02] border-white/10 rounded-xl focus:border-[#00D26A] focus:ring-[#00D26A]/20 text-sm font-medium"
-                          />
-                        </div>
-
-                        <div className="flex justify-end">
-                          <Button
-                            onClick={handleSaveLinkSettings}
-                            disabled={saving}
-                            className="h-10 px-6 rounded-xl btn-primary-pulse text-black font-bold text-xs gap-2"
-                          >
-                            {saving ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <Save className="w-3.5 h-3.5" />
-                            )}
-                            Save Settings
-                          </Button>
+                          <div className="h-11 px-4 flex items-center justify-between bg-white/[0.02] border border-white/10 rounded-xl text-sm font-bold text-white select-none">
+                            <span>tappr.me</span>
+                            <span className="text-[9px] font-black uppercase tracking-widest text-neutral-500">Fixed</span>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
 
-                    {/* Danger Zone */}
-                    <Card className="bg-red-500/[0.02] border-red-500/20 rounded-2xl overflow-hidden">
-                      <CardHeader className="pt-8 px-8">
-                        <CardTitle className="text-xl font-black tracking-tight text-red-500 uppercase tracking-[0.05em]">
-                          Danger Zone
-                        </CardTitle>
-                        <CardDescription className="text-sm font-medium text-neutral-400">
-                          Irreversible actions — proceed with caution
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="px-8 pb-8">
-                        <div className="space-y-3">
-                          <p className="text-xs text-neutral-400 leading-relaxed">
-                            Permanently deletes every link, click history, collection, A/B test, and AI Brain chat for the active team. Members,
-                            settings, and the team itself stay intact. This cannot be undone.
-                          </p>
-                          <Button
-                            variant="destructive"
-                            onClick={() => setPurgeOpen(true)}
-                            className="h-11 px-8 rounded-xl font-black uppercase text-[10px] tracking-[0.2em] bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all border border-red-500/30"
-                          >
-                            Purge All Data
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
                   </>
                 )}
 
-                {/* Link Redirect Page Tab */}
-                {activeTab === "redirect" && (
-                  <Card className="glass-card bg-white/[0.01] border-white/5 relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[#00D26A]/20 to-transparent" />
-                    <CardHeader className="pt-8 px-8">
-                      <CardTitle className="text-xl font-black tracking-tight text-white flex items-center gap-2">
-                        <Settings2 className="w-5 h-5 text-[#00D26A]" />
-                        Link Redirect Page
-                      </CardTitle>
-                      <CardDescription className="text-sm font-medium text-neutral-500">
-                        The page that is briefly shown when someone clicks your links on mobile
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="px-8 pb-8 space-y-6">
-                      <div className="flex items-center justify-between group p-4 rounded-xl bg-white/[0.01] border border-white/5">
-                        <div className="space-y-1">
-                          <p className="font-bold text-white text-sm">
-                            Show App & Tap to Continue
-                          </p>
-                          <p className="text-xs text-neutral-500 font-medium">
-                            Display &quot;Opening in [app]...&quot; and &quot;Tap to Continue&quot;
-                            on the redirect page
-                          </p>
-                        </div>
-                        <Toggle checked={showAppTap} onChange={setShowAppTap} />
-                      </div>
-
-                      <div className="flex items-center justify-between group p-4 rounded-xl bg-white/[0.01] border border-white/5">
-                        <div className="space-y-1">
-                          <p className="font-bold text-white text-sm">Show Tappr Branding</p>
-                          <p className="text-xs text-neutral-500 font-medium">
-                            Display &quot;Powered by Tappr&quot; on the redirect page
-                          </p>
-                        </div>
-                        <Toggle
-                          checked={isPaidPlan ? showBranding : true}
-                          onChange={(v) => {
-                            if (!isPaidPlan) {
-                              toast.error("Upgrade to Growth or Agency to disable branding");
-                              return;
-                            }
-                            setShowBranding(v);
-                          }}
-                          premium={!isPaidPlan}
-                          disabled={!isPaidPlan}
-                        />
-                      </div>
-
-                      {/* TikTok Browser */}
-                      <div className="p-5 rounded-xl bg-white/[0.01] border border-white/5 space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-pink-500/10 border border-pink-500/20 flex items-center justify-center">
-                              <svg className="w-4 h-4 text-pink-400" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1v-3.49a6.37 6.37 0 0 0-.79-.05A6.34 6.34 0 0 0 3.15 15.2a6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.34-6.34V8.73a8.19 8.19 0 0 0 4.76 1.52v-3.4a4.85 4.85 0 0 1-1-.16z"/>
-                              </svg>
-                            </div>
-                            <div>
-                              <p className="font-bold text-white text-sm">TikTok Browser</p>
-                              <p className="text-xs text-neutral-500 font-medium">
-                                Choose how links behave when opened inside the TikTok in-app browser
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <button
-                            type="button"
-                            onClick={() => setTiktokBrowserMode("overlay")}
-                            className={cn(
-                              "w-full flex items-start gap-3 p-3 rounded-xl border transition-all text-left",
-                              tiktokBrowserMode === "overlay"
-                                ? "bg-[#00D26A]/5 border-[#00D26A]/20"
-                                : "border-white/5 hover:border-white/10"
-                            )}
-                          >
-                            <div className={cn(
-                              "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5",
-                              tiktokBrowserMode === "overlay" ? "border-[#00D26A]" : "border-neutral-600"
-                            )}>
-                              {tiktokBrowserMode === "overlay" && (
-                                <div className="w-2.5 h-2.5 rounded-full bg-[#00D26A]" />
-                              )}
-                            </div>
-                            <div>
-                              <p className="text-sm font-bold text-white">Show instructions to open in browser</p>
-                              <p className="text-[10px] text-neutral-500 mt-0.5">
-                                Show an overlay that guides users to tap ··· and open in their default browser
-                              </p>
-                            </div>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => setTiktokBrowserMode("direct")}
-                            className={cn(
-                              "w-full flex items-start gap-3 p-3 rounded-xl border transition-all text-left",
-                              tiktokBrowserMode === "direct"
-                                ? "bg-[#00D26A]/5 border-[#00D26A]/20"
-                                : "border-white/5 hover:border-white/10"
-                            )}
-                          >
-                            <div className={cn(
-                              "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5",
-                              tiktokBrowserMode === "direct" ? "border-[#00D26A]" : "border-neutral-600"
-                            )}>
-                              {tiktokBrowserMode === "direct" && (
-                                <div className="w-2.5 h-2.5 rounded-full bg-[#00D26A]" />
-                              )}
-                            </div>
-                            <div>
-                              <p className="text-sm font-bold text-white">Redirect directly to destination</p>
-                              <p className="text-[10px] text-neutral-500 mt-0.5">
-                                Skip the redirect page and go directly to the link&apos;s destination
-                              </p>
-                            </div>
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="flex justify-end">
-                        <Button
-                          onClick={handleSaveRedirectSettings}
-                          disabled={saving}
-                          className="h-10 px-6 rounded-xl btn-primary-pulse text-black font-bold text-xs gap-2"
-                        >
-                          {saving ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <Save className="w-3.5 h-3.5" />
-                          )}
-                          Save Settings
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Integrations Tab */}
-                {activeTab === "integrations" && (
-                  <Card className="glass-card bg-white/[0.01] border-white/5 relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[#00D26A]/20 to-transparent" />
-                    <CardHeader className="pt-8 px-8">
-                      <CardTitle className="text-xl font-black tracking-tight text-white flex items-center gap-2">
-                        <Plug className="w-5 h-5 text-[#00D26A]" />
-                        Integrations
-                      </CardTitle>
-                      <CardDescription className="text-sm font-medium text-neutral-500">
-                        Connect external platforms to track your full marketing funnel
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="px-8 pb-8 space-y-6">
-                      {/* Instagram Integration */}
-                      <div className="p-5 rounded-xl bg-white/[0.01] border border-white/5 space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-amber-500/20 border border-purple-500/20 flex items-center justify-center">
-                              <svg className="w-5 h-5 text-pink-400" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/>
-                              </svg>
-                            </div>
-                            <div>
-                              <p className="text-sm font-bold text-white">Instagram</p>
-                              <p className="text-[10px] text-neutral-500 font-medium">
-                                Track profile views &amp; funnel performance
-                              </p>
-                            </div>
-                          </div>
-
-                          {igLoading ? (
-                            <Loader2 className="w-4 h-4 text-neutral-500 animate-spin" />
-                          ) : igConnected ? (
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-black text-[#00D26A] bg-[#00D26A]/10 px-2 py-1 rounded-full border border-[#00D26A]/20">
-                                @{igIntegration?.ig_username}
-                              </span>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={igDisconnect}
-                                className="h-8 text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-500 hover:bg-red-500/10"
-                              >
-                                <Unplug className="w-3 h-3 mr-1" />
-                                Disconnect
-                              </Button>
-                            </div>
-                          ) : (
-                            <Button
-                              onClick={() => {
-                                const clientId = process.env.NEXT_PUBLIC_IG_APP_ID;
-                                if (!clientId) {
-                                  toast.error("Instagram App ID not configured. Set NEXT_PUBLIC_IG_APP_ID in your environment.");
-                                  return;
-                                }
-                                const redirectUri = `${window.location.origin}/api/ig/callback`;
-                                const authUrl = `https://www.instagram.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=instagram_business_basic,instagram_business_manage_insights&response_type=code&enable_fb_login=0`;
-                                window.location.href = authUrl;
-                              }}
-                              className="h-9 px-5 rounded-xl bg-gradient-to-r from-purple-500 via-pink-500 to-amber-500 text-white font-black uppercase text-[10px] tracking-widest hover:opacity-90 transition-opacity"
-                            >
-                              <ExternalLink className="w-3 h-3 mr-2" />
-                              Connect Instagram
-                            </Button>
-                          )}
-                        </div>
-
-                        {igConnected && (
-                          <div className="pt-3 border-t border-white/5">
-                            <p className="text-[10px] text-neutral-500 font-medium">
-                              Instagram profile views will appear on your dashboard funnel.
-                              Data syncs automatically via the Instagram Graph API.
-                            </p>
-                          </div>
-                        )}
-
-                        {!igConnected && !igLoading && (
-                          <div className="pt-3 border-t border-white/5">
-                            <p className="text-[10px] text-neutral-500 font-medium leading-relaxed">
-                              Connect your Instagram Business or Creator account to see profile views
-                              alongside your link clicks — track your full funnel from IG profile visit to link click.
-                            </p>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Placeholder for future integrations */}
-                      <div className="p-5 rounded-xl border border-dashed border-white/10 text-center">
-                        <p className="text-xs text-neutral-600 font-bold">
-                          More integrations coming soon — TikTok, YouTube, X (Twitter)
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
               </>
             )}
           </div>
         </div>
       </div>
 
-      {/* Purge confirmation — type the team name to enable the destructive button */}
-      <Dialog open={purgeOpen} onOpenChange={(o) => { if (!purging) setPurgeOpen(o); }}>
-        <DialogContent className="glass-card bg-black/95 border-red-500/30 sm:max-w-100">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-black tracking-tight text-red-400 uppercase italic">
-              Purge All Team Data?
-            </DialogTitle>
-            <DialogDescription className="text-neutral-400 font-medium">
-              This deletes every link, click record, collection, A/B test, and AI Brain chat for{" "}
-              <span className="text-white font-bold">{activeTeam?.name}</span>. Cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2 py-2">
-            <Label className="text-[10px] font-black uppercase tracking-widest text-red-400">
-              Type the team name to confirm
-            </Label>
-            <Input
-              value={purgeConfirm}
-              onChange={(e) => setPurgeConfirm(e.target.value)}
-              placeholder={activeTeam?.name || ""}
-              className="bg-white/[0.03] border-red-500/20 focus:border-red-500/50 rounded-xl h-11"
-              autoFocus
-            />
-          </div>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              variant="ghost"
-              onClick={() => { setPurgeOpen(false); setPurgeConfirm(""); }}
-              disabled={purging}
-              className="text-white hover:bg-white/5 font-bold uppercase text-[10px] tracking-widest"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handlePurgeData}
-              disabled={
-                purging ||
-                purgeConfirm.trim().toLowerCase() !== (activeTeam?.name || "").trim().toLowerCase()
-              }
-              className="bg-red-500 hover:bg-red-600 text-white font-black uppercase text-[10px] tracking-widest rounded-lg disabled:opacity-50"
-            >
-              {purging ? "Purging…" : "Purge Everything"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

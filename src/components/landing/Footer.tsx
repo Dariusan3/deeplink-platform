@@ -5,7 +5,6 @@ const COLUMNS = [
     title: "Product",
     links: [
       { label: "Pricing", href: "/pricing" },
-      { label: "API", href: "/dashboard/developer" },
       { label: "Affiliate", href: "/partner" },
       { label: "Changelog", href: "/changelog" },
     ],

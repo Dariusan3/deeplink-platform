@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/anomaly-check",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/tier1-alerts",
+      "schedule": "0 */3 * * *"
     }
   ]
 }

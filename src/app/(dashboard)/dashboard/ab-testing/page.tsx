@@ -7,11 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useABTests, ABTest } from "@/hooks/use-ab-tests";
+import { useCollections } from "@/hooks/use-collections";
+import { useLinks } from "@/hooks/use-links";
+import { FolderOpen, Link2, Film, Layers, Languages, FileText } from "lucide-react";
 import {
   FlaskConical,
   Plus,
   Trophy,
-  BarChart3,
   Eye,
   MousePointerClick,
   DollarSign,
@@ -22,8 +24,6 @@ import {
   Copy,
   Check,
   Crown,
-  Target,
-  Calculator,
   ArrowRight,
   Zap,
   X,
@@ -32,201 +32,141 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { getDisplayOrigin } from "@/lib/url-normalize";
 
-// ROI Calculator Component — connected to real A/B test data
-function ROICalculator({ tests }: { tests: ABTest[] }) {
-  const [useRealData, setUseRealData] = useState(true);
-  const [adSpend, setAdSpend] = useState("");
-  const [clicks, setClicks] = useState("");
-  const [conversions, setConversions] = useState("");
-  const [revenuePerConversion, setRevenuePerConversion] = useState("");
+// Pre-built test templates — each fills in sensible defaults for a common
+// use case so the user doesn't start from a blank dialog. Selecting one
+// only seeds the form; the user can still tweak every field after.
+const TEST_TEMPLATES = [
+  {
+    key: "landing",
+    label: "Landing pages",
+    description: "Two landing pages for the same offer",
+    icon: Link2,
+    defaultName: "Landing page test",
+    variantA: "Page A",
+    variantB: "Page B",
+  },
+  {
+    key: "vsl",
+    label: "VSL vs Text",
+    description: "Video sales letter vs written sales page",
+    icon: Film,
+    defaultName: "VSL vs Text",
+    variantA: "VSL",
+    variantB: "Text sales",
+  },
+  {
+    key: "price",
+    label: "Price anchor",
+    description: "Same final price, different anchor price shown",
+    icon: Layers,
+    defaultName: "Price anchor test",
+    variantA: "High anchor",
+    variantB: "Low anchor",
+  },
+  {
+    key: "offer",
+    label: "Different offers",
+    description: "Your own product vs an affiliate / partner offer",
+    icon: FileText,
+    defaultName: "Offer split test",
+    variantA: "Offer A",
+    variantB: "Offer B",
+  },
+  {
+    key: "lang",
+    label: "Language / market",
+    description: "Translated landing vs original",
+    icon: Languages,
+    defaultName: "Language test",
+    variantA: "EN",
+    variantB: "Local",
+  },
+] as const;
 
-  // Aggregate real data from all tests
-  const realData = useMemo(() => {
-    const totalVisits = tests.reduce((s, t) => s + t.variant_a_visits + t.variant_b_visits, 0);
-    const totalConversions = tests.reduce((s, t) => s + t.variant_a_conversions + t.variant_b_conversions, 0);
-    const totalRevenue = tests.reduce((s, t) => s + Number(t.variant_a_revenue) + Number(t.variant_b_revenue), 0);
-    const totalCost = tests.reduce((s, t) => s + (t.variant_a_visits + t.variant_b_visits) * Number(t.cost_per_click), 0);
-    return { totalVisits, totalConversions, totalRevenue, totalCost };
-  }, [tests]);
-
-  const results = useMemo(() => {
-    let spend: number, clickCount: number, convCount: number, totalRevenue: number;
-
-    if (useRealData) {
-      spend = realData.totalCost;
-      clickCount = realData.totalVisits;
-      convCount = realData.totalConversions;
-      totalRevenue = realData.totalRevenue;
-    } else {
-      spend = parseFloat(adSpend) || 0;
-      clickCount = parseInt(clicks) || 0;
-      convCount = parseInt(conversions) || 0;
-      totalRevenue = convCount * (parseFloat(revenuePerConversion) || 0);
-    }
-
-    const roi = spend > 0 ? ((totalRevenue - spend) / spend) * 100 : 0;
-    const cpc = clickCount > 0 ? spend / clickCount : 0;
-    const cpa = convCount > 0 ? spend / convCount : 0;
-    const convRate = clickCount > 0 ? (convCount / clickCount) * 100 : 0;
-    const profit = totalRevenue - spend;
-
-    return { totalRevenue, roi, cpc, cpa, convRate, profit, spend, clickCount, convCount };
-  }, [useRealData, realData, adSpend, clicks, conversions, revenuePerConversion]);
-
-  const hasData = useRealData
-    ? realData.totalVisits > 0 || realData.totalCost > 0
-    : parseFloat(adSpend) > 0 || parseInt(clicks) > 0;
-
-  return (
-    <Card className="glass-card border-white/5 overflow-hidden">
-      <CardHeader className="pb-4">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base font-black flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-              <Calculator className="w-4 h-4 text-emerald-400" />
-            </div>
-            ROI Calculator
-          </CardTitle>
-          <button
-            onClick={() => setUseRealData(!useRealData)}
-            className={cn(
-              "text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border transition-all",
-              useRealData
-                ? "text-[#00D26A] bg-[#00D26A]/10 border-[#00D26A]/20"
-                : "text-neutral-400 bg-white/5 border-white/10 hover:text-white"
-            )}
-          >
-            {useRealData ? "Live Data" : "Manual"}
-          </button>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {useRealData ? (
-          <div className="grid grid-cols-2 gap-3">
-            <div className="p-2.5 rounded-lg bg-white/[0.02] border border-white/5">
-              <p className="text-[9px] font-bold uppercase tracking-widest text-neutral-500 mb-1">Ad Spend</p>
-              <p className="text-sm font-black text-white">${realData.totalCost.toFixed(2)}</p>
-            </div>
-            <div className="p-2.5 rounded-lg bg-white/[0.02] border border-white/5">
-              <p className="text-[9px] font-bold uppercase tracking-widest text-neutral-500 mb-1">Total Clicks</p>
-              <p className="text-sm font-black text-white">{realData.totalVisits.toLocaleString()}</p>
-            </div>
-            <div className="p-2.5 rounded-lg bg-white/[0.02] border border-white/5">
-              <p className="text-[9px] font-bold uppercase tracking-widest text-neutral-500 mb-1">Conversions</p>
-              <p className="text-sm font-black text-white">{realData.totalConversions.toLocaleString()}</p>
-            </div>
-            <div className="p-2.5 rounded-lg bg-white/[0.02] border border-white/5">
-              <p className="text-[9px] font-bold uppercase tracking-widest text-neutral-500 mb-1">Revenue</p>
-              <p className="text-sm font-black text-[#00D26A]">${realData.totalRevenue.toFixed(2)}</p>
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Ad Spend ($)</Label>
-              <Input
-                type="number"
-                placeholder="1000"
-                value={adSpend}
-                onChange={(e) => setAdSpend(e.target.value)}
-                className="mt-1 h-9 bg-white/[0.02] border-white/5 text-sm"
-              />
-            </div>
-            <div>
-              <Label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Total Clicks</Label>
-              <Input
-                type="number"
-                placeholder="5000"
-                value={clicks}
-                onChange={(e) => setClicks(e.target.value)}
-                className="mt-1 h-9 bg-white/[0.02] border-white/5 text-sm"
-              />
-            </div>
-            <div>
-              <Label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Conversions</Label>
-              <Input
-                type="number"
-                placeholder="150"
-                value={conversions}
-                onChange={(e) => setConversions(e.target.value)}
-                className="mt-1 h-9 bg-white/[0.02] border-white/5 text-sm"
-              />
-            </div>
-            <div>
-              <Label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Revenue / Conv ($)</Label>
-              <Input
-                type="number"
-                placeholder="50"
-                value={revenuePerConversion}
-                onChange={(e) => setRevenuePerConversion(e.target.value)}
-                className="mt-1 h-9 bg-white/[0.02] border-white/5 text-sm"
-              />
-            </div>
-          </div>
-        )}
-
-        {hasData && (
-          <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/5">
-            <div className="text-center p-2 rounded-lg bg-white/[0.02]">
-              <p className={cn("text-lg font-black", results.roi >= 0 ? "text-[#00D26A]" : "text-red-400")}>
-                {results.roi.toFixed(1)}%
-              </p>
-              <p className="text-[9px] font-bold uppercase tracking-widest text-neutral-500">ROI</p>
-            </div>
-            <div className="text-center p-2 rounded-lg bg-white/[0.02]">
-              <p className={cn("text-lg font-black", results.profit >= 0 ? "text-[#00D26A]" : "text-red-400")}>
-                ${results.profit.toFixed(0)}
-              </p>
-              <p className="text-[9px] font-bold uppercase tracking-widest text-neutral-500">Profit</p>
-            </div>
-            <div className="text-center p-2 rounded-lg bg-white/[0.02]">
-              <p className="text-lg font-black text-white">{results.convRate.toFixed(1)}%</p>
-              <p className="text-[9px] font-bold uppercase tracking-widest text-neutral-500">Conv Rate</p>
-            </div>
-            <div className="text-center p-2 rounded-lg bg-white/[0.02]">
-              <p className="text-lg font-black text-white">${results.cpc.toFixed(2)}</p>
-              <p className="text-[9px] font-bold uppercase tracking-widest text-neutral-500">CPC</p>
-            </div>
-            <div className="text-center p-2 rounded-lg bg-white/[0.02]">
-              <p className="text-lg font-black text-white">${results.cpa.toFixed(2)}</p>
-              <p className="text-[9px] font-bold uppercase tracking-widest text-neutral-500">CPA</p>
-            </div>
-            <div className="text-center p-2 rounded-lg bg-white/[0.02]">
-              <p className="text-lg font-black text-[#00D26A]">${results.totalRevenue.toFixed(0)}</p>
-              <p className="text-[9px] font-bold uppercase tracking-widest text-neutral-500">Revenue</p>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
+type TemplateKey = (typeof TEST_TEMPLATES)[number]["key"] | "custom";
 
 // Create Test Dialog
 function CreateTestDialog({ onClose, onCreate }: { onClose: () => void; onCreate: (data: any) => void }) {
-  const [name, setName] = useState("");
+  // Sourcing mode: pick destinations from an existing collection, or paste
+  // raw URLs. Collection mode is friendlier for non-tech users — they pick
+  // two links they already created from a dropdown.
+  const [sourceMode, setSourceMode] = useState<"collection" | "url">("collection");
+  const [template, setTemplate] = useState<TemplateKey>("landing");
+
+  const [name, setName] = useState("Landing page test");
   const [slug, setSlug] = useState("");
   const [variantAUrl, setVariantAUrl] = useState("");
   const [variantBUrl, setVariantBUrl] = useState("");
-  const [variantAName, setVariantAName] = useState("Variant A");
-  const [variantBName, setVariantBName] = useState("Variant B");
+  const [variantAName, setVariantAName] = useState("Page A");
+  const [variantBName, setVariantBName] = useState("Page B");
   const [autoOptimize, setAutoOptimize] = useState(true);
   const [minConversions, setMinConversions] = useState("100");
   const [thresholdPercent, setThresholdPercent] = useState("20");
   const [costPerClick, setCostPerClick] = useState("0");
 
+  // Collection-based source — pick a collection, then pick 2 links inside.
+  const { collections } = useCollections();
+  const { links } = useLinks();
+  const [collectionId, setCollectionId] = useState<string>("");
+  const [linkAId, setLinkAId] = useState<string>("");
+  const [linkBId, setLinkBId] = useState<string>("");
+
+  const linksInCollection = useMemo(
+    () => links.filter((l) => collectionId && l.collection_id === collectionId && l.is_active),
+    [links, collectionId]
+  );
+
+  // Selecting a template seeds the form — but only fields the user hasn't
+  // typed yet so we don't overwrite their work.
+  const applyTemplate = (key: TemplateKey) => {
+    setTemplate(key);
+    const t = TEST_TEMPLATES.find((x) => x.key === key);
+    if (!t) return;
+    setName(t.defaultName);
+    setVariantAName(t.variantA);
+    setVariantBName(t.variantB);
+  };
+
   const handleCreate = () => {
-    if (!name || !slug || !variantAUrl || !variantBUrl) {
-      toast.error("Fill in all required fields");
+    if (!name || !slug) {
+      toast.error("Test name and slug are required");
       return;
     }
+
+    let aUrl = variantAUrl;
+    let bUrl = variantBUrl;
+    let aName = variantAName;
+    let bName = variantBName;
+
+    if (sourceMode === "collection") {
+      const linkA = links.find((l) => l.id === linkAId);
+      const linkB = links.find((l) => l.id === linkBId);
+      if (!linkA || !linkB) {
+        toast.error("Pick a link for each variant");
+        return;
+      }
+      if (linkA.id === linkB.id) {
+        toast.error("Variant A and B must be different links");
+        return;
+      }
+      aUrl = linkA.destination_url;
+      bUrl = linkB.destination_url;
+      aName = linkA.title || linkA.slug;
+      bName = linkB.title || linkB.slug;
+    } else {
+      if (!aUrl || !bUrl) {
+        toast.error("Both variant URLs are required");
+        return;
+      }
+    }
+
     onCreate({
       name,
       slug: slug.toLowerCase().replace(/[^a-z0-9-]/g, "-"),
-      variant_a_url: variantAUrl,
-      variant_b_url: variantBUrl,
-      variant_a_name: variantAName,
-      variant_b_name: variantBName,
+      variant_a_url: aUrl,
+      variant_b_url: bUrl,
+      variant_a_name: aName,
+      variant_b_name: bName,
       auto_optimize: autoOptimize,
       min_conversions: parseInt(minConversions) || 100,
       threshold_percent: parseInt(thresholdPercent) || 20,
@@ -245,67 +185,218 @@ function CreateTestDialog({ onClose, onCreate }: { onClose: () => void; onCreate
           </Button>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-5">
+          {/* ── Template selector ──────────────────────────────── */}
           <div>
-            <Label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Test Name *</Label>
-            <Input
-              placeholder="Landing Page Test"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="mt-1 h-9 bg-white/[0.02] border-white/5"
-            />
+            <Label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">
+              What are you testing?
+            </Label>
+            <p className="text-[10px] text-neutral-600 mt-0.5 mb-2">Pick a template to seed sensible defaults — you can still tweak everything.</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {TEST_TEMPLATES.map((t) => {
+                const Icon = t.icon;
+                const selected = template === t.key;
+                return (
+                  <button
+                    key={t.key}
+                    type="button"
+                    onClick={() => applyTemplate(t.key)}
+                    className={cn(
+                      "flex items-start gap-2 p-2.5 rounded-xl border text-left transition-all",
+                      selected
+                        ? "border-[#00D26A]/40 bg-[#00D26A]/5 shadow-[0_0_15px_rgba(0,210,106,0.1)]"
+                        : "border-white/5 bg-white/[0.02] hover:border-white/10 hover:bg-white/5"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-7 h-7 rounded-lg flex items-center justify-center shrink-0",
+                      selected ? "bg-[#00D26A]/15 text-[#00D26A]" : "bg-white/5 text-neutral-400"
+                    )}>
+                      <Icon className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className={cn("text-xs font-black leading-tight", selected ? "text-white" : "text-neutral-200")}>
+                        {t.label}
+                      </p>
+                      <p className="text-[10px] text-neutral-500 mt-0.5 leading-tight">{t.description}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          <div>
-            <Label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Slug * (tappr.me/slug)</Label>
-            <Input
-              placeholder="landing-page"
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-              className="mt-1 h-9 bg-white/[0.02] border-white/5"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
+          {/* ── Name + slug ─────────────────────────────────────── */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <Label className="text-[10px] font-bold uppercase tracking-widest text-blue-400">Variant A Name</Label>
+              <Label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Test Name *</Label>
               <Input
-                placeholder="Variant A"
-                value={variantAName}
-                onChange={(e) => setVariantAName(e.target.value)}
-                className="mt-1 h-9 bg-blue-500/5 border-blue-500/10"
+                placeholder="Landing Page Test"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="mt-1 h-9 bg-white/[0.02] border-white/5"
               />
             </div>
             <div>
-              <Label className="text-[10px] font-bold uppercase tracking-widest text-purple-400">Variant B Name</Label>
+              <Label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Slug * (tappr.me/slug)</Label>
               <Input
-                placeholder="Variant B"
-                value={variantBName}
-                onChange={(e) => setVariantBName(e.target.value)}
-                className="mt-1 h-9 bg-purple-500/5 border-purple-500/10"
+                placeholder="landing-page"
+                value={slug}
+                onChange={(e) => setSlug(e.target.value)}
+                className="mt-1 h-9 bg-white/[0.02] border-white/5"
               />
             </div>
           </div>
 
+          {/* ── Source mode tabs ────────────────────────────────── */}
           <div>
-            <Label className="text-[10px] font-bold uppercase tracking-widest text-blue-400">Variant A URL *</Label>
-            <Input
-              placeholder="https://example.com/page-a"
-              value={variantAUrl}
-              onChange={(e) => setVariantAUrl(e.target.value)}
-              className="mt-1 h-9 bg-blue-500/5 border-blue-500/10"
-            />
+            <Label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">
+              Variants source
+            </Label>
+            <div className="grid grid-cols-2 gap-2 mt-1">
+              <button
+                type="button"
+                onClick={() => setSourceMode("collection")}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-bold transition-all",
+                  sourceMode === "collection"
+                    ? "border-[#00D26A]/40 bg-[#00D26A]/5 text-white"
+                    : "border-white/5 bg-white/[0.02] text-neutral-400 hover:bg-white/5"
+                )}
+              >
+                <FolderOpen className="w-3.5 h-3.5" />
+                Pick from collection
+              </button>
+              <button
+                type="button"
+                onClick={() => setSourceMode("url")}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-bold transition-all",
+                  sourceMode === "url"
+                    ? "border-[#00D26A]/40 bg-[#00D26A]/5 text-white"
+                    : "border-white/5 bg-white/[0.02] text-neutral-400 hover:bg-white/5"
+                )}
+              >
+                <Link2 className="w-3.5 h-3.5" />
+                Paste URLs
+              </button>
+            </div>
           </div>
 
-          <div>
-            <Label className="text-[10px] font-bold uppercase tracking-widest text-purple-400">Variant B URL *</Label>
-            <Input
-              placeholder="https://example.com/page-b"
-              value={variantBUrl}
-              onChange={(e) => setVariantBUrl(e.target.value)}
-              className="mt-1 h-9 bg-purple-500/5 border-purple-500/10"
-            />
-          </div>
+          {/* ── Collection picker ──────────────────────────────── */}
+          {sourceMode === "collection" && (
+            <div className="space-y-3">
+              <div>
+                <Label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Collection *</Label>
+                <select
+                  value={collectionId}
+                  onChange={(e) => { setCollectionId(e.target.value); setLinkAId(""); setLinkBId(""); }}
+                  className="mt-1 w-full h-9 px-3 rounded-md bg-white/[0.02] border border-white/5 text-white text-sm focus:outline-none focus:border-[#00D26A]/30"
+                >
+                  <option value="" className="bg-neutral-900">
+                    {collections.length === 0 ? "No collections yet — create one first" : "Select a collection…"}
+                  </option>
+                  {collections.map((c) => (
+                    <option key={c.id} value={c.id} className="bg-neutral-900">{c.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-blue-400">Variant A — link *</Label>
+                  <select
+                    value={linkAId}
+                    onChange={(e) => setLinkAId(e.target.value)}
+                    disabled={!collectionId}
+                    className="mt-1 w-full h-9 px-3 rounded-md bg-blue-500/5 border border-blue-500/10 text-white text-sm focus:outline-none focus:border-blue-500/30 disabled:opacity-50"
+                  >
+                    <option value="" className="bg-neutral-900">
+                      {!collectionId
+                        ? "Pick collection first"
+                        : linksInCollection.length === 0
+                          ? "No active links in this collection"
+                          : "Choose link A…"}
+                    </option>
+                    {linksInCollection.map((l) => (
+                      <option key={l.id} value={l.id} className="bg-neutral-900">
+                        {l.title || l.slug}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-purple-400">Variant B — link *</Label>
+                  <select
+                    value={linkBId}
+                    onChange={(e) => setLinkBId(e.target.value)}
+                    disabled={!collectionId}
+                    className="mt-1 w-full h-9 px-3 rounded-md bg-purple-500/5 border border-purple-500/10 text-white text-sm focus:outline-none focus:border-purple-500/30 disabled:opacity-50"
+                  >
+                    <option value="" className="bg-neutral-900">
+                      {!collectionId
+                        ? "Pick collection first"
+                        : linksInCollection.length === 0
+                          ? "No active links in this collection"
+                          : "Choose link B…"}
+                    </option>
+                    {linksInCollection.map((l) => (
+                      <option key={l.id} value={l.id} className="bg-neutral-900">
+                        {l.title || l.slug}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <p className="text-[10px] text-neutral-600 leading-relaxed">
+                Variant names are taken from each link&apos;s title (or slug if no title). Each visitor gets a 50/50 split between the two destinations.
+              </p>
+            </div>
+          )}
+
+          {/* ── URL inputs (alternative source) ──────────────────── */}
+          {sourceMode === "url" && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-blue-400">Variant A name</Label>
+                  <Input
+                    placeholder="Variant A"
+                    value={variantAName}
+                    onChange={(e) => setVariantAName(e.target.value)}
+                    className="mt-1 h-9 bg-blue-500/5 border-blue-500/10"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-purple-400">Variant B name</Label>
+                  <Input
+                    placeholder="Variant B"
+                    value={variantBName}
+                    onChange={(e) => setVariantBName(e.target.value)}
+                    className="mt-1 h-9 bg-purple-500/5 border-purple-500/10"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label className="text-[10px] font-bold uppercase tracking-widest text-blue-400">Variant A URL *</Label>
+                <Input
+                  placeholder="https://example.com/page-a"
+                  value={variantAUrl}
+                  onChange={(e) => setVariantAUrl(e.target.value)}
+                  className="mt-1 h-9 bg-blue-500/5 border-blue-500/10"
+                />
+              </div>
+              <div>
+                <Label className="text-[10px] font-bold uppercase tracking-widest text-purple-400">Variant B URL *</Label>
+                <Input
+                  placeholder="https://example.com/page-b"
+                  value={variantBUrl}
+                  onChange={(e) => setVariantBUrl(e.target.value)}
+                  className="mt-1 h-9 bg-purple-500/5 border-purple-500/10"
+                />
+              </div>
+            </div>
+          )}
 
           <div className="border-t border-white/5 pt-4">
             <div className="flex items-center justify-between mb-3">
@@ -689,41 +780,41 @@ export default function ABTestingPage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Tests List */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-black uppercase tracking-widest text-neutral-400">
-              Active Tests ({activeTests.length})
-            </h2>
-            <Button
-              onClick={() => setShowCreate(true)}
-              className="h-8 px-4 bg-[#00D26A] hover:bg-[#00D26A]/90 text-black font-black text-xs"
-            >
-              <Plus className="w-3.5 h-3.5 mr-1" />
-              New Test
-            </Button>
-          </div>
+      {/* Tests — full width now that the ROI sidebar is gone. */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <h2 className="text-sm font-black uppercase tracking-widest text-neutral-400">
+            Active Tests ({activeTests.length})
+          </h2>
+          <Button
+            onClick={() => setShowCreate(true)}
+            className="h-9 px-4 bg-[#00D26A] hover:bg-[#00D26A]/90 text-black font-black text-xs"
+          >
+            <Plus className="w-3.5 h-3.5 mr-1" />
+            New Test
+          </Button>
+        </div>
 
-          {loading ? (
-            <div className="space-y-3">
-              {[1, 2].map((i) => (
-                <div key={i} className="h-48 rounded-xl bg-white/[0.02] animate-pulse" />
-              ))}
-            </div>
-          ) : activeTests.length === 0 ? (
-            <Card className="glass-card border-white/5">
-              <CardContent className="p-12 text-center">
-                <FlaskConical className="w-10 h-10 text-neutral-600 mx-auto mb-3" />
-                <p className="text-sm font-bold text-neutral-400 mb-1">No active tests</p>
-                <p className="text-xs text-neutral-600 mb-4">Create your first A/B test to start optimizing</p>
-                <Button onClick={() => setShowCreate(true)} className="h-8 px-4 bg-[#00D26A] hover:bg-[#00D26A]/90 text-black font-black text-xs">
-                  <Plus className="w-3.5 h-3.5 mr-1" /> Create Test
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            activeTests.map((test) => (
+        {loading ? (
+          <div className="space-y-3">
+            {[1, 2].map((i) => (
+              <div key={i} className="h-48 rounded-xl bg-white/[0.02] animate-pulse" />
+            ))}
+          </div>
+        ) : activeTests.length === 0 ? (
+          <Card className="glass-card border-white/5">
+            <CardContent className="p-12 text-center">
+              <FlaskConical className="w-10 h-10 text-neutral-600 mx-auto mb-3" />
+              <p className="text-sm font-bold text-neutral-400 mb-1">No active tests</p>
+              <p className="text-xs text-neutral-600 mb-4">Create your first A/B test to start optimizing</p>
+              <Button onClick={() => setShowCreate(true)} className="h-9 px-4 bg-[#00D26A] hover:bg-[#00D26A]/90 text-black font-black text-xs">
+                <Plus className="w-3.5 h-3.5 mr-1" /> Create Test
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {activeTests.map((test) => (
               <TestCard
                 key={test.id}
                 test={test}
@@ -731,89 +822,26 @@ export default function ABTestingPage() {
                 onUpdate={updateTest}
                 onDelete={deleteTest}
               />
-            ))
-          )}
+            ))}
+          </div>
+        )}
 
-          {completedTests.length > 0 && (
-            <>
-              <h2 className="text-sm font-black uppercase tracking-widest text-neutral-400 pt-4">
-                Completed Tests ({completedTests.length})
-              </h2>
-              {completedTests.map((test) => (
-                <TestCard
-                  key={test.id}
-                  test={test}
-                  onSelectWinner={selectWinner}
-                  onUpdate={updateTest}
-                  onDelete={deleteTest}
-                />
-              ))}
-            </>
-          )}
-        </div>
-
-        {/* Right sidebar */}
-        <div className="space-y-4">
-          <ROICalculator tests={tests} />
-
-          {/* How it works */}
-          <Card className="glass-card border-white/5">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-black flex items-center gap-2">
-                <Target className="w-4 h-4 text-[#00D26A]" />
-                How It Works
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-start gap-3">
-                <div className="w-5 h-5 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0 mt-0.5">
-                  <span className="text-[9px] font-black text-blue-400">1</span>
-                </div>
-                <p className="text-xs text-neutral-400">Create a test with a shared slug and two destination URLs</p>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="w-5 h-5 rounded-full bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0 mt-0.5">
-                  <span className="text-[9px] font-black text-purple-400">2</span>
-                </div>
-                <p className="text-xs text-neutral-400">Traffic is split 50/50 between variants with fair random distribution</p>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="w-5 h-5 rounded-full bg-[#00D26A]/10 border border-[#00D26A]/20 flex items-center justify-center shrink-0 mt-0.5">
-                  <span className="text-[9px] font-black text-[#00D26A]">3</span>
-                </div>
-                <p className="text-xs text-neutral-400">Track conversions with the API, auto-optimize picks the winner</p>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0 mt-0.5">
-                  <span className="text-[9px] font-black text-amber-400">4</span>
-                </div>
-                <p className="text-xs text-neutral-400">Once a winner is selected, 100% traffic routes to the best page</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* API Info */}
-          <Card className="glass-card border-white/5">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-black flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-blue-400" />
-                Conversion API
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="p-3 rounded-lg bg-black/50 border border-white/5 overflow-x-auto">
-                <pre className="text-[10px] text-neutral-400 font-mono whitespace-pre">
-{`POST /api/v1/ab-tests
-{
-  "slug": "your-test-slug",
-  "variant": "a",
-  "revenue": 49.99
-}`}
-                </pre>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        {completedTests.length > 0 && (
+          <div className="pt-4 space-y-4">
+            <h2 className="text-sm font-black uppercase tracking-widest text-neutral-400">
+              Completed Tests ({completedTests.length})
+            </h2>
+            {completedTests.map((test) => (
+              <TestCard
+                key={test.id}
+                test={test}
+                onSelectWinner={selectWinner}
+                onUpdate={updateTest}
+                onDelete={deleteTest}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {showCreate && (

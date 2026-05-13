@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, CheckCircle2, Mail } from "lucide-react";
+
+// Signup styled to match the marketing landing — same hairline borders,
+// Geist sans + mono microlabels, sharp corners, white primary button.
+// Inherits the .landing-root CSS variables in globals.css.
 
 export default function SignupPage() {
   const searchParams = useSearchParams();
@@ -56,7 +57,8 @@ export default function SignupPage() {
 
   const handleGoogleLogin = async () => {
     setLoading(true);
-    // Store ref code in localStorage for Google OAuth flow (metadata not available)
+    // Google OAuth round-trips through Supabase and drops the ref code.
+    // Stash it in localStorage so /auth/callback can attribute the signup.
     if (refCode) localStorage.setItem("tappr_ref_code", refCode);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -68,214 +70,283 @@ export default function SignupPage() {
     }
   };
 
+  // ── Success state ───────────────────────────────────────────────
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-black p-4 relative overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none -z-10">
-          <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-175 h-125 bg-[#00D26A]/8 blur-[140px] rounded-full" />
-        </div>
-        <div className="w-full max-w-md text-center">
-          <div className="w-16 h-16 rounded-2xl bg-[#00D26A]/10 border border-[#00D26A]/20 flex items-center justify-center mx-auto mb-6 shadow-[0_0_40px_rgba(0,210,106,0.2)]">
-            <Mail className="w-8 h-8 text-[#00D26A]" />
+      <div className="landing-root min-h-screen relative overflow-hidden">
+        <div className="hero-glow" aria-hidden />
+
+        <nav className="relative z-10 h-[60px] border-b border-[var(--line)]">
+          <div className="max-w-[1280px] mx-auto h-full px-6 flex items-center justify-between">
+            <Link href="/" className="flex items-center gap-2 font-semibold text-[var(--ink)]">
+              <span className="inline-block w-5 h-5 rounded-sm bg-[var(--tappr-green)]" aria-hidden />
+              <span>Tappr</span>
+            </Link>
           </div>
-          <h2 className="text-2xl font-black text-white mb-2">Check your inbox</h2>
-          <p className="text-neutral-500 text-sm font-medium mb-1">We sent a confirmation link to</p>
-          <p className="text-[#00D26A] font-black text-sm mb-8">{email}</p>
-          <button
-            onClick={() => router.push("/login")}
-            className="text-xs font-black uppercase tracking-widest text-neutral-500 hover:text-white transition-colors"
-          >
-            ← Back to sign in
-          </button>
-        </div>
+        </nav>
+
+        <main className="relative z-10 max-w-[1280px] mx-auto px-6 py-24 flex justify-center">
+          <div className="w-full max-w-[440px] text-center">
+            <div className="inline-flex w-14 h-14 rounded-sm bg-[var(--green-soft)] border border-[var(--tappr-green)]/30 items-center justify-center mb-8">
+              <Mail className="w-6 h-6 text-[var(--tappr-green)]" />
+            </div>
+            <span className="ulabel mb-4 mx-auto">Confirm your email</span>
+            <h1
+              className="font-semibold text-[var(--ink)] tracking-[-0.04em] mb-4"
+              style={{ fontSize: "clamp(36px, 5vw, 56px)", lineHeight: 0.98 }}
+            >
+              Check your <span className="text-[var(--tappr-green)]">inbox.</span>
+            </h1>
+            <p className="text-[var(--ink-2)] text-[15px] leading-[1.55] mb-2">
+              We sent a confirmation link to
+            </p>
+            <p className="font-mono text-[14px] text-[var(--ink)] mb-10 break-all">
+              {email}
+            </p>
+            <button
+              onClick={() => router.push("/login")}
+              className="btn-lift inline-flex items-center gap-2 px-4 py-2 border border-[var(--line)] hover:border-[var(--line-2)] rounded-sm text-[13px] text-[var(--ink-2)] hover:text-[var(--ink)]"
+            >
+              ← Back to sign in
+            </button>
+          </div>
+        </main>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-black p-4 relative overflow-hidden">
-      {/* Ambient glow */}
-      <div className="absolute inset-0 pointer-events-none -z-10">
-        <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-175 h-125 bg-[#00D26A]/8 blur-[140px] rounded-full" />
-        <div className="absolute bottom-[-10%] left-[20%] w-100 h-75 bg-[#00D26A]/4 blur-[100px] rounded-full" />
-      </div>
+    <div className="landing-root min-h-screen relative overflow-hidden">
+      {/* Ambient drifting green-radial — same as landing hero */}
+      <div className="hero-glow" aria-hidden />
 
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="flex items-center justify-center gap-2.5 mb-8">
-          <div className="w-9 h-9 rounded-xl bg-[#00D26A]/10 border border-[#00D26A]/20 flex items-center justify-center shadow-[0_0_20px_rgba(0,210,106,0.15)]">
-            <svg className="w-5 h-5 text-[#00D26A]" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
-            </svg>
-          </div>
-          <span className="font-black text-xl text-white tracking-tight">Tappr</span>
+      {/* Top bar */}
+      <nav className="relative z-10 h-[60px] border-b border-[var(--line)]">
+        <div className="max-w-[1280px] mx-auto h-full px-6 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2 font-semibold text-[var(--ink)]">
+            <span className="inline-block w-5 h-5 rounded-sm bg-[var(--tappr-green)]" aria-hidden />
+            <span>Tappr</span>
+          </Link>
+          <Link
+            href="/login"
+            className="btn-lift inline-flex items-center gap-1.5 px-3 py-1.5 border border-[var(--line)] hover:border-[var(--line-2)] rounded-sm text-[12px] text-[var(--ink-2)] hover:text-[var(--ink)]"
+          >
+            Have an account? Sign in →
+          </Link>
         </div>
+      </nav>
 
-        {/* Card */}
-        <div className="relative rounded-3xl border border-white/6 bg-white/2.5 backdrop-blur-2xl overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.6)]">
-          <div className="absolute top-0 left-0 w-full h-px bg-linear-to-r from-transparent via-[#00D26A]/40 to-transparent" />
+      <main className="relative z-10 max-w-[1280px] mx-auto px-6 py-16 lg:py-20 flex justify-center">
+        <div className="w-full max-w-[440px]">
+          {/* Microlabel */}
+          <span className="ulabel mb-6">Create account</span>
 
-          <div className="p-8">
-            <div className="mb-8">
-              <h1 className="text-2xl font-black tracking-tight text-white mb-1">Create account</h1>
-              <p className="text-sm text-neutral-500 font-medium">Join the next generation of deep linking</p>
+          {/* Headline */}
+          <h1
+            className="font-semibold text-[var(--ink)] tracking-[-0.04em] mb-4"
+            style={{ fontSize: "clamp(40px, 6vw, 64px)", lineHeight: 0.95 }}
+          >
+            Start <span className="text-[var(--tappr-green)]">free.</span>
+          </h1>
+
+          <p className="text-[var(--ink-2)] text-[15px] leading-[1.55] mb-8">
+            500 clicks/month, no credit card. Set up in 60 seconds.
+          </p>
+
+          {refCode && (
+            <div className="mb-6 px-4 py-2.5 border border-[var(--tappr-green)]/30 bg-[var(--green-soft)] rounded-sm flex items-center gap-2">
+              <CheckCircle2 className="w-3.5 h-3.5 text-[var(--tappr-green)] shrink-0" />
+              <span className="font-mono text-[11px] tracking-[0.06em] text-[var(--ink)]">
+                Referred by <span className="text-[var(--tappr-green)] font-semibold">{refCode}</span>
+              </span>
+            </div>
+          )}
+
+          {/* Google */}
+          <button
+            type="button"
+            onClick={handleGoogleLogin}
+            disabled={loading}
+            className="btn-lift w-full h-11 flex items-center justify-center gap-3 border border-[var(--line)] hover:border-[var(--line-2)] text-[var(--ink-2)] hover:text-[var(--ink)] rounded-sm text-[13px] font-medium disabled:opacity-50 mb-5"
+          >
+            <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="currentColor" opacity="0.9" />
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="var(--tappr-green)" />
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="var(--tappr-green)" opacity="0.7" />
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="var(--tappr-green)" opacity="0.85" />
+            </svg>
+            Sign up with Google
+          </button>
+
+          {/* Divider */}
+          <div className="relative my-6 flex items-center">
+            <div className="flex-1 h-px bg-[var(--line)]" />
+            <span className="px-3 font-mono text-[10px] tracking-[0.14em] uppercase text-[var(--muted)]">
+              or register with email
+            </span>
+            <div className="flex-1 h-px bg-[var(--line)]" />
+          </div>
+
+          <form onSubmit={handleSignup} className="space-y-5">
+            <div className="space-y-1.5">
+              <label htmlFor="fullName" className="block font-mono text-[10px] tracking-[0.14em] uppercase text-[var(--muted)]">
+                Full name
+              </label>
+              <input
+                id="fullName"
+                type="text"
+                placeholder="John Doe"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required
+                autoComplete="name"
+                className="w-full h-11 px-4 bg-transparent border border-[var(--line)] focus:border-[var(--tappr-green)] focus:outline-none text-[var(--ink)] placeholder:text-[var(--muted)] rounded-sm text-[14px] transition-colors"
+              />
             </div>
 
-            {/* Google */}
-            <button
-              type="button"
-              onClick={handleGoogleLogin}
-              disabled={loading}
-              className="w-full h-12 flex items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/4 hover:bg-white/8 hover:border-white/20 text-white text-sm font-bold transition-all duration-200 disabled:opacity-50 mb-6"
-            >
-              <svg className="w-4.5 h-4.5 shrink-0" viewBox="0 0 24 24">
-                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="white" opacity="0.9" />
-                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#00D26A" />
-                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#00D26A" opacity="0.7" />
-                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#00D26A" opacity="0.85" />
-              </svg>
-              Sign up with Google
-            </button>
-
-            {/* Divider */}
-            <div className="relative mb-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-white/6" />
-              </div>
-              <div className="relative flex justify-center">
-                <span className="bg-[#050505] px-3 text-[10px] font-black uppercase tracking-[0.2em] text-neutral-600">or register with email</span>
-              </div>
+            <div className="space-y-1.5">
+              <label htmlFor="email" className="block font-mono text-[10px] tracking-[0.14em] uppercase text-[var(--muted)]">
+                Email
+              </label>
+              <input
+                id="email"
+                type="email"
+                placeholder="you@company.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+                className="w-full h-11 px-4 bg-transparent border border-[var(--line)] focus:border-[var(--tappr-green)] focus:outline-none text-[var(--ink)] placeholder:text-[var(--muted)] rounded-sm text-[14px] transition-colors"
+              />
             </div>
 
-            <form onSubmit={handleSignup} className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="fullName" className="text-[11px] font-black uppercase tracking-[0.15em] text-neutral-500">Full Name</Label>
-                <Input
-                  id="fullName"
-                  type="text"
-                  placeholder="John Doe"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
+            <div className="space-y-1.5">
+              <label htmlFor="password" className="block font-mono text-[10px] tracking-[0.14em] uppercase text-[var(--muted)]">
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Min. 6 characters"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="h-12 bg-white/4 border-white/8 focus:border-[#00D26A]/50 focus:ring-1 focus:ring-[#00D26A]/20 text-white placeholder:text-neutral-700 rounded-xl transition-all"
+                  minLength={6}
+                  autoComplete="new-password"
+                  className="w-full h-11 px-4 pr-11 bg-transparent border border-[var(--line)] focus:border-[var(--tappr-green)] focus:outline-none text-[var(--ink)] placeholder:text-[var(--muted)] rounded-sm text-[14px] transition-colors"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted)] hover:text-[var(--ink-2)] transition-colors"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="email" className="text-[11px] font-black uppercase tracking-[0.15em] text-neutral-500">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="h-12 bg-white/4 border-white/8 focus:border-[#00D26A]/50 focus:ring-1 focus:ring-[#00D26A]/20 text-white placeholder:text-neutral-700 rounded-xl transition-all"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="password" className="text-[11px] font-black uppercase tracking-[0.15em] text-neutral-500">Password</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Min. 6 characters"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    minLength={6}
-                    className="h-12 bg-white/4 border-white/8 focus:border-[#00D26A]/50 focus:ring-1 focus:ring-[#00D26A]/20 text-white placeholder:text-neutral-700 rounded-xl transition-all pr-11"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-600 hover:text-neutral-300 transition-colors"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-                {/* Strength bar */}
-                {password.length > 0 && (
-                  <div className="flex gap-1 pt-1">
-                    {[...Array(4)].map((_, i) => (
-                      <div
-                        key={i}
-                        className={`h-0.5 flex-1 rounded-full transition-all duration-300 ${
-                          password.length >= (i + 1) * 3
-                            ? password.length >= 10 ? "bg-[#00D26A]" : password.length >= 6 ? "bg-amber-400" : "bg-red-500"
-                            : "bg-white/10"
-                        }`}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="confirmPassword" className="text-[11px] font-black uppercase tracking-[0.15em] text-neutral-500">Confirm Password</Label>
-                <div className="relative">
-                  <Input
-                    id="confirmPassword"
-                    type={showConfirm ? "text" : "password"}
-                    placeholder="Repeat your password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    required
-                    className={`h-12 bg-white/4 border-white/8 focus:ring-1 text-white placeholder:text-neutral-700 rounded-xl transition-all pr-11 ${
-                      !passwordsMatch
-                        ? "border-red-500/50 focus:border-red-500/50 focus:ring-red-500/20"
-                        : confirmPassword && passwordsMatch
-                        ? "border-[#00D26A]/50 focus:border-[#00D26A]/50 focus:ring-[#00D26A]/20"
-                        : "focus:border-[#00D26A]/50 focus:ring-[#00D26A]/20"
-                    }`}
-                  />
-                  <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-                    {confirmPassword && passwordsMatch && (
-                      <CheckCircle2 className="w-4 h-4 text-[#00D26A]" />
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirm(!showConfirm)}
-                      className="text-neutral-600 hover:text-neutral-300 transition-colors"
-                    >
-                      {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-                {!passwordsMatch && (
-                  <p className="text-[10px] font-bold text-red-400 uppercase tracking-wide">Passwords do not match</p>
-                )}
-              </div>
-
-              {error && (
-                <div className="text-xs font-bold text-red-400 bg-red-400/5 rounded-xl px-4 py-3 border border-red-400/20 animate-in fade-in slide-in-from-top-1">
-                  {error}
+              {/* Strength bar */}
+              {password.length > 0 && (
+                <div className="flex gap-1 pt-1">
+                  {[0, 1, 2, 3].map((i) => (
+                    <div
+                      key={i}
+                      className={`h-0.5 flex-1 transition-all duration-300 ${
+                        password.length >= (i + 1) * 3
+                          ? password.length >= 10
+                            ? "bg-[var(--tappr-green)]"
+                            : password.length >= 6
+                              ? "bg-amber-400"
+                              : "bg-red-500"
+                          : "bg-[var(--line)]"
+                      }`}
+                    />
+                  ))}
                 </div>
               )}
+            </div>
 
-              <Button
-                type="submit"
-                className="w-full h-12 btn-primary-pulse rounded-xl text-black font-black uppercase tracking-widest text-xs mt-2"
-                disabled={loading || !passwordsMatch || !passwordStrong}
-              >
-                {loading ? (
-                  <div className="w-4.5 h-4.5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                ) : (
-                  "Create Account"
-                )}
-              </Button>
-            </form>
+            <div className="space-y-1.5">
+              <label htmlFor="confirmPassword" className="block font-mono text-[10px] tracking-[0.14em] uppercase text-[var(--muted)]">
+                Confirm password
+              </label>
+              <div className="relative">
+                <input
+                  id="confirmPassword"
+                  type={showConfirm ? "text" : "password"}
+                  placeholder="Repeat your password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  autoComplete="new-password"
+                  className={`w-full h-11 px-4 pr-16 bg-transparent border focus:outline-none text-[var(--ink)] placeholder:text-[var(--muted)] rounded-sm text-[14px] transition-colors ${
+                    !passwordsMatch
+                      ? "border-red-500/50 focus:border-red-500"
+                      : confirmPassword && passwordsMatch
+                        ? "border-[var(--tappr-green)]/40 focus:border-[var(--tappr-green)]"
+                        : "border-[var(--line)] focus:border-[var(--tappr-green)]"
+                  }`}
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                  {confirmPassword && passwordsMatch && (
+                    <CheckCircle2 className="w-4 h-4 text-[var(--tappr-green)]" />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirm(!showConfirm)}
+                    className="text-[var(--muted)] hover:text-[var(--ink-2)] transition-colors"
+                    aria-label={showConfirm ? "Hide password" : "Show password"}
+                  >
+                    {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              {!passwordsMatch && (
+                <p className="font-mono text-[10px] tracking-[0.06em] uppercase text-red-400">
+                  Passwords do not match
+                </p>
+              )}
+            </div>
 
-            <p className="text-center text-sm text-neutral-600 font-medium mt-6">
-              Already have an account?{" "}
-              <Link href="/login" className="text-[#00D26A] hover:text-[#39FF14] font-black transition-colors">
-                Sign in
-              </Link>
-            </p>
-          </div>
+            {error && (
+              <div className="text-[12px] font-medium text-red-400 bg-red-400/5 border border-red-400/20 rounded-sm px-3 py-2.5">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading || !passwordsMatch || !passwordStrong}
+              className="btn-lift w-full h-11 inline-flex items-center justify-center gap-2 bg-white text-black font-medium rounded-sm hover:bg-[var(--ink)] disabled:opacity-50 disabled:cursor-not-allowed text-[14px]"
+            >
+              {loading ? (
+                <span className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+              ) : (
+                <>Create account →</>
+              )}
+            </button>
+          </form>
+
+          <p className="mt-8 text-[13px] text-[var(--ink-2)]">
+            Already have an account?{" "}
+            <Link href="/login" className="text-[var(--tappr-green)] hover:underline underline-offset-4">
+              Sign in
+            </Link>
+          </p>
+
+          {/* Trust line — matches the hero checklist */}
+          <ul className="mt-10 flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] text-[var(--muted)] font-mono">
+            {["No credit card", "500 clicks/mo free", "60-second setup"].map((t) => (
+              <li key={t} className="flex items-center gap-1.5">
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden>
+                  <path d="M2 6.5L5 9.5L10 3.5" stroke="var(--tappr-green)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <span>{t}</span>
+              </li>
+            ))}
+          </ul>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

@@ -440,7 +440,6 @@ export default function PricingPage() {
             <div>
               <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#00D26A] mb-4 border-b border-[#00D26A]/20 pb-2 inline-block">Resources</h5>
               <ul className="space-y-2 text-sm text-neutral-500 font-medium">
-                <li><Link href="/dashboard/developer" className="hover:text-white transition-colors">API Documentation</Link></li>
                 <li><Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link></li>
               </ul>
             </div>
@@ -458,7 +457,6 @@ export default function PricingPage() {
             <div className="flex gap-6">
               <Link href="#" className="hover:text-white transition-colors">Privacy policy</Link>
               <Link href="#" className="hover:text-white transition-colors">Terms and conditions</Link>
-              <Link href="/dashboard/developer" className="hover:text-white transition-colors">Developer API</Link>
             </div>
           </div>
         </div>

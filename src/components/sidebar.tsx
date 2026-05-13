@@ -22,10 +22,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useTeam } from "@/hooks/use-team";
 import { useUser } from "@/hooks/use-user";
 import { useAnomalyAlerts } from "@/hooks/use-anomaly-alerts";
-import { useCollections } from "@/hooks/use-collections";
-import { useLinks } from "@/hooks/use-links";
 import { CreateTeamDialog } from "@/components/teams/create-team-dialog";
-import { Star } from "lucide-react";
 
 // Color tier for the plan badge under the user's name in the sidebar.
 // `free` is muted, paid tiers escalate in saturation: starter blue,
@@ -64,6 +61,15 @@ function PlanBadge({ plan }: { plan: string }) {
 }
 
 const navigation = [
+  {
+    name: "Alerts",
+    href: "/dashboard/alerts",
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
+      </svg>
+    ),
+  },
   {
     name: "Dashboard",
     href: "/dashboard",
@@ -120,15 +126,6 @@ const navigation = [
     ),
   },
   {
-    name: "Alerts",
-    href: "/dashboard/alerts",
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
-      </svg>
-    ),
-  },
-  {
     name: "AI Brain",
     href: "/dashboard/brain",
     icon: (
@@ -144,15 +141,6 @@ const navigation = [
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 0 1-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 0 1 4.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0 1 12 15a9.065 9.065 0 0 0-6.23.693L5 14.5m14.8.8 1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0 1 12 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
-      </svg>
-    ),
-  },
-  {
-    name: "Developer API",
-    href: "/dashboard/developer",
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" />
       </svg>
     ),
   },
@@ -189,10 +177,6 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const { teams, activeTeam, setActiveTeam } = useTeam();
   const { user, profile } = useUser();
   const { unreadCount } = useAnomalyAlerts();
-  const { collections } = useCollections();
-  const { links } = useLinks();
-  const starredCollections = collections.filter((c) => c.is_starred);
-  const favoriteLinks = links.filter((l) => l.is_favorite);
   const isPartner = profile?.is_partner === true;
 
   const displayName = profile?.full_name || user?.user_metadata?.full_name || "User";
@@ -422,49 +406,6 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
           return linkContent;
         })}
 
-        {/* Favorite Links */}
-        {!collapsed && favoriteLinks.length > 0 && (
-          <div className="mt-4 pt-3 border-t border-white/5">
-            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-neutral-600 px-3 mb-2">
-              Favorites
-            </p>
-            {favoriteLinks.map((link) => (
-              <Link
-                key={link.id}
-                href={`/dashboard/analytics?linkId=${link.id}`}
-                className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-bold text-neutral-500 hover:text-neutral-200 hover:bg-white/[0.03] transition-all"
-              >
-                <Star className="w-3 h-3 shrink-0 text-amber-400" fill="currentColor" />
-                <span className="truncate">{link.title || link.slug}</span>
-              </Link>
-            ))}
-          </div>
-        )}
-
-        {/* Starred Collections */}
-        {!collapsed && starredCollections.length > 0 && (
-          <div className="mt-4 pt-3 border-t border-white/5">
-            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-neutral-600 px-3 mb-2">
-              Starred
-            </p>
-            {starredCollections.map((col) => {
-              const colPath = `/dashboard/collections`;
-              return (
-                <Link
-                  key={col.id}
-                  href={colPath}
-                  className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-bold text-neutral-500 hover:text-neutral-200 hover:bg-white/[0.03] transition-all"
-                >
-                  <div
-                    className="w-3 h-3 rounded shrink-0"
-                    style={{ backgroundColor: col.color || "#00D26A" }}
-                  />
-                  <span className="truncate">{col.name}</span>
-                </Link>
-              );
-            })}
-          </div>
-        )}
       </nav>
 
       <Separator className="opacity-50" />
