@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { TAPPR_PLANS, type TapprPlan } from "@/lib/fanbasis";
+import { logAuditEvent, type AuditEventType, type AuditSeverity } from "@/lib/audit";
 
 // FanBasis webhook receiver. The exact signature header/algorithm isn't in
 // the public docs, so we accept the request if EITHER of these matches:
@@ -67,7 +69,11 @@ export async function POST(request: NextRequest) {
   //   3. fanbasis_checkout_session_id (numeric — top-level field on event)
   const md = event.api_metadata?.data || {};
   const teamId = md.team_id;
-  const planFromMd = md.plan;
+  const planFromMd = md.plan as TapprPlan | undefined;
+  // user_id is set by /api/billing/checkout so we know which user paid —
+  // used below to look up an open partner_referrals row and credit the
+  // partner who brought them in.
+  const payerUserId = md.user_id;
   const checkoutSessionId =
     (event as Record<string, unknown>).checkout_session_id ??
     (typeof event.item === "object" && event.item ? (event.item as { id?: number }).id : undefined);
@@ -126,6 +132,17 @@ export async function POST(request: NextRequest) {
           notes: `Created by ${eventType} (no prior trial row)`,
         });
       }
+
+      // Credit the referring partner (if any). Only fires on the FIRST
+      // payment for the referral — the partner_referrals row goes from
+      // "pending" to "converted" and a one-time commission is logged.
+      // Renewal events skip the partner_earnings insert since the row is
+      // already "converted".
+      if (payerUserId && planFromMd) {
+        await creditPartnerOnPaidSignup(admin, payerUserId, planFromMd).catch((err) => {
+          console.error("[fanbasis-webhook] partner credit failed", err);
+        });
+      }
       break;
     }
 
@@ -170,5 +187,141 @@ export async function POST(request: NextRequest) {
       console.log("[fanbasis-webhook] unhandled event:", eventType);
   }
 
+  // Audit every recognised FanBasis event so admin sees the full timeline
+  // — succeeded, failed, cancelled, etc. — even when nothing changes in
+  // the subscriptions table.
+  if (eventType && AUDIT_MAP[eventType]) {
+    const map = AUDIT_MAP[eventType];
+    const planLabel = planFromMd ? ` ${planFromMd}` : "";
+    const amount = (event as Record<string, unknown>).amount;
+    const amountLabel = typeof amount === "number" ? ` ($${amount})` : "";
+
+    let targetEmail: string | null = null;
+    let buyerName: string | null = null;
+    if (typeof event.buyer === "object" && event.buyer) {
+      const b = event.buyer as { email?: string; name?: string };
+      targetEmail = b.email ?? null;
+      buyerName = b.name ?? null;
+    }
+
+    await logAuditEvent(admin, {
+      eventType: map.type,
+      severity: map.severity,
+      description: `${map.label}${planLabel}${amountLabel}${buyerName ? ` — ${buyerName}` : ""}`,
+      teamId: teamId || null,
+      targetUserId: payerUserId || null,
+      targetEmail,
+      source: "webhook:fanbasis",
+      metadata: {
+        event_type: eventType,
+        checkout_session_id: checkoutSessionId,
+        subscription_id: fbSubscriptionId,
+        amount,
+        plan: planFromMd,
+        api_metadata: md,
+      },
+    });
+  }
+
   return NextResponse.json({ received: true });
+}
+
+// Translate FanBasis webhook event types → our audit taxonomy + UI tone.
+const AUDIT_MAP: Record<string, { type: AuditEventType; label: string; severity: AuditSeverity }> = {
+  "payment.succeeded":      { type: "payment.succeeded",      label: "Payment succeeded",       severity: "success" },
+  "payment.failed":         { type: "payment.failed",         label: "Payment failed",          severity: "error"   },
+  "payment.canceled":       { type: "payment.canceled",       label: "Payment canceled",        severity: "warning" },
+  "payment.expired":        { type: "payment.expired",        label: "Payment expired",         severity: "warning" },
+  "subscription.created":   { type: "subscription.created",   label: "Subscription created",    severity: "success" },
+  "subscription.renewed":   { type: "subscription.renewed",   label: "Subscription renewed",    severity: "success" },
+  "subscription.canceled":  { type: "subscription.canceled",  label: "Subscription canceled",   severity: "warning" },
+  "subscription.completed": { type: "subscription.completed", label: "Subscription completed",  severity: "info"    },
+};
+
+// When a paid subscription succeeds for a user who was originally
+// referred by a partner, convert the open `partner_referrals` row and
+// log a one-time commission in `partner_earnings`. Idempotent —
+// re-running for the same referral becomes a no-op because we only
+// process rows with status="pending".
+async function creditPartnerOnPaidSignup(
+  admin: SupabaseClient,
+  payerUserId: string,
+  plan: TapprPlan
+) {
+  // Find the open referral for this buyer.
+  const { data: referral } = await admin
+    .from("partner_referrals")
+    .select("id, partner_id, status")
+    .eq("referred_user_id", payerUserId)
+    .eq("status", "pending")
+    .maybeSingle();
+
+  if (!referral) return; // not a referred signup, or already credited
+
+  const { data: partner } = await admin
+    .from("partner_profiles")
+    .select("id, commission_rate, pending_payout, total_earned")
+    .eq("id", referral.partner_id)
+    .single();
+
+  if (!partner) return;
+
+  const monthlyValueCents = TAPPR_PLANS[plan].amountCents;
+  const monthlyValue = monthlyValueCents / 100;
+  const commission = monthlyValue * Number(partner.commission_rate);
+
+  // 1. Flip the referral to converted with the plan + value.
+  await admin
+    .from("partner_referrals")
+    .update({
+      status: "converted",
+      plan,
+      monthly_value: monthlyValue,
+      converted_at: new Date().toISOString(),
+    })
+    .eq("id", referral.id);
+
+  // 2. Log the commission. period_month is the 1st of this month so we
+  //    can sum monthly earnings later for payouts.
+  const now = new Date();
+  const periodMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    .toISOString()
+    .slice(0, 10);
+
+  await admin.from("partner_earnings").insert({
+    partner_id: partner.id,
+    referral_id: referral.id,
+    amount: commission,
+    period_month: periodMonth,
+    status: "pending",
+    type: "commission",
+  });
+
+  // 3. Bump the partner's running totals so the Earnings page shows
+  //    the new commission immediately (without summing on each load).
+  await admin
+    .from("partner_profiles")
+    .update({
+      pending_payout: Number(partner.pending_payout) + commission,
+      total_earned: Number(partner.total_earned) + commission,
+    })
+    .eq("id", partner.id);
+
+  // Audit the commission so admin sees who got paid when on the activity
+  // page (separate from the payment.succeeded event for the buyer).
+  await logAuditEvent(admin, {
+    eventType: "partner.commission_paid",
+    severity: "success",
+    description: `Partner earned $${commission.toFixed(2)} commission on ${plan} signup`,
+    targetUserId: payerUserId,
+    source: "webhook:fanbasis",
+    metadata: {
+      partner_id: partner.id,
+      referral_id: referral.id,
+      commission_amount: commission,
+      monthly_value: monthlyValue,
+      commission_rate: Number(partner.commission_rate),
+      plan,
+    },
+  });
 }

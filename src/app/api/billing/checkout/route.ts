@@ -7,6 +7,7 @@ import {
   type TapprPlan,
   FanBasisError,
 } from "@/lib/fanbasis";
+import { logAuditEvent } from "@/lib/audit";
 
 // Creates a FanBasis checkout session for the active team's chosen plan and
 // returns the hosted-checkout URL the client should redirect the user to.
@@ -83,6 +84,25 @@ export async function POST(request: NextRequest) {
       fanbasis_product_id: session.id,
       customer_email: authData.user.email || null,
       notes: "Awaiting FanBasis checkout completion",
+    });
+
+    await logAuditEvent(admin, {
+      eventType: "billing.checkout_started",
+      severity: "info",
+      description: `Started checkout for ${plan} ($${(cfg.amountCents / 100).toFixed(2)}/mo)`,
+      actorUserId: authData.user.id,
+      actorEmail: authData.user.email || null,
+      teamId: team_id,
+      targetUserId: authData.user.id,
+      targetEmail: authData.user.email || null,
+      source: "api:/billing/checkout",
+      metadata: {
+        plan,
+        amount_cents: cfg.amountCents,
+        fanbasis_checkout_session_id: session.checkout_session_id,
+        fanbasis_product_id: session.id,
+        payment_link: session.payment_link,
+      },
     });
 
     return NextResponse.json({
