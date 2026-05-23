@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
 export function LinkList() {
-  const { links, loading, updateLink, deleteLink, toggleFavorite } = useLinks();
+  const { links, loading, updateLink, deleteLink } = useLinks();
   const { collections, moveLinksToCollection } = useCollections();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -193,6 +193,8 @@ export function LinkList() {
         onBulkCollection={handleBulkCollection}
         totalCount={filteredLinks.length}
         collections={collections.map((c) => ({ id: c.id, name: c.name }))}
+        pageSize={pageSize}
+        onPageSizeChange={setPageSize}
       />
 
       {filteredLinks.length === 0 ? (
@@ -208,7 +210,6 @@ export function LinkList() {
                 link={link}
                 onToggleActive={(id, active) => updateLink(id, { is_active: active })}
                 onDelete={(id) => deleteLink(id)}
-                onToggleFavorite={(id, favorite) => toggleFavorite(id, favorite)}
                 selected={selectedIds.has(link.id)}
                 onToggleSelect={() => handleToggleSelect(link.id)}
                 collections={collections.map((c) => ({ id: c.id, name: c.name }))}
@@ -222,7 +223,6 @@ export function LinkList() {
               pageSize={pageSize}
               total={filteredLinks.length}
               onPageChange={setPage}
-              onPageSizeChange={setPageSize}
             />
           </div>
         </>

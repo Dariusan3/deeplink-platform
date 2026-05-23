@@ -1,13 +1,28 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Smartphone, Tablet, Monitor, Activity, Globe } from "lucide-react";
+import {
+  Smartphone,
+  Tablet,
+  Monitor,
+  Activity,
+  Globe,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { RecentClick } from "@/hooks/use-click-stats";
+import { cn } from "@/lib/utils";
 
 interface RecentActivityProps {
   recentClicks: RecentClick[];
   loading?: boolean;
 }
+
+// Show this many clicks per "page". Anything beyond is reachable via the
+// prev/next arrows in the header — avoids a long scrollable list on the
+// dashboard.
+const PAGE_SIZE = 5;
 
 function countryToFlag(code: string | null): string {
   if (!code || code.length !== 2) return "";
@@ -51,22 +66,82 @@ function extractDomain(referer: string | null): string | null {
 }
 
 export function RecentActivity({ recentClicks, loading }: RecentActivityProps) {
+  const [page, setPage] = useState(0);
+
+  const totalPages = Math.max(1, Math.ceil(recentClicks.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const start = safePage * PAGE_SIZE;
+  const visibleClicks = useMemo(
+    () => recentClicks.slice(start, start + PAGE_SIZE),
+    [recentClicks, start]
+  );
+
+  // If new clicks arrive and shrink the page count below the user's
+  // current page, slide them back to the last available one.
+  useEffect(() => {
+    if (page >= totalPages) setPage(Math.max(0, totalPages - 1));
+  }, [page, totalPages]);
+
+  const showNav = recentClicks.length > PAGE_SIZE;
+
   return (
     <Card className="glass-card bg-white/[0.01] border-white/5 relative overflow-hidden">
       <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[#00D26A]/20 to-transparent" />
       <CardHeader className="pt-8 px-8 pb-4">
-        <CardTitle className="text-xl font-black tracking-tight text-white flex items-center gap-2">
-          <Activity className="w-5 h-5 text-[#00D26A]" />
-          Recent Click Activity
-        </CardTitle>
-        <p className="text-sm text-neutral-500 font-medium">
-          Click activity will appear here as your links receive traffic.
-        </p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <CardTitle className="text-xl font-black tracking-tight text-white flex items-center gap-2">
+              <Activity className="w-5 h-5 text-[#00D26A]" />
+              Recent Click Activity
+            </CardTitle>
+            <p className="text-sm text-neutral-500 font-medium mt-1">
+              Click activity will appear here as your links receive traffic.
+            </p>
+          </div>
+
+          {/* Pagination arrows — header position keeps the list compact
+              and avoids a long scroll on the dashboard. */}
+          {showNav && (
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={safePage === 0}
+                aria-label="Newer clicks"
+                className={cn(
+                  "h-8 w-8 rounded-lg border border-white/10 bg-white/[0.02] flex items-center justify-center transition-all",
+                  safePage === 0
+                    ? "opacity-30 cursor-not-allowed"
+                    : "hover:border-[#00D26A]/40 hover:bg-[#00D26A]/5 hover:text-[#00D26A] text-neutral-400"
+                )}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500 px-1.5 tabular-nums min-w-[36px] text-center">
+                {safePage + 1}/{totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={safePage >= totalPages - 1}
+                aria-label="Older clicks"
+                className={cn(
+                  "h-8 w-8 rounded-lg border border-white/10 bg-white/[0.02] flex items-center justify-center transition-all",
+                  safePage >= totalPages - 1
+                    ? "opacity-30 cursor-not-allowed"
+                    : "hover:border-[#00D26A]/40 hover:bg-[#00D26A]/5 hover:text-[#00D26A] text-neutral-400"
+                )}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="px-8 pb-8">
         {loading ? (
           <div className="space-y-3">
-            {[...Array(5)].map((_, i) => (
+            {[...Array(PAGE_SIZE)].map((_, i) => (
               <div key={i} className="h-12 rounded-xl bg-white/[0.02] animate-pulse" />
             ))}
           </div>
@@ -82,7 +157,7 @@ export function RecentActivity({ recentClicks, loading }: RecentActivityProps) {
           </div>
         ) : (
           <div className="space-y-1">
-            {recentClicks.map((click) => {
+            {visibleClicks.map((click) => {
               const flag = countryToFlag(click.country);
               const domain = extractDomain(click.referer);
 

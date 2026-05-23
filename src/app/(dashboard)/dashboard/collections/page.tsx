@@ -9,6 +9,12 @@ import { CreateCollectionDialog, CollectionsInfo } from "@/components/collection
 import { AddLinkToCollectionDialog } from "@/components/collections/add-link-to-collection-dialog";
 import { EditCollectionDialog } from "@/components/collections/edit-collection-dialog";
 import {
+  CollectionsToolbar,
+  type CollectionsSortBy,
+  type CollectionsTypeFilter,
+} from "@/components/collections/collections-toolbar";
+import { LinkPagination } from "@/components/links/link-pagination";
+import {
   FolderOpen,
   Trash2,
   Pencil,
@@ -20,7 +26,7 @@ import {
   Target,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -170,6 +176,62 @@ export default function CollectionsPage() {
   const [activeCollectionId, setActiveCollectionId] = useState<string | null>(
     null
   );
+
+  // Toolbar state — mirrors the pattern from /dashboard/links so the
+  // pages feel consistent.
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<CollectionsSortBy>("newest");
+  const [typeFilter, setTypeFilter] = useState<CollectionsTypeFilter>("all");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(12);
+
+  const filteredCollections = useMemo(() => {
+    let result = collections;
+
+    if (typeFilter === "rotator") {
+      result = result.filter((c) => c.is_rotator);
+    } else if (typeFilter === "regular") {
+      result = result.filter((c) => !c.is_rotator);
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (c) =>
+          c.name.toLowerCase().includes(q) ||
+          c.description?.toLowerCase().includes(q)
+      );
+    }
+
+    result = [...result].sort((a, b) => {
+      switch (sortBy) {
+        case "oldest":
+          return new Date(a.created_at ?? 0).getTime() - new Date(b.created_at ?? 0).getTime();
+        case "most-links":
+          return (b.link_count || 0) - (a.link_count || 0);
+        case "fewest-links":
+          return (a.link_count || 0) - (b.link_count || 0);
+        case "alpha":
+          return a.name.localeCompare(b.name);
+        case "newest":
+        default:
+          return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime();
+      }
+    });
+
+    return result;
+  }, [collections, searchQuery, sortBy, typeFilter]);
+
+  // Reset to page 1 when filters or page size change — keeps the user
+  // off empty pages after narrowing the result set.
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, sortBy, typeFilter, pageSize]);
+
+  const pagedCollections = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredCollections.slice(start, start + pageSize);
+  }, [filteredCollections, page, pageSize]);
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -374,8 +436,27 @@ export default function CollectionsPage() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-20">
-          <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {collections.map((col) => (
+          <div className="lg:col-span-2 space-y-4">
+            <CollectionsToolbar
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              sortBy={sortBy}
+              onSortByChange={setSortBy}
+              typeFilter={typeFilter}
+              onTypeFilterChange={setTypeFilter}
+              totalCount={filteredCollections.length}
+              pageSize={pageSize}
+              onPageSizeChange={setPageSize}
+            />
+
+            {filteredCollections.length === 0 ? (
+              <div className="text-center py-12 rounded-2xl border border-dashed border-white/5">
+                <p className="text-sm font-bold text-neutral-500">No collections match your filters</p>
+              </div>
+            ) : (
+              <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {pagedCollections.map((col) => (
               <div
                 key={col.id}
                 onClick={() => setActiveCollectionId(col.id)}
@@ -449,6 +530,16 @@ export default function CollectionsPage() {
                 </div>
               </div>
             ))}
+              </div>
+
+              <LinkPagination
+                page={page}
+                pageSize={pageSize}
+                total={filteredCollections.length}
+                onPageChange={setPage}
+              />
+              </>
+            )}
           </div>
           <div className="lg:col-span-1">
             <CollectionsInfo />
