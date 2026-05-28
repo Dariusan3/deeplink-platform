@@ -1,14 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import Groq from "groq-sdk";
 import { sendAnomalyEmail, sendPartnerMonthlyReportEmail } from "@/lib/email";
 import { finalizeABWinnerIfReady } from "@/lib/ab-testing";
 
-// Uses service role key — this route is called by a cron scheduler, not a browser
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Uses the service-role key — this route is hit by a cron scheduler, not a
+// browser. Created lazily on first request rather than at module scope:
+// `next build` loads this module to collect page data, and an eager top-level
+// client throws "supabaseKey is required" because the service key isn't
+// available at build time.
+let _supabase: SupabaseClient | null = null;
+function getSupabase(): SupabaseClient {
+  if (!_supabase) {
+    _supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+  }
+  return _supabase;
+}
 
 interface DetectedAnomaly {
   team_id: string;
@@ -61,6 +71,8 @@ export async function GET(request: NextRequest) {
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const supabase = getSupabase();
 
   const now = new Date();
   const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);

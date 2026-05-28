@@ -1,10 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-const supabase = createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey);
+// Lazily created on first request, not at module scope: `next build` loads
+// this module to collect page data and an eager top-level client throws
+// "supabaseKey is required" when no key is present at build time.
+let _supabase: SupabaseClient | null = null;
+function getSupabase(): SupabaseClient {
+  if (!_supabase) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+    _supabase = createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey);
+  }
+  return _supabase;
+}
 
 // Simple in-memory rate limiter: max 30 requests per IP per minute
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -43,6 +52,8 @@ export async function POST(request: NextRequest) {
       { status: 429, headers: { "Retry-After": "60" } }
     );
   }
+
+  const supabase = getSupabase();
 
   try {
     const body = await request.json();
