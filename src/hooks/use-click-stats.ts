@@ -60,11 +60,23 @@ export function useClickStats(): ClickStats {
     fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 13);
     fourteenDaysAgo.setHours(0, 0, 0, 0);
 
-    const { data, error } = await supabase
-      .from("link_clicks")
-      .select("clicked_at")
-      .in("link_id", linkIds)
-      .gte("clicked_at", fourteenDaysAgo.toISOString());
+    // Both queries only depend on linkIds — fire them together instead of
+    // waiting for the 14-day aggregate before fetching recent clicks.
+    const [dailyRes, recentRes] = await Promise.all([
+      supabase
+        .from("link_clicks")
+        .select("clicked_at")
+        .in("link_id", linkIds)
+        .gte("clicked_at", fourteenDaysAgo.toISOString()),
+      supabase
+        .from("link_clicks")
+        .select("id, clicked_at, country, device_type, referer, link_id, links(slug, title)")
+        .in("link_id", linkIds)
+        .order("clicked_at", { ascending: false })
+        .limit(20),
+    ]);
+
+    const { data, error } = dailyRes;
 
     if (error) {
       console.error("Error fetching click stats:", error.message);
@@ -95,14 +107,7 @@ export function useClickStats(): ClickStats {
     }
     setDailyCounts(days);
 
-    // Fetch recent clicks with link info
-    const { data: recentData } = await supabase
-      .from("link_clicks")
-      .select("id, clicked_at, country, device_type, referer, link_id, links(slug, title)")
-      .in("link_id", linkIds)
-      .order("clicked_at", { ascending: false })
-      .limit(20);
-
+    const recentData = recentRes.data;
     if (recentData) {
       const mapped: RecentClick[] = recentData.map((click: any) => ({
         id: click.id,

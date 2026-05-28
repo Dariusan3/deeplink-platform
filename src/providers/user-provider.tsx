@@ -23,43 +23,51 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
-    async function getUser() {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
+    async function init() {
+      // Read the session from local storage (instant) instead of getUser()
+      // which makes a network round-trip to Supabase's auth server. The
+      // session user is enough to start fetching the user's data; route
+      // protection is enforced server-side by middleware (getUser) and every
+      // query is RLS-scoped, so client-side getSession is safe here.
+      const { data: { session } } = await supabase.auth.getSession();
+      const sessionUser = session?.user ?? null;
+      setUser(sessionUser);
+      // Unblock downstream providers (teams → links → stats) immediately —
+      // the profile fetch below is not on the critical path.
+      setLoading(false);
 
-      if (user) {
-        const { data, error } = await supabase
+      if (!sessionUser) return;
+
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", sessionUser.id)
+        .single();
+
+      if (data) {
+        setProfile(data);
+      } else if (error && error.code === "PGRST116") {
+        // Profile missing, let's try to create it
+        const { data: newProfile, error: insertError } = await supabase
           .from("users")
-          .select("*")
-          .eq("id", user.id)
+          .upsert({
+            id: sessionUser.id,
+            email: sessionUser.email!,
+            full_name: sessionUser.user_metadata?.full_name || "",
+            avatar_url: sessionUser.user_metadata?.avatar_url || "",
+          })
+          .select()
           .single();
 
-        if (data) {
-          setProfile(data);
-        } else if (error && error.code === "PGRST116") {
-          // Profile missing, let's try to create it
-          const { data: newProfile, error: insertError } = await supabase
-            .from("users")
-            .upsert({
-              id: user.id,
-              email: user.email!,
-              full_name: user.user_metadata?.full_name || "",
-              avatar_url: user.user_metadata?.avatar_url || "",
-            })
-            .select()
-            .single();
-          
-          if (newProfile) {
-            setProfile(newProfile);
-          } else if (insertError) {
-             console.error("Critical: User profile auto-creation failed:", insertError.message || insertError);
-          }
+        if (newProfile) {
+          setProfile(newProfile);
+        } else if (insertError) {
+           console.error("Critical: User profile auto-creation failed:", insertError.message || insertError);
         }
       }
-      setLoading(false);
     }
 
-    getUser();
+    init();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event: string, session: { user: User | null } | null) => {
