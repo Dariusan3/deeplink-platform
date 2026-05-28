@@ -75,15 +75,35 @@ export async function GET(
   const { slug } = await params;
   if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
 
-  // Check rotator collections first
-  const { data: rotatorCollection } = await supabase
-    .from("collections")
-    .select("id")
-    .eq("rotator_slug", slug)
-    .eq("is_rotator", true)
-    .limit(1)
-    .maybeSingle();
+  // Resolve the slug across its three possible namespaces in parallel.
+  // Previously these ran sequentially, so a plain link paid for the rotator
+  // and A/B round-trips before its own query even started. Firing all three
+  // at once collapses those serial hops into a single round-trip. Match
+  // priority is unchanged: rotator > A/B test > plain link.
+  const [rotatorRes, abRes, linkRes] = await Promise.all([
+    supabase
+      .from("collections")
+      .select("id")
+      .eq("rotator_slug", slug)
+      .eq("is_rotator", true)
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("ab_tests")
+      .select("*")
+      .eq("slug", slug)
+      .in("status", ["running", "completed"])
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("links")
+      .select("id, destination_url, redirect_rules, is_active, team_id")
+      .eq("slug", slug)
+      .maybeSingle(),
+  ]);
 
+  // Rotator collection takes precedence.
+  const rotatorCollection = rotatorRes.data;
   if (rotatorCollection) {
     // Get all active links in this collection
     const { data: rotatorLinks } = await supabase
@@ -114,35 +134,27 @@ export async function GET(
     return NextResponse.redirect(new URL("/not-found", request.url), { status: 302 });
   }
 
-  // Check A/B tests
-  const { data: abTest } = await supabase
-    .from("ab_tests")
-    .select("*")
-    .eq("slug", slug)
-    .in("status", ["running", "completed"])
-    .limit(1)
-    .maybeSingle();
-
-  if (abTest) {
-    return handleABTest(request, abTest);
+  // Then A/B test.
+  if (abRes.data) {
+    return handleABTest(request, abRes.data);
   }
 
-  const { data: link, error } = await supabase
-    .from("links")
-    .select("id, destination_url, redirect_rules, is_active, team_id")
-    .eq("slug", slug)
-    .single();
+  const link = linkRes.data;
+  if (!link) return NextResponse.redirect(new URL("/not-found", request.url), { status: 302 });
 
-  if (error || !link) return NextResponse.redirect(new URL("/not-found", request.url), { status: 302 });
+  // Detect TikTok in-app browser up front so we know whether team display
+  // preferences are even relevant.
+  const userAgent = request.headers.get("user-agent") || "";
+  const isTikTok = /TikTok|BytedanceWebview|musical_ly/i.test(userAgent);
 
-  // Pull team display preferences once — used by /paused and the
-  // TikTok overlay so they reflect what the team configured in Settings.
-  // We pass the relevant flags as query params instead of having those
-  // public pages re-query Supabase.
+  // Team display preferences (paused-page branding + TikTok overlay mode)
+  // are only consulted on those two branches. The overwhelming common case
+  // — an active link in a normal browser — never reads them, so we skip the
+  // round-trip entirely instead of fetching on every redirect.
   let tiktokMode: string | undefined;
   let showAppTap = true;
   let showBranding = true;
-  if (link.team_id) {
+  if ((!link.is_active || isTikTok) && link.team_id) {
     const { data: teamSettings } = await supabase
       .from("team_settings")
       .select("tiktok_browser_mode, show_app_tap_to_continue, show_branding")
@@ -158,10 +170,6 @@ export async function GET(
     if (!showBranding) pausedUrl.searchParams.set("branding", "0");
     return NextResponse.redirect(pausedUrl, { status: 302 });
   }
-
-  // Detect TikTok in-app browser
-  const userAgent = request.headers.get("user-agent") || "";
-  const isTikTok = /TikTok|BytedanceWebview|musical_ly/i.test(userAgent);
 
   if (isTikTok && tiktokMode === "overlay") {
     const overlayUrl = new URL("/tiktok-open", request.url);
