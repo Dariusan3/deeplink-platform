@@ -396,7 +396,7 @@ export default function BrainPage() {
     const codeBlocks: string[] = [];
     html = html.replace(/```(?:\w+)?\n?([\s\S]*?)```/g, (_, code) => {
       const i = codeBlocks.push(code) - 1;
-      return ` CODEBLOCK${i} `;
+      return `\x00CODEBLOCK${i}\x00`;
     });
 
     // Inline code
@@ -412,21 +412,21 @@ export default function BrainPage() {
     html = html.replace(/^# (.+)$/gm, "<h1>$1</h1>");
 
     // Bullet + numbered lists
-    html = html.replace(/^[-*] (.+)$/gm, "UL$1");
-    html = html.replace(/(UL[^\n]+(?:\nUL[^\n]+)*)/g, (block) => {
+    html = html.replace(/^[-*] (.+)$/gm, "\x01UL$1");
+    html = html.replace(/(\x01UL[^\n]+(?:\n\x01UL[^\n]+)*)/g, (block) => {
       const items = block
         .split(/\n/)
-        .map((line) => line.replace(/^UL/, "").trim())
+        .map((line) => line.replace(/^\x01UL/, "").trim())
         .filter(Boolean)
         .map((item) => `<li>${item}</li>`)
         .join("");
       return `<ul>${items}</ul>`;
     });
-    html = html.replace(/^\d+\. (.+)$/gm, "OL$1");
-    html = html.replace(/(OL[^\n]+(?:\nOL[^\n]+)*)/g, (block) => {
+    html = html.replace(/^\d+\. (.+)$/gm, "\x02OL$1");
+    html = html.replace(/(\x02OL[^\n]+(?:\n\x02OL[^\n]+)*)/g, (block) => {
       const items = block
         .split(/\n/)
-        .map((line) => line.replace(/^OL/, "").trim())
+        .map((line) => line.replace(/^\x02OL/, "").trim())
         .filter(Boolean)
         .map((item) => `<li>${item}</li>`)
         .join("");
@@ -447,7 +447,7 @@ export default function BrainPage() {
       const trimmed = block.trim();
       if (!trimmed) return "";
       // Don't wrap if it's already a block-level element.
-      if (/^<(h\d|ul|ol|blockquote|pre| CODEBLOCK)/.test(trimmed)) {
+      if (/^<(h\d|ul|ol|blockquote|pre|\x00CODEBLOCK)/.test(trimmed)) {
         return trimmed;
       }
       // Inside a paragraph, single newline = soft break.
@@ -456,7 +456,7 @@ export default function BrainPage() {
     html = blocks.join("");
 
     // Restore code blocks last so their <pre><code> escapes aren't double-mangled.
-    html = html.replace(/ CODEBLOCK(\d+) /g, (_, i) => {
+    html = html.replace(/\x00CODEBLOCK(\d+)\x00/g, (_, i) => {
       return `<pre><code>${codeBlocks[Number(i)]}</code></pre>`;
     });
 
