@@ -45,7 +45,14 @@ export interface HourlyData {
 
 type TimeRange = "7d" | "14d" | "30d" | "90d" | "all";
 
-export function useAnalytics(timeRange: TimeRange = "30d", collectionId?: string | null) {
+// When `customRange` is provided (both from + to set to ISO YYYY-MM-DD),
+// it overrides `timeRange` — the query window becomes `[from, to+1d)`.
+// Callers using the preset ranges can keep passing just timeRange.
+export function useAnalytics(
+  timeRange: TimeRange = "30d",
+  collectionId?: string | null,
+  customRange?: { from: string; to: string } | null
+) {
   const { activeTeam } = useTeam();
   const { settings } = useSettings();
   const tz = settings?.timezone || "UTC";
@@ -86,7 +93,17 @@ export function useAnalytics(timeRange: TimeRange = "30d", collectionId?: string
       .select("clicked_at, country, device_type, referer, link_id, user_agent")
       .in("link_id", linkIds);
 
-    if (timeRange !== "all") {
+    const hasCustomRange = customRange && customRange.from && customRange.to;
+    if (hasCustomRange) {
+      // Inclusive window: from 00:00:00 on `from` up to (but not including)
+      // 00:00:00 on the day AFTER `to`, so the full `to` day is covered.
+      const startDate = new Date(customRange.from + "T00:00:00");
+      const endDate = new Date(customRange.to + "T00:00:00");
+      endDate.setDate(endDate.getDate() + 1);
+      query = query
+        .gte("clicked_at", startDate.toISOString())
+        .lt("clicked_at", endDate.toISOString());
+    } else if (timeRange !== "all") {
       const days = daysMap[timeRange];
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - (days - 1));
@@ -113,7 +130,17 @@ export function useAnalytics(timeRange: TimeRange = "30d", collectionId?: string
       byDate[d] = (byDate[d] || 0) + 1;
     });
     const dailyArr: DailyClickData[] = [];
-    if (timeRange === "all" && clicks.length > 0) {
+    if (hasCustomRange) {
+      // Walk every day in the custom window (inclusive).
+      const start = new Date(customRange.from + "T00:00:00");
+      const end = new Date(customRange.to + "T00:00:00");
+      const cursor = new Date(start);
+      while (cursor <= end) {
+        const ds = dateKeyInTimezone(cursor, tz);
+        dailyArr.push({ date: ds, count: byDate[ds] || 0 });
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    } else if (timeRange === "all" && clicks.length > 0) {
       // For "all", build from earliest click to today — labels in user TZ.
       const allDates = Object.keys(byDate).sort();
       const earliest = new Date(allDates[0] + "T00:00:00");
@@ -230,7 +257,7 @@ export function useAnalytics(timeRange: TimeRange = "30d", collectionId?: string
     setHourlyData(hourlyArr);
 
     setLoading(false);
-  }, [links, timeRange, collectionId, supabase, tz]);
+  }, [links, timeRange, collectionId, supabase, tz, customRange?.from, customRange?.to]);
 
   useEffect(() => {
     fetchAnalytics();

@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/tier1-alerts",
-      "schedule": "0 */3 * * *"
+      "schedule": "0 9 * * *"
     }
   ]
 }

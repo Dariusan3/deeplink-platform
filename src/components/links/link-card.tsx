@@ -15,7 +15,6 @@ import {
   Trash2,
   Globe,
   QrCode,
-  Star,
   Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -48,7 +47,6 @@ interface LinkCardProps {
   link: LinkType;
   onToggleActive: (id: string, active: boolean) => void;
   onDelete: (id: string) => void;
-  onToggleFavorite?: (id: string, favorite: boolean) => void;
   selected?: boolean;
   onToggleSelect?: () => void;
   collections?: CollectionOption[];
@@ -58,7 +56,6 @@ export function LinkCard({
   link,
   onToggleActive,
   onDelete,
-  onToggleFavorite,
   selected,
   onToggleSelect,
   collections,
@@ -143,23 +140,6 @@ export function LinkCard({
                 >
                   {link.is_active ? "Live" : "Paused"}
                 </div>
-                {onToggleFavorite && (
-                  <button
-                    onClick={() => onToggleFavorite(link.id, !link.is_favorite)}
-                    title={link.is_favorite ? "Remove from favorites" : "Add to favorites"}
-                    className={cn(
-                      "shrink-0 transition-all",
-                      link.is_favorite
-                        ? "text-amber-400 hover:text-amber-300"
-                        : "text-neutral-600 hover:text-amber-400"
-                    )}
-                  >
-                    <Star
-                      className="w-4 h-4"
-                      fill={link.is_favorite ? "currentColor" : "none"}
-                    />
-                  </button>
-                )}
               </div>
 
               <div className="flex items-center gap-2 mb-4">

@@ -8,7 +8,10 @@ interface LinkPaginationProps {
   pageSize: number;
   total: number;
   onPageChange: (page: number) => void;
-  onPageSizeChange: (size: number) => void;
+  // When omitted, the per-page selector is hidden (it lives in LinkToolbar
+  // on the links page now). QR codes page still passes this since it has
+  // no toolbar.
+  onPageSizeChange?: (size: number) => void;
 }
 
 const PAGE_SIZE_OPTIONS = [12, 24, 48, 96];
@@ -31,6 +34,7 @@ function buildPageList(current: number, total: number): (number | "ellipsis")[] 
   return [1, "ellipsis", current - 1, current, current + 1, "ellipsis", total];
 }
 
+// Bottom-of-page nav. The per-page selector lives in LinkToolbar now.
 export function LinkPagination({
   page,
   pageSize,
@@ -44,12 +48,11 @@ export function LinkPagination({
   const end = Math.min(safePage * pageSize, total);
 
   const pages = buildPageList(safePage, totalPages);
-
   const goto = (p: number) => onPageChange(Math.min(Math.max(1, p), totalPages));
 
   return (
-    <div className="glass-card bg-white/[0.01] border-white/5 rounded-2xl px-4 py-3 flex flex-col md:flex-row md:items-center justify-between gap-4">
-      {/* Range + page-size */}
+    <div className="glass-card bg-white/[0.01] border-white/5 rounded-2xl px-4 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
+      {/* Range + (optional) per-page selector */}
       <div className="flex items-center gap-4">
         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400">
           <span className="text-white">{start}</span>
@@ -60,31 +63,33 @@ export function LinkPagination({
           <span className="ml-2 text-neutral-500">links</span>
         </p>
 
-        <div className="flex items-center gap-1.5 pl-4 border-l border-white/5">
-          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500">
-            Per page
-          </span>
-          <div className="flex items-center gap-0.5">
-            {PAGE_SIZE_OPTIONS.map((size) => (
-              <button
-                key={size}
-                type="button"
-                onClick={() => onPageSizeChange(size)}
-                className={cn(
-                  "h-6 min-w-7 px-1.5 text-[11px] font-black tabular-nums rounded-md transition-colors",
-                  size === pageSize
-                    ? "bg-[#00D26A]/15 text-[#00D26A] border border-[#00D26A]/30"
-                    : "text-neutral-500 hover:text-white hover:bg-white/5 border border-transparent"
-                )}
-              >
-                {size}
-              </button>
-            ))}
+        {onPageSizeChange && (
+          <div className="flex items-center gap-1.5 pl-4 border-l border-white/5">
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500">
+              Per page
+            </span>
+            <div className="flex items-center gap-0.5">
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <button
+                  key={size}
+                  type="button"
+                  onClick={() => onPageSizeChange(size)}
+                  className={cn(
+                    "h-6 min-w-7 px-1.5 text-[11px] font-black tabular-nums rounded-md transition-colors",
+                    size === pageSize
+                      ? "bg-[#00D26A]/15 text-[#00D26A] border border-[#00D26A]/30"
+                      : "text-neutral-500 hover:text-white hover:bg-white/5 border border-transparent"
+                  )}
+                >
+                  {size}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Page nav */}
+      {/* Page nav — hidden when there's only one page */}
       {totalPages > 1 && (
         <div className="flex items-center gap-1">
           <button

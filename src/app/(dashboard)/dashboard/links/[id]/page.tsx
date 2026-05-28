@@ -29,7 +29,6 @@ import {
   QrCode,
   Settings2,
   Trash2,
-  Star,
   BarChart3,
   Globe,
   Target,
@@ -43,7 +42,7 @@ export default function LinkEditPage() {
   const params = useParams<{ id: string }>();
   const linkId = params.id;
 
-  const { links, updateLink, deleteLink, toggleFavorite } = useLinks();
+  const { links, updateLink, deleteLink } = useLinks();
   const { collections } = useCollections();
 
   const link = useMemo<LinkType | undefined>(
@@ -179,18 +178,6 @@ export default function LinkEditPage() {
             Back to Links
           </button>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => toggleFavorite(link.id, !link.is_favorite)}
-              title={link.is_favorite ? "Remove from favorites" : "Add to favorites"}
-              className={cn(
-                "h-10 w-10 rounded-xl border flex items-center justify-center transition-all",
-                link.is_favorite
-                  ? "bg-amber-400/10 border-amber-400/30 text-amber-400"
-                  : "bg-white/[0.03] border-white/10 text-neutral-500 hover:text-amber-400"
-              )}
-            >
-              <Star className="w-4 h-4" fill={link.is_favorite ? "currentColor" : "none"} />
-            </button>
             <Button
               onClick={handleSave}
               disabled={saving || !isDirty}

@@ -31,7 +31,7 @@ import {
   RefreshCw,
   ArrowRight,
 } from "lucide-react";
-import { DatePicker } from "@/components/ui/date-picker";
+import { DateRangePicker } from "@/components/ui/date-picker";
 
 type TimeRange = "7d" | "14d" | "30d" | "90d" | "all" | "custom";
 
@@ -42,8 +42,15 @@ export default function AnalyticsPage() {
   const [customTo, setCustomTo] = useState("");
   const { collections } = useCollections();
   const { links } = useLinks();
+  // Only pass the custom range to the hook once BOTH endpoints are picked,
+  // otherwise the query window would be undefined.
+  const customRangeReady = timeRange === "custom" && !!customFrom && !!customTo;
   const { dailyClicks, geoData, deviceData, browserData, hourlyData, referrerData, topLinks, totalClicks, loading } =
-    useAnalytics(timeRange === "custom" ? "all" : timeRange, selectedCollection);
+    useAnalytics(
+      timeRange === "custom" ? "all" : timeRange,
+      selectedCollection,
+      customRangeReady ? { from: customFrom, to: customTo } : null
+    );
 
   const ranges: { value: TimeRange; label: string }[] = [
     { value: "7d", label: "7D" },
@@ -51,6 +58,7 @@ export default function AnalyticsPage() {
     { value: "30d", label: "30D" },
     { value: "90d", label: "90D" },
     { value: "all", label: "All" },
+    { value: "custom", label: "Custom" },
   ];
 
   // Compute extra stats from the data
@@ -169,25 +177,41 @@ export default function AnalyticsPage() {
               <FolderOpen className="w-3.5 h-3.5 text-neutral-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
 
-            {/* Time range */}
-            <div className="flex gap-0.5 bg-white/[0.02] border border-white/5 rounded-xl p-1">
-              {ranges.map((r) => (
-                <Button
-                  key={r.value}
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setTimeRange(r.value)}
-                  className={cn(
-                    "h-7 px-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
-                    timeRange === r.value
-                      ? "bg-[#00D26A]/10 text-[#00D26A]"
-                      : "text-neutral-500 hover:text-white hover:bg-white/[0.03]"
-                  )}
-                >
-                  {r.label}
-                </Button>
-              ))}
-            </div>
+            {/* Time range — when Custom is active we REPLACE the preset
+                chips with the date-range picker so Export stays inline
+                and the picker auto-opens on the first click. */}
+            {timeRange === "custom" ? (
+              <DateRangePicker
+                from={customFrom}
+                to={customTo}
+                onChange={({ from, to }) => {
+                  setCustomFrom(from);
+                  setCustomTo(to);
+                }}
+                placeholder="Pick date range"
+                defaultOpen
+                className="w-[260px]"
+              />
+            ) : (
+              <div className="flex gap-0.5 bg-white/[0.02] border border-white/5 rounded-xl p-1">
+                {ranges.map((r) => (
+                  <Button
+                    key={r.value}
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setTimeRange(r.value)}
+                    className={cn(
+                      "h-7 px-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                      timeRange === r.value
+                        ? "bg-[#00D26A]/10 text-[#00D26A]"
+                        : "text-neutral-500 hover:text-white hover:bg-white/[0.03]"
+                    )}
+                  >
+                    {r.label}
+                  </Button>
+                ))}
+              </div>
+            )}
 
             {/* Export */}
             <Button

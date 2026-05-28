@@ -15,12 +15,14 @@ import {
   Shield,
   ArrowLeft,
   Lock,
+  ScrollText,
 } from "lucide-react";
 
 const ADMIN_PIN = process.env.NEXT_PUBLIC_ADMIN_PIN || "tappr2026";
 
 const adminNav = [
   { name: "Overview", href: "/admin", icon: LayoutDashboard },
+  { name: "Activity Log", href: "/admin/activity", icon: ScrollText },
   { name: "Users & Teams", href: "/admin/users", icon: Users },
   { name: "Subscriptions", href: "/admin/subscriptions", icon: CreditCard },
 ];
