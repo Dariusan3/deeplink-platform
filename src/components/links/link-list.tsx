@@ -23,6 +23,16 @@ export function LinkList() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
 
+  // Deep-link support: alerts ("Open link") and other CTAs navigate to
+  // /dashboard/links?slug=<slug>. Pre-fill the search on mount so the targeted
+  // link surfaces immediately instead of dumping the whole list.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const target = params.get("slug") || params.get("search");
+    if (target) setSearchQuery(target);
+  }, []);
+
   const filteredLinks = useMemo(() => {
     let result = links;
 
@@ -44,9 +54,10 @@ export function LinkList() {
       result = result.filter((l) => new Date(l.created_at) < cutoff);
     }
 
-    // Search filter
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
+    // Search filter — strip a leading "/" so searching "/my-slug" (the form
+    // shown in the UI and in the short URL) still matches the stored slug.
+    const q = searchQuery.trim().toLowerCase().replace(/^\/+/, "");
+    if (q) {
       result = result.filter(
         (l) =>
           l.title?.toLowerCase().includes(q) ||

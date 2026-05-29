@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Header } from "@/components/header";
 import { useAnalytics } from "@/hooks/use-analytics";
 import { useCollections } from "@/hooks/use-collections";
@@ -30,18 +31,25 @@ import {
   Download,
   RefreshCw,
   ArrowRight,
+  X,
 } from "lucide-react";
 import { DateRangePicker } from "@/components/ui/date-picker";
 
 type TimeRange = "7d" | "14d" | "30d" | "90d" | "all" | "custom";
 
-export default function AnalyticsPage() {
+function AnalyticsContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  // When arriving from a link's "Analytics" action the URL carries ?linkId=…
+  // — scope the whole page to that one link instead of the whole team.
+  const linkId = searchParams.get("linkId");
   const [timeRange, setTimeRange] = useState<TimeRange>("30d");
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const { collections } = useCollections();
   const { links } = useLinks();
+  const focusedLink = linkId ? links.find((l) => l.id === linkId) : null;
   // Only pass the custom range to the hook once BOTH endpoints are picked,
   // otherwise the query window would be undefined.
   const customRangeReady = timeRange === "custom" && !!customFrom && !!customTo;
@@ -49,7 +57,8 @@ export default function AnalyticsPage() {
     useAnalytics(
       timeRange === "custom" ? "all" : timeRange,
       selectedCollection,
-      customRangeReady ? { from: customFrom, to: customTo } : null
+      customRangeReady ? { from: customFrom, to: customTo } : null,
+      linkId
     );
 
   const ranges: { value: TimeRange; label: string }[] = [
@@ -162,20 +171,22 @@ export default function AnalyticsPage() {
               <RefreshCw className="w-4 h-4" />
             </Button>
 
-            {/* Collection filter */}
-            <div className="relative">
-              <select
-                value={selectedCollection || ""}
-                onChange={(e) => setSelectedCollection(e.target.value || null)}
-                className="h-9 pl-8 pr-3 rounded-xl bg-white/[0.03] border border-white/5 text-[10px] font-black uppercase tracking-widest text-neutral-400 focus:outline-none focus:border-[#00D26A]/30 appearance-none cursor-pointer [&>option]:bg-black [&>option]:text-white"
-              >
-                <option value="">All Links</option>
-                {collections.map((col) => (
-                  <option key={col.id} value={col.id}>{col.name}</option>
-                ))}
-              </select>
-              <FolderOpen className="w-3.5 h-3.5 text-neutral-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
+            {/* Collection filter — hidden when scoped to a single link */}
+            {!linkId && (
+              <div className="relative">
+                <select
+                  value={selectedCollection || ""}
+                  onChange={(e) => setSelectedCollection(e.target.value || null)}
+                  className="h-9 pl-8 pr-3 rounded-xl bg-white/[0.03] border border-white/5 text-[10px] font-black uppercase tracking-widest text-neutral-400 focus:outline-none focus:border-[#00D26A]/30 appearance-none cursor-pointer [&>option]:bg-black [&>option]:text-white"
+                >
+                  <option value="">All Links</option>
+                  {collections.map((col) => (
+                    <option key={col.id} value={col.id}>{col.name}</option>
+                  ))}
+                </select>
+                <FolderOpen className="w-3.5 h-3.5 text-neutral-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            )}
 
             {/* Time range — when Custom is active we REPLACE the preset
                 chips with the date-range picker so Export stays inline
@@ -224,6 +235,33 @@ export default function AnalyticsPage() {
             </Button>
           </div>
         </div>
+
+        {/* Single-link scope banner */}
+        {focusedLink && (
+          <div className="flex items-center justify-between gap-4 glass-card bg-[#00D26A]/[0.04] border border-[#00D26A]/20 rounded-2xl px-4 py-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <Link2 className="w-4 h-4 text-[#00D26A] shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#00D26A]">
+                  Single link analytics
+                </p>
+                <p className="text-sm font-bold text-white truncate">
+                  {focusedLink.title || "Untitled"}{" "}
+                  <span className="text-neutral-500 font-medium">/{focusedLink.slug}</span>
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push("/dashboard/analytics")}
+              className="shrink-0 h-8 rounded-lg bg-white/[0.03] border border-white/5 text-[10px] font-black uppercase tracking-widest text-neutral-300 hover:text-white"
+            >
+              <X className="w-3.5 h-3.5 mr-1" />
+              View all links
+            </Button>
+          </div>
+        )}
 
         {loading ? (
           <div className="flex items-center justify-center py-24">
@@ -450,5 +488,13 @@ export default function AnalyticsPage() {
         )}
       </div>
     </>
+  );
+}
+
+export default function AnalyticsPage() {
+  return (
+    <Suspense fallback={null}>
+      <AnalyticsContent />
+    </Suspense>
   );
 }

@@ -28,6 +28,7 @@ export interface ReferrerData {
 }
 
 export interface TopLinkData {
+  id: string;
   slug: string;
   title: string | null;
   count: number;
@@ -51,7 +52,8 @@ type TimeRange = "7d" | "14d" | "30d" | "90d" | "all";
 export function useAnalytics(
   timeRange: TimeRange = "30d",
   collectionId?: string | null,
-  customRange?: { from: string; to: string } | null
+  customRange?: { from: string; to: string } | null,
+  linkId?: string | null
 ) {
   const { activeTeam } = useTeam();
   const { settings } = useSettings();
@@ -71,8 +73,12 @@ export function useAnalytics(
   const daysMap: Record<string, number> = { "7d": 7, "14d": 14, "30d": 30, "90d": 90 };
 
   const fetchAnalytics = useCallback(async () => {
-    // Filter links by collection if specified
-    const filteredLinks = collectionId
+    // A specific link (deep-linked from a link's "Analytics" action) takes
+    // precedence over the collection filter; otherwise fall back to the
+    // collection filter, or all links.
+    const filteredLinks = linkId
+      ? links.filter((l) => l.id === linkId)
+      : collectionId
       ? links.filter((l) => l.collection_id === collectionId)
       : links;
     const linkIds = filteredLinks.map((l) => l.id);
@@ -215,7 +221,7 @@ export function useAnalytics(
     const topArr = Object.entries(byLink)
       .map(([linkId, count]) => {
         const link = linkMap.get(linkId);
-        return { slug: link?.slug || "", title: link?.title || null, count };
+        return { id: linkId, slug: link?.slug || "", title: link?.title || null, count };
       })
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
@@ -257,7 +263,7 @@ export function useAnalytics(
     setHourlyData(hourlyArr);
 
     setLoading(false);
-  }, [links, timeRange, collectionId, supabase, tz, customRange?.from, customRange?.to]);
+  }, [links, timeRange, collectionId, linkId, supabase, tz, customRange?.from, customRange?.to]);
 
   useEffect(() => {
     fetchAnalytics();
