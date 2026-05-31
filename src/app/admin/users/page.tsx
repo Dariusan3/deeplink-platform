@@ -64,44 +64,25 @@ export default function AdminUsersPage() {
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
-
-    const { data: allUsers } = await supabase
-      .from("users")
-      .select("id, email, full_name, created_at, is_admin, is_partner")
-      .order("created_at", { ascending: false });
-
-    if (!allUsers) { setLoading(false); return; }
-
-    // Fetch team memberships for each user
-    const enriched: UserWithTeam[] = [];
-    for (const u of allUsers) {
-      const { data: memberships } = await supabase
-        .from("team_members")
-        .select("team_id, teams(id, name, plan)")
-        .eq("user_id", u.id);
-
-      const teams = (memberships || []).map((m: any) => m.teams).filter(Boolean);
-
-      // Get active subscription for first team
-      let subscription = null;
-      if (teams.length > 0) {
-        const { data: sub } = await supabase
-          .from("subscriptions")
-          .select("plan, status, is_free, expires_at")
-          .eq("team_id", teams[0].id)
-          .eq("status", "active")
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        subscription = sub;
+    // Use the admin server endpoint (service-role) — the previous
+    // client-side query was hitting team_members RLS which hid teams
+    // the admin wasn't personally a member of (making everyone but
+    // themselves look like "No team").
+    try {
+      const res = await fetch("/api/admin/users");
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error || "Failed to load users");
+        setUsers([]);
+      } else {
+        setUsers(json.users as UserWithTeam[]);
       }
-
-      enriched.push({ ...u, teams, subscription });
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setLoading(false);
     }
-
-    setUsers(enriched);
-    setLoading(false);
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     fetchUsers();
@@ -120,30 +101,33 @@ export default function AdminUsersPage() {
   const handleGrantSubscription = async () => {
     if (!grantForm) return;
     setGranting(true);
-
-    const { data: { user } } = await supabase.auth.getUser();
-    const expiresAt = new Date();
-    expiresAt.setMonth(expiresAt.getMonth() + grantForm.months);
-
-    const { error } = await supabase.from("subscriptions").insert({
-      team_id: grantForm.teamId,
-      plan: grantForm.plan,
-      status: "active",
-      is_free: grantForm.isFree,
-      starts_at: new Date().toISOString(),
-      expires_at: expiresAt.toISOString(),
-      granted_by: user?.id || null,
-      notes: grantForm.notes || null,
-    });
-
-    if (error) {
-      toast.error("Failed to grant subscription: " + error.message);
-    } else {
-      toast.success(`${grantForm.plan} plan granted to ${grantForm.email} for ${grantForm.months} months`);
-      setGrantForm(null);
-      fetchUsers();
+    // Route through the central /api/admin/grant-plan endpoint so the
+    // action is audited, old active subs are cancelled, and the team
+    // plan is synced via the existing DB trigger.
+    try {
+      const res = await fetch("/api/admin/grant-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          team_id: grantForm.teamId,
+          plan: grantForm.plan,
+          duration_days: grantForm.months * 30,
+          notes: grantForm.notes || null,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error || "Failed to grant subscription");
+      } else {
+        toast.success(`${grantForm.plan} granted to ${grantForm.email} for ${grantForm.months} month${grantForm.months !== 1 ? "s" : ""}`);
+        setGrantForm(null);
+        fetchUsers();
+      }
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setGranting(false);
     }
-    setGranting(false);
   };
 
   const handleToggleAdmin = async (userId: string, email: string, currentlyAdmin: boolean) => {
