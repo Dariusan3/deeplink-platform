@@ -12,7 +12,9 @@ import {
   Check,
   Clock,
   AlertTriangle,
+  Plus,
 } from "lucide-react";
+import { GrantPlanDialog } from "@/components/admin/grant-plan-dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -35,38 +37,48 @@ export default function AdminSubscriptionsPage() {
   const [subs, setSubs] = useState<SubscriptionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "active" | "expired" | "cancelled">("all");
+  const [grantOpen, setGrantOpen] = useState(false);
   const supabase = useMemo(() => createClient(), []);
 
-  useEffect(() => {
-    async function fetchSubs() {
-      const { data } = await supabase
-        .from("subscriptions")
-        .select("*, teams(name), users!subscriptions_granted_by_fkey(full_name)")
-        .order("created_at", { ascending: false });
-
-      if (data) {
-        const enriched: SubscriptionRow[] = [];
-        for (const sub of data) {
-          // Get team owner email
-          const { data: members } = await supabase
-            .from("team_members")
-            .select("user_id, users(email)")
-            .eq("team_id", sub.team_id)
-            .eq("role", "owner")
-            .limit(1);
-
-          enriched.push({
-            ...sub,
-            team_name: (sub.teams as any)?.name || "Unknown",
-            team_owner_email: (members?.[0] as any)?.users?.email || "",
-            granted_by_name: (sub.users as any)?.full_name || null,
-          });
-        }
-        setSubs(enriched);
-      }
-      setLoading(false);
-    }
+  // Extracted so the grant dialog can call it after a successful grant to
+  // refresh the list without a full page reload.
+  const refresh = () => {
+    setLoading(true);
     fetchSubs();
+  };
+
+  async function fetchSubs() {
+    const { data } = await supabase
+      .from("subscriptions")
+      .select("*, teams(name), users!subscriptions_granted_by_fkey(full_name)")
+      .order("created_at", { ascending: false });
+
+    if (data) {
+      const enriched: SubscriptionRow[] = [];
+      for (const sub of data) {
+        // Get team owner email
+        const { data: members } = await supabase
+          .from("team_members")
+          .select("user_id, users(email)")
+          .eq("team_id", sub.team_id)
+          .eq("role", "owner")
+          .limit(1);
+
+        enriched.push({
+          ...sub,
+          team_name: (sub.teams as any)?.name || "Unknown",
+          team_owner_email: (members?.[0] as any)?.users?.email || "",
+          granted_by_name: (sub.users as any)?.full_name || null,
+        });
+      }
+      setSubs(enriched);
+    }
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    fetchSubs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabase]);
 
   const filteredSubs = useMemo(() => {
@@ -104,15 +116,30 @@ export default function AdminSubscriptionsPage() {
 
   return (
     <div className="p-8 space-y-6">
-      <div>
-        <h1 className="text-3xl font-black text-white">Subscriptions</h1>
-        <p className="text-sm text-neutral-500 mt-1">
-          {activeSubs.length} active · {subs.length} total
-          {expiringSoon.length > 0 && (
-            <span className="text-amber-400"> · {expiringSoon.length} expiring soon</span>
-          )}
-        </p>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-3xl font-black text-white">Subscriptions</h1>
+          <p className="text-sm text-neutral-500 mt-1">
+            {activeSubs.length} active · {subs.length} total
+            {expiringSoon.length > 0 && (
+              <span className="text-amber-400"> · {expiringSoon.length} expiring soon</span>
+            )}
+          </p>
+        </div>
+        <Button
+          onClick={() => setGrantOpen(true)}
+          className="h-10 px-4 rounded-xl bg-red-500 hover:bg-red-600 text-white font-black uppercase text-[10px] tracking-widest gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          Grant Plan
+        </Button>
       </div>
+
+      <GrantPlanDialog
+        open={grantOpen}
+        onOpenChange={setGrantOpen}
+        onGranted={refresh}
+      />
 
       {/* Filter tabs */}
       <div className="flex gap-2">
