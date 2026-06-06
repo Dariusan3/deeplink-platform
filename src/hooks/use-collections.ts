@@ -84,7 +84,7 @@ export function useCollections() {
   }, [fetchCollections]);
 
   const createCollection = useCallback(
-    async (name: string, description?: string, color?: string, clickGoal?: number, clickGoalPeriod?: string, isRotator?: boolean, isStarred?: boolean) => {
+    async (name: string, description?: string, color?: string, clickGoal?: number, clickGoalPeriod?: string, isRotator?: boolean, isStarred?: boolean, parentId?: string | null) => {
       if (!user || !activeTeam) throw new Error("Authentication required");
 
       const rotatorSlug = isRotator ? `r-${Math.random().toString(36).substring(2, 8)}` : null;
@@ -102,6 +102,7 @@ export function useCollections() {
           is_rotator: isRotator || false,
           is_starred: isStarred || false,
           rotator_slug: rotatorSlug,
+          parent_id: parentId || null,
         })
         .select()
         .single();
@@ -136,14 +137,14 @@ export function useCollections() {
   );
 
   const updateCollection = useCallback(
-    async (id: string, updates: { name?: string; description?: string | null; color?: string; click_goal?: number | null; click_goal_period?: string | null; is_starred?: boolean; is_rotator?: boolean; rotator_slug?: string | null }) => {
+    async (id: string, updates: { name?: string; description?: string | null; color?: string; click_goal?: number | null; click_goal_period?: string | null; is_starred?: boolean; is_rotator?: boolean; rotator_slug?: string | null; parent_id?: string | null; position_x?: number | null; position_y?: number | null }, opts?: { silent?: boolean }) => {
       const { error } = await supabase
         .from("collections")
         .update(updates)
         .eq("id", id);
 
       if (error) {
-        toast.error("Failed to update collection");
+        if (!opts?.silent) toast.error("Failed to update collection");
         throw error;
       }
 
@@ -151,9 +152,34 @@ export function useCollections() {
         prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
       );
       emit("collections");
-      toast.success("Collection updated");
+      if (!opts?.silent) toast.success("Collection updated");
     },
     [supabase]
+  );
+
+  // Reparent + optional positions. Wraps updateCollection but uses silent
+  // mode to avoid toast spam during canvas drags or tree DnD operations.
+  const reparentCollection = useCallback(
+    async (id: string, newParentId: string | null, position?: { x: number; y: number }) => {
+      await updateCollection(
+        id,
+        {
+          parent_id: newParentId,
+          ...(position ? { position_x: position.x, position_y: position.y } : {}),
+        },
+        { silent: true }
+      );
+    },
+    [updateCollection]
+  );
+
+  // Save canvas position without changing parent — called from React Flow
+  // node drag handlers. Silent so dragging doesn't fire a toast.
+  const saveCollectionPosition = useCallback(
+    async (id: string, x: number, y: number) => {
+      await updateCollection(id, { position_x: x, position_y: y }, { silent: true });
+    },
+    [updateCollection]
   );
 
   const moveLinksToCollection = useCallback(
@@ -187,6 +213,8 @@ export function useCollections() {
     createCollection,
     deleteCollection,
     updateCollection,
+    reparentCollection,
+    saveCollectionPosition,
     moveLinksToCollection,
   };
 }

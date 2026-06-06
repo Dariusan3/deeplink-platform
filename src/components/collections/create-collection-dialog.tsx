@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, FolderOpen, Check, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,8 +25,33 @@ const COLORS = [
   "#FF6B6B", "#00D26A",
 ];
 
-export function CreateCollectionDialog() {
-  const [open, setOpen] = useState(false);
+interface CreateCollectionDialogProps {
+  // Controlled mode — pass these to launch the dialog from outside (e.g.
+  // the tree "+" button). When omitted, the dialog manages its own state
+  // and renders the default green trigger button.
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  // If set, the parent picker is pre-selected to this id. The user can
+  // still change it before submitting.
+  defaultParentId?: string | null;
+  // When `triggerless` is true, no DialogTrigger is rendered — useful for
+  // controlled-mode usage where the caller already has a button.
+  triggerless?: boolean;
+}
+
+export function CreateCollectionDialog({
+  open: openProp,
+  onOpenChange,
+  defaultParentId = null,
+  triggerless = false,
+}: CreateCollectionDialogProps = {}) {
+  const [openInternal, setOpenInternal] = useState(false);
+  const open = openProp ?? openInternal;
+  const setOpen = (v: boolean) => {
+    onOpenChange?.(v);
+    if (openProp === undefined) setOpenInternal(v);
+  };
+
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -35,7 +60,18 @@ export function CreateCollectionDialog() {
   const [clickGoalPeriod, setClickGoalPeriod] = useState("daily");
   const [isRotator, setIsRotator] = useState(false);
   const [isStarred, setIsStarred] = useState(false);
-  const { createCollection } = useCollections();
+  const [parentId, setParentId] = useState<string | null>(defaultParentId);
+  const { collections, createCollection } = useCollections();
+
+  // Re-sync the parent picker whenever the dialog opens for a new context
+  // (e.g. user clicked "+" on a different tree row).
+  useEffect(() => {
+    if (open) setParentId(defaultParentId);
+  }, [open, defaultParentId]);
+
+  const parentName = parentId
+    ? collections.find((c) => c.id === parentId)?.name
+    : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,7 +79,7 @@ export function CreateCollectionDialog() {
 
     setLoading(true);
     try {
-      await createCollection(name, description, color, clickGoal ? Number(clickGoal) : undefined, clickGoal ? clickGoalPeriod : undefined, isRotator, isStarred);
+      await createCollection(name, description, color, clickGoal ? Number(clickGoal) : undefined, clickGoal ? clickGoalPeriod : undefined, isRotator, isStarred, parentId);
       setOpen(false);
       resetForm();
     } catch {} finally {
@@ -59,29 +95,54 @@ export function CreateCollectionDialog() {
     setClickGoalPeriod("daily");
     setIsRotator(false);
     setIsStarred(false);
+    setParentId(defaultParentId);
   };
 
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
-      <DialogTrigger
-        id="create-collection-dialog-trigger"
-        render={
-          <Button className="btn-primary-pulse rounded-xl h-11 px-6 font-black uppercase text-xs tracking-widest gap-2">
-            <Plus className="w-4 h-4" />
-            New Collection
-          </Button>
-        }
-      />
+      {!triggerless && (
+        <DialogTrigger
+          id="create-collection-dialog-trigger"
+          render={
+            <Button className="btn-primary-pulse rounded-xl h-11 px-6 font-black uppercase text-xs tracking-widest gap-2">
+              <Plus className="w-4 h-4" />
+              New Collection
+            </Button>
+          }
+        />
+      )}
       <DialogContent className="glass-card bg-black/90 border-white/5 shadow-[0_0_50px_rgba(0,210,106,0.1)] text-white sm:max-w-[500px] max-h-[90vh] overflow-y-auto scrollbar-none">
         <DialogHeader>
           <DialogTitle className="text-2xl font-black tracking-tight flex items-center gap-2">
             <div className="p-2 rounded-lg bg-[#00D26A]/10 text-[#00D26A]">
               <FolderOpen className="w-5 h-5" />
             </div>
-            Create a Collection
+            {parentName ? `New sub-folder in ${parentName}` : "Create a Collection"}
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-5 py-4">
+          {/* Parent folder picker — empty = root level. Lets you create
+              nested folders straight from this dialog. */}
+          <div className="space-y-2">
+            <Label className="text-xs font-black text-white">
+              Parent folder <span className="text-neutral-500">(optional)</span>
+            </Label>
+            <select
+              value={parentId ?? ""}
+              onChange={(e) => setParentId(e.target.value || null)}
+              className="w-full h-11 px-3 rounded-xl bg-white/[0.03] border border-white/10 text-white text-sm font-medium outline-none focus:border-[#00D26A]/50 appearance-none cursor-pointer"
+            >
+              <option value="" className="bg-neutral-900">
+                Root level (no parent)
+              </option>
+              {collections.map((c) => (
+                <option key={c.id} value={c.id} className="bg-neutral-900">
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Name */}
           <div className="space-y-2">
             <Label className="text-xs font-black text-white">

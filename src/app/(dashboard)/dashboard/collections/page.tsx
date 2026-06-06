@@ -14,16 +14,24 @@ import {
   type CollectionsTypeFilter,
 } from "@/components/collections/collections-toolbar";
 import { LinkPagination } from "@/components/links/link-pagination";
+import { CollectionsTree } from "@/components/collections/collections-tree";
+import { CollectionsCanvas } from "@/components/collections/collections-canvas";
 import {
   FolderOpen,
   Trash2,
   Pencil,
+  FolderPlus,
   Link as LinkIcon,
   ArrowLeft,
   ExternalLink,
   FolderMinus,
   Globe,
   Target,
+  LayoutGrid,
+  Network,
+  ListTree,
+  Maximize2,
+  X,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect, useMemo } from "react";
@@ -167,8 +175,10 @@ function CollectionGoalEditor({
   );
 }
 
+type ViewMode = "grid" | "tree" | "canvas";
+
 export default function CollectionsPage() {
-  const { collections, loading, deleteCollection, updateCollection, moveLinksToCollection } =
+  const { collections, loading, deleteCollection, updateCollection, reparentCollection, saveCollectionPosition, moveLinksToCollection } =
     useCollections();
   const { links } = useLinks();
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -176,6 +186,46 @@ export default function CollectionsPage() {
   const [activeCollectionId, setActiveCollectionId] = useState<string | null>(
     null
   );
+
+  // Controlled "New sub-folder" dialog: when the tree row's + button or
+  // a canvas-context creator fires, we open the dialog with the parent
+  // pre-selected.
+  const [subFolderParentId, setSubFolderParentId] = useState<string | null>(null);
+  const [subFolderOpen, setSubFolderOpen] = useState(false);
+  const openCreateSubFolder = (parentId: string) => {
+    setSubFolderParentId(parentId);
+    setSubFolderOpen(true);
+  };
+
+  // View mode: grid (default), tree (folder-in-folder), canvas (Miro).
+  // Persisted in localStorage so the user lands in their preferred view
+  // on next visit.
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  // Canvas fullscreen overlay — covers the entire viewport so the user
+  // can see the whole graph at once, with a top bar + exit button.
+  const [canvasFullscreen, setCanvasFullscreen] = useState(false);
+  useEffect(() => {
+    const stored = typeof window !== "undefined" ? localStorage.getItem("tappr_collections_view") : null;
+    if (stored === "grid" || stored === "tree" || stored === "canvas") setViewMode(stored);
+  }, []);
+  const changeViewMode = (m: ViewMode) => {
+    setViewMode(m);
+    try { localStorage.setItem("tappr_collections_view", m); } catch {}
+  };
+
+  // Escape closes the fullscreen overlay — standard pattern users expect.
+  useEffect(() => {
+    if (!canvasFullscreen) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") setCanvasFullscreen(false); };
+    window.addEventListener("keydown", handler);
+    // Lock body scroll while the overlay is up.
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", handler);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [canvasFullscreen]);
 
   // Toolbar state — mirrors the pattern from /dashboard/links so the
   // pages feel consistent.
@@ -449,10 +499,64 @@ export default function CollectionsPage() {
               onPageSizeChange={setPageSize}
             />
 
+            {/* View mode toggle — grid / tree / canvas. Stored in
+                localStorage so the user lands on their preferred view. */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1 p-1 rounded-xl bg-white/[0.02] border border-white/5 w-fit">
+                {([
+                  { mode: "grid",   label: "Grid",   Icon: LayoutGrid },
+                  { mode: "tree",   label: "Tree",   Icon: ListTree },
+                  { mode: "canvas", label: "Canvas", Icon: Network },
+                ] as const).map(({ mode, label, Icon }) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => changeViewMode(mode)}
+                    className={`flex items-center gap-1.5 px-3 h-8 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                      viewMode === mode
+                        ? "bg-[#00D26A]/10 text-[#00D26A]"
+                        : "text-neutral-500 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {viewMode === "canvas" && (
+                <button
+                  type="button"
+                  onClick={() => setCanvasFullscreen(true)}
+                  className="flex items-center gap-1.5 px-3 h-10 rounded-xl border border-[#00D26A]/30 bg-[#00D26A]/5 text-[#00D26A] text-[10px] font-black uppercase tracking-widest hover:bg-[#00D26A]/10 transition-all"
+                  title="Open canvas in fullscreen (Esc to exit)"
+                >
+                  <Maximize2 className="w-3.5 h-3.5" />
+                  Fullscreen
+                </button>
+              )}
+            </div>
+
             {filteredCollections.length === 0 ? (
               <div className="text-center py-12 rounded-2xl border border-dashed border-white/5">
                 <p className="text-sm font-bold text-neutral-500">No collections match your filters</p>
               </div>
+            ) : viewMode === "tree" ? (
+              <CollectionsTree
+                collections={filteredCollections}
+                onOpen={setActiveCollectionId}
+                onEdit={setEditId}
+                onDelete={setDeleteId}
+                onReparent={reparentCollection}
+                onCreateChild={openCreateSubFolder}
+              />
+            ) : viewMode === "canvas" ? (
+              <CollectionsCanvas
+                collections={filteredCollections}
+                onOpen={setActiveCollectionId}
+                onMoveNode={saveCollectionPosition}
+                onReparent={reparentCollection}
+                onCreateChild={openCreateSubFolder}
+              />
             ) : (
               <>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -494,6 +598,18 @@ export default function CollectionsPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openCreateSubFolder(col.id);
+                        }}
+                        className="h-8 w-8 text-neutral-600 hover:text-[#00D26A]"
+                        title="Create sub-folder here"
+                      >
+                        <FolderPlus className="w-4 h-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -548,11 +664,57 @@ export default function CollectionsPage() {
         )}
       </div>
 
+      {/* Canvas fullscreen overlay — covers the entire viewport. Esc or
+          the Exit button closes it. Body scroll is locked while open
+          (see the useEffect above). */}
+      {canvasFullscreen && (
+        <div className="fixed inset-0 z-50 bg-black flex flex-col">
+          <div className="h-14 flex items-center justify-between px-4 border-b border-white/10 bg-black/80 backdrop-blur-md shrink-0">
+            <div className="flex items-center gap-3">
+              <Network className="w-4 h-4 text-[#00D26A]" />
+              <span className="text-sm font-black uppercase tracking-widest text-white">Canvas</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">
+                {filteredCollections.length} collection{filteredCollections.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCanvasFullscreen(false)}
+              className="flex items-center gap-1.5 px-3 h-9 rounded-lg border border-white/10 bg-white/[0.03] text-[10px] font-black uppercase tracking-widest text-neutral-400 hover:text-white hover:border-white/20 transition-all"
+              title="Exit fullscreen (Esc)"
+            >
+              <X className="w-3.5 h-3.5" />
+              Exit Canvas
+            </button>
+          </div>
+          <div className="flex-1 min-h-0">
+            <CollectionsCanvas
+              collections={filteredCollections}
+              onOpen={(id) => { setCanvasFullscreen(false); setActiveCollectionId(id); }}
+              onMoveNode={saveCollectionPosition}
+              onReparent={reparentCollection}
+              onCreateChild={openCreateSubFolder}
+              fullHeight
+            />
+          </div>
+        </div>
+      )}
+
       {/* Edit collection */}
       <EditCollectionDialog
         collection={collections.find((c) => c.id === editId) || null}
         open={!!editId}
         onOpenChange={(o) => { if (!o) setEditId(null); }}
+      />
+
+      {/* Controlled "New sub-folder" dialog launched by the + buttons in
+          the tree/canvas. Reuses CreateCollectionDialog in triggerless
+          mode so the form, validation, and submit path stay shared. */}
+      <CreateCollectionDialog
+        open={subFolderOpen}
+        onOpenChange={(o) => { setSubFolderOpen(o); if (!o) setSubFolderParentId(null); }}
+        defaultParentId={subFolderParentId}
+        triggerless
       />
 
       {/* Delete confirmation */}

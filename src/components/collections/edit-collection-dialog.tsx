@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FolderOpen, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,7 +32,7 @@ export function EditCollectionDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { updateCollection } = useCollections();
+  const { collections, updateCollection } = useCollections();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [color, setColor] = useState("#EF4444");
@@ -40,6 +40,7 @@ export function EditCollectionDialog({
   const [clickGoalPeriod, setClickGoalPeriod] = useState("daily");
   const [isRotator, setIsRotator] = useState(false);
   const [isStarred, setIsStarred] = useState(false);
+  const [parentId, setParentId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   // Re-hydrate the form whenever the dialog opens for a new collection.
@@ -52,8 +53,28 @@ export function EditCollectionDialog({
       setClickGoalPeriod(collection.click_goal_period || "daily");
       setIsRotator(!!collection.is_rotator);
       setIsStarred(!!collection.is_starred);
+      setParentId(collection.parent_id ?? null);
     }
   }, [collection, open]);
+
+  // Eligible parents = all collections EXCEPT this one and its own
+  // descendants. Walking the descendants up-front saves having to call
+  // the DB just to check — we already have the full list client-side.
+  const eligibleParents = useMemo(() => {
+    if (!collection) return collections;
+    const descendants = new Set<string>([collection.id]);
+    let added = true;
+    while (added) {
+      added = false;
+      for (const c of collections) {
+        if (c.parent_id && descendants.has(c.parent_id) && !descendants.has(c.id)) {
+          descendants.add(c.id);
+          added = true;
+        }
+      }
+    }
+    return collections.filter((c) => !descendants.has(c.id));
+  }, [collection, collections]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,6 +91,7 @@ export function EditCollectionDialog({
         click_goal_period: parsedGoal === null ? null : clickGoalPeriod,
         is_rotator: isRotator,
         is_starred: isStarred,
+        parent_id: parentId,
       });
       onOpenChange(false);
     } catch {
@@ -102,6 +124,25 @@ export function EditCollectionDialog({
               onChange={(e) => setName(e.target.value)}
               required
             />
+          </div>
+
+          {/* Parent folder — move this collection under another folder
+              (or to root). Self + descendants are filtered out so we
+              don't allow a cycle. */}
+          <div className="space-y-2">
+            <Label className="text-xs font-black text-white">
+              Parent folder <span className="text-neutral-500">(optional)</span>
+            </Label>
+            <select
+              value={parentId ?? ""}
+              onChange={(e) => setParentId(e.target.value || null)}
+              className="w-full h-11 px-3 rounded-xl bg-white/[0.03] border border-white/10 text-white text-sm font-medium outline-none focus:border-[#00D26A]/50 appearance-none cursor-pointer"
+            >
+              <option value="" className="bg-neutral-900">Root level (no parent)</option>
+              {eligibleParents.map((c) => (
+                <option key={c.id} value={c.id} className="bg-neutral-900">{c.name}</option>
+              ))}
+            </select>
           </div>
 
           <div className="space-y-2">

@@ -506,6 +506,9 @@ export type Database = {
           is_rotator: boolean
           is_starred: boolean
           name: string
+          parent_id: string | null
+          position_x: number | null
+          position_y: number | null
           rotator_slug: string | null
           team_id: string
         }
@@ -520,6 +523,9 @@ export type Database = {
           is_rotator?: boolean
           is_starred?: boolean
           name: string
+          parent_id?: string | null
+          position_x?: number | null
+          position_y?: number | null
           rotator_slug?: string | null
           team_id: string
         }
@@ -534,6 +540,9 @@ export type Database = {
           is_rotator?: boolean
           is_starred?: boolean
           name?: string
+          parent_id?: string | null
+          position_x?: number | null
+          position_y?: number | null
           rotator_slug?: string | null
           team_id?: string
         }
