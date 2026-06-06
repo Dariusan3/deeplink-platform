@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { Collection } from "@/hooks/use-collections";
-import { FolderOpen, ChevronRight, ChevronDown, Link2, Pencil, Trash2, FolderPlus } from "lucide-react";
+import { FolderOpen, ChevronRight, ChevronDown, Link2, Pencil, Trash2, FolderPlus, LinkIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -71,6 +71,8 @@ interface CollectionsTreeProps {
   // sub-folder under that collection. The parent page is responsible
   // for opening the CreateCollectionDialog with the parent pre-selected.
   onCreateChild?: (parentId: string) => void;
+  // Same idea but for creating a NEW LINK pre-assigned to this collection.
+  onCreateLink?: (collectionId: string) => void;
 }
 
 export function CollectionsTree({
@@ -80,6 +82,7 @@ export function CollectionsTree({
   onDelete,
   onReparent,
   onCreateChild,
+  onCreateLink,
 }: CollectionsTreeProps) {
   const tree = useMemo(() => buildTree(collections), [collections]);
   const [expanded, setExpanded] = useState<Set<string>>(() => {
@@ -162,6 +165,7 @@ export function CollectionsTree({
           onEdit={onEdit}
           onDelete={onDelete}
           onCreateChild={onCreateChild}
+          onCreateLink={onCreateLink}
           dragging={dragging}
           setDragging={setDragging}
           dragOverId={dragOverId}
@@ -189,6 +193,7 @@ interface TreeRowProps {
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
   onCreateChild?: (parentId: string) => void;
+  onCreateLink?: (collectionId: string) => void;
   dragging: string | null;
   setDragging: (id: string | null) => void;
   dragOverId: string | null;
@@ -205,6 +210,7 @@ function TreeRow({
   onEdit,
   onDelete,
   onCreateChild,
+  onCreateLink,
   dragging,
   setDragging,
   dragOverId,
@@ -294,7 +300,7 @@ function TreeRow({
           </span>
         </div>
 
-        {/* New sub-folder / edit / delete */}
+        {/* New sub-folder / new link / edit / delete */}
         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all shrink-0">
           {onCreateChild && (
             <Button
@@ -305,6 +311,17 @@ function TreeRow({
               title="Create sub-folder here"
             >
               <FolderPlus className="w-3.5 h-3.5" />
+            </Button>
+          )}
+          {onCreateLink && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(e) => { e.stopPropagation(); onCreateLink(node.collection.id); }}
+              className="h-7 w-7 text-neutral-600 hover:text-blue-400"
+              title="Create link in this collection"
+            >
+              <LinkIcon className="w-3.5 h-3.5" />
             </Button>
           )}
           <Button
@@ -341,6 +358,8 @@ function TreeRow({
               onOpen={onOpen}
               onEdit={onEdit}
               onDelete={onDelete}
+              onCreateChild={onCreateChild}
+              onCreateLink={onCreateLink}
               dragging={dragging}
               setDragging={setDragging}
               dragOverId={dragOverId}

@@ -27,10 +27,22 @@ interface CreateLinkDialogProps {
   defaultCollectionId?: string | null;
   // Override the trigger button. Defaults to the green "Create Deeplink" CTA.
   trigger?: React.ReactElement;
+  // Controlled mode — pass `open` + `onOpenChange` to launch from
+  // outside (e.g. the canvas "+" hover button on a collection node).
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  // Hide the trigger button entirely; useful in controlled mode when
+  // the caller already has its own button.
+  triggerless?: boolean;
 }
 
-export function CreateLinkDialog({ defaultCollectionId, trigger }: CreateLinkDialogProps = {}) {
-  const [open, setOpen] = useState(false);
+export function CreateLinkDialog({ defaultCollectionId, trigger, open: openProp, onOpenChange, triggerless = false }: CreateLinkDialogProps = {}) {
+  const [openInternal, setOpenInternal] = useState(false);
+  const open = openProp ?? openInternal;
+  const setOpen = (v: boolean) => {
+    onOpenChange?.(v);
+    if (openProp === undefined) setOpenInternal(v);
+  };
   const [loading, setLoading] = useState(false);
   const [title, setTitle] = useState("");
   const [destinationUrl, setDestinationUrl] = useState("");
@@ -63,6 +75,19 @@ export function CreateLinkDialog({ defaultCollectionId, trigger }: CreateLinkDia
     // We only want to prefill on open transitions, not on every settings change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // Sync the collection picker whenever the dialog is opened for a new
+  // context (e.g. the "+ Link" button on a different folder fires with a
+  // fresh defaultCollectionId). Without this, the dialog stays mounted
+  // across opens and `collectionId` is frozen at its initial useState
+  // value — so the created link ends up with NO collection, never shows
+  // up on the canvas. This was the bug.
+  useEffect(() => {
+    if (open) {
+      setCollectionId(defaultCollectionId ?? null);
+      setShowAdvanced(!!defaultCollectionId);
+    }
+  }, [open, defaultCollectionId]);
 
   const handleGenerateSlug = () => {
     const newSlug = Math.random().toString(36).substring(2, 8);
@@ -158,17 +183,19 @@ export function CreateLinkDialog({ defaultCollectionId, trigger }: CreateLinkDia
 
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
-      <DialogTrigger
-        id="create-link-dialog-trigger"
-        render={
-          trigger ?? (
-            <Button className="btn-primary-pulse rounded-xl h-11 px-6 font-black uppercase text-xs tracking-widest gap-2">
-              <Plus className="w-4 h-4" />
-              Create Deeplink
-            </Button>
-          )
-        }
-      />
+      {!triggerless && (
+        <DialogTrigger
+          id="create-link-dialog-trigger"
+          render={
+            trigger ?? (
+              <Button className="btn-primary-pulse rounded-xl h-11 px-6 font-black uppercase text-xs tracking-widest gap-2">
+                <Plus className="w-4 h-4" />
+                Create Deeplink
+              </Button>
+            )
+          }
+        />
+      )}
       <DialogContent className="glass-card bg-black/90 border-white/5 shadow-[0_0_50px_rgba(0,210,106,0.1)] text-white sm:max-w-[480px] max-h-[90vh] overflow-y-auto scrollbar-none">
         <DialogHeader>
           <DialogTitle className="text-2xl font-black tracking-tight flex items-center gap-2">

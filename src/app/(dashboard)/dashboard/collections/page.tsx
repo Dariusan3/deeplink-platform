@@ -1,11 +1,13 @@
 "use client";
 
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Header } from "@/components/header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useCollections } from "@/hooks/use-collections";
 import { useLinks } from "@/hooks/use-links";
 import { CreateCollectionDialog, CollectionsInfo } from "@/components/collections/create-collection-dialog";
+import { CreateLinkDialog } from "@/components/links/create-link-dialog";
 import { AddLinkToCollectionDialog } from "@/components/collections/add-link-to-collection-dialog";
 import { EditCollectionDialog } from "@/components/collections/edit-collection-dialog";
 import {
@@ -34,7 +36,7 @@ import {
   X,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -178,14 +180,27 @@ function CollectionGoalEditor({
 type ViewMode = "grid" | "tree" | "canvas";
 
 export default function CollectionsPage() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { collections, loading, deleteCollection, updateCollection, reparentCollection, saveCollectionPosition, moveLinksToCollection } =
     useCollections();
   const { links } = useLinks();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
-  const [activeCollectionId, setActiveCollectionId] = useState<string | null>(
-    null
-  );
+
+  // activeCollectionId is mirrored in the URL (?c=<uuid>) so browser
+  // Back returns to the canvas/tree/grid the user came from. Without
+  // this, opening a collection's detail view is invisible to the browser
+  // history — pressing Back would skip the collections page entirely.
+  const activeCollectionId = searchParams.get("c");
+  const setActiveCollectionId = useCallback((id: string | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (id) params.set("c", id);
+    else params.delete("c");
+    const qs = params.toString();
+    router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [router, pathname, searchParams]);
 
   // Controlled "New sub-folder" dialog: when the tree row's + button or
   // a canvas-context creator fires, we open the dialog with the parent
@@ -195,6 +210,16 @@ export default function CollectionsPage() {
   const openCreateSubFolder = (parentId: string) => {
     setSubFolderParentId(parentId);
     setSubFolderOpen(true);
+  };
+
+  // Controlled "New link in this collection" dialog. Same pattern as the
+  // sub-folder dialog — CreateLinkDialog uses defaultCollectionId to
+  // pre-select the picker.
+  const [linkCollectionId, setLinkCollectionId] = useState<string | null>(null);
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const openCreateLink = (collectionId: string) => {
+    setLinkCollectionId(collectionId);
+    setLinkDialogOpen(true);
   };
 
   // View mode: grid (default), tree (folder-in-folder), canvas (Miro).
@@ -309,7 +334,14 @@ export default function CollectionsPage() {
         <Header title="Collections" />
         <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
           <button
-            onClick={() => setActiveCollectionId(null)}
+            onClick={() => {
+              // Prefer browser back so the user lands on whichever view
+              // they came from (canvas, tree, grid) with their scroll
+              // position preserved. Falls back to URL strip when there's
+              // no usable history (deep-link / direct nav).
+              if (window.history.length > 1) router.back();
+              else setActiveCollectionId(null);
+            }}
             className="flex items-center gap-2 text-sm font-bold text-neutral-500 hover:text-white transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -548,14 +580,18 @@ export default function CollectionsPage() {
                 onDelete={setDeleteId}
                 onReparent={reparentCollection}
                 onCreateChild={openCreateSubFolder}
+                onCreateLink={openCreateLink}
               />
             ) : viewMode === "canvas" ? (
               <CollectionsCanvas
                 collections={filteredCollections}
+                links={links}
                 onOpen={setActiveCollectionId}
                 onMoveNode={saveCollectionPosition}
                 onReparent={reparentCollection}
                 onCreateChild={openCreateSubFolder}
+                onCreateLink={openCreateLink}
+                onOpenLink={(id) => router.push(`/dashboard/links/${id}`)}
               />
             ) : (
               <>
@@ -609,6 +645,18 @@ export default function CollectionsPage() {
                         title="Create sub-folder here"
                       >
                         <FolderPlus className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openCreateLink(col.id);
+                        }}
+                        className="h-8 w-8 text-neutral-600 hover:text-blue-400"
+                        title="Create link in this collection"
+                      >
+                        <LinkIcon className="w-4 h-4" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -690,10 +738,13 @@ export default function CollectionsPage() {
           <div className="flex-1 min-h-0">
             <CollectionsCanvas
               collections={filteredCollections}
+              links={links}
               onOpen={(id) => { setCanvasFullscreen(false); setActiveCollectionId(id); }}
               onMoveNode={saveCollectionPosition}
               onReparent={reparentCollection}
               onCreateChild={openCreateSubFolder}
+              onCreateLink={openCreateLink}
+              onOpenLink={(id) => { setCanvasFullscreen(false); router.push(`/dashboard/links/${id}`); }}
               fullHeight
             />
           </div>
@@ -714,6 +765,17 @@ export default function CollectionsPage() {
         open={subFolderOpen}
         onOpenChange={(o) => { setSubFolderOpen(o); if (!o) setSubFolderParentId(null); }}
         defaultParentId={subFolderParentId}
+        triggerless
+      />
+
+      {/* Controlled "New link in this collection" dialog. Same plumbing,
+          different content — CreateLinkDialog takes a defaultCollectionId
+          that pre-fills the collection picker so the user only fills in
+          URL + (optional) slug. */}
+      <CreateLinkDialog
+        open={linkDialogOpen}
+        onOpenChange={(o) => { setLinkDialogOpen(o); if (!o) setLinkCollectionId(null); }}
+        defaultCollectionId={linkCollectionId}
         triggerless
       />
 
