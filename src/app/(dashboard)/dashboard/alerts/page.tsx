@@ -5,6 +5,13 @@ import Link from "next/link";
 import { Header } from "@/components/header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useTeam } from "@/hooks/use-team";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -95,9 +102,13 @@ export default function AlertsPage() {
   // dashboard to refetch so the visible numbers match the new alerts.
   const [metricsRefreshKey, setMetricsRefreshKey] = useState(0);
 
-  const fetchAlerts = useCallback(async () => {
+  const fetchAlerts = useCallback(async (showLoading = false) => {
     if (!activeTeam?.id) return;
-    setLoading(true);
+    // Only show the skeleton on the initial load. Realtime-triggered
+    // refetches (ack, dismiss, cron insert) used to flip loading=true
+    // and flash the skeleton over the existing list — a visible flicker
+    // every time the user ticked a checkbox.
+    if (showLoading) setLoading(true);
     const { data, error } = await supabase
       .from("anomaly_alerts")
       .select("*")
@@ -108,12 +119,14 @@ export default function AlertsPage() {
       .order("created_at", { ascending: false });
 
     if (!error) setAlerts((data || []) as AlertRow[]);
-    setLoading(false);
+    if (showLoading) setLoading(false);
   }, [activeTeam?.id, supabase]);
 
-  useEffect(() => { fetchAlerts(); }, [fetchAlerts]);
+  useEffect(() => { fetchAlerts(true); }, [fetchAlerts]);
 
   // Realtime: any anomaly_alerts change for this team triggers a refetch.
+  // Pass `false` so we DON'T flash the skeleton — the list updates in
+  // place without a visible reload.
   useEffect(() => {
     if (!activeTeam?.id) return;
     const channel = supabase
@@ -121,7 +134,7 @@ export default function AlertsPage() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "anomaly_alerts", filter: `team_id=eq.${activeTeam.id}` },
-        () => fetchAlerts()
+        () => fetchAlerts(false)
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -156,6 +169,31 @@ export default function AlertsPage() {
     if (error) toast.error(error.message);
   };
 
+  // Soft-delete via is_dismissed=true so the cron lifecycle can still
+  // re-create the alert if the underlying issue recurs. Hard DELETE
+  // would lose the history row in audit/anomaly_alerts.
+  const [deleteCandidate, setDeleteCandidate] = useState<AlertRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!deleteCandidate) return;
+    setDeleting(true);
+    // Optimistic — remove from local list immediately, then persist.
+    setAlerts((prev) => prev.filter((a) => a.id !== deleteCandidate.id));
+    const { error } = await supabase
+      .from("anomaly_alerts")
+      .update({ is_dismissed: true })
+      .eq("id", deleteCandidate.id);
+    if (error) {
+      toast.error(error.message);
+      fetchAlerts(false); // revert by refetching the truth
+    } else {
+      toast.success("Alert dismissed");
+    }
+    setDeleteCandidate(null);
+    setDeleting(false);
+  };
+
   // Manual re-check — calls /api/alerts/check which runs the same detectors
   // as the cron but scoped to the active team. Available any time.
   const runChecksNow = async () => {
@@ -180,7 +218,7 @@ export default function AlertsPage() {
       } else {
         toast.success("Re-checked — nothing new");
       }
-      fetchAlerts();
+      fetchAlerts(false);
       setMetricsRefreshKey((n) => n + 1);
     } catch {
       toast.error("Network error");
@@ -321,7 +359,12 @@ export default function AlertsPage() {
                       </div>
 
                       {list.map((a) => (
-                        <AlertCard key={a.id} alert={a} onToggleAck={setAcked} />
+                        <AlertCard
+                          key={a.id}
+                          alert={a}
+                          onToggleAck={setAcked}
+                          onRequestDelete={setDeleteCandidate}
+                        />
                       ))}
                     </div>
                   );
@@ -356,6 +399,44 @@ export default function AlertsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Delete confirmation dialog */}
+      <Dialog
+        open={!!deleteCandidate}
+        onOpenChange={(o) => { if (!o && !deleting) setDeleteCandidate(null); }}
+      >
+        <DialogContent className="glass-card bg-black/95 border-red-500/30 text-white sm:max-w-100">
+          <DialogTitle className="text-xl font-black tracking-tight text-red-400 uppercase italic flex items-center gap-2">
+            <Trash2 className="w-5 h-5" />
+            Dismiss this alert?
+          </DialogTitle>
+          <DialogDescription className="text-neutral-400 font-medium leading-relaxed">
+            {deleteCandidate && (
+              <>
+                You&apos;ll stop seeing <span className="text-white font-bold">&quot;{deleteCandidate.title}&quot;</span> in your list.
+                If the underlying issue happens again, Tappr will re-create the alert automatically.
+              </>
+            )}
+          </DialogDescription>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="ghost"
+              onClick={() => setDeleteCandidate(null)}
+              disabled={deleting}
+              className="text-white hover:bg-white/5 font-bold uppercase text-[10px] tracking-widest"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-red-500 hover:bg-red-600 text-white font-black uppercase text-[10px] tracking-widest rounded-lg disabled:opacity-50"
+            >
+              {deleting ? "Dismissing…" : "Dismiss Alert"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -365,9 +446,11 @@ export default function AlertsPage() {
 function AlertCard({
   alert,
   onToggleAck,
+  onRequestDelete,
 }: {
   alert: AlertRow;
   onToggleAck: (id: string, acked: boolean) => void;
+  onRequestDelete: (alert: AlertRow) => void;
 }) {
   const cat = alert.alert_type as AlertType;
   const style = CATEGORY_STYLES[cat];
@@ -376,7 +459,7 @@ function AlertCard({
 
   return (
     <Card className={cn(
-      "glass-card transition-all",
+      "glass-card transition-all group",
       acked ? "border-white/5 opacity-70" : style.border + " ring-1 " + style.ring
     )}>
       <CardContent className="p-4 flex items-start gap-3">
@@ -470,6 +553,17 @@ function AlertCard({
             )}
           </div>
         </div>
+
+        {/* Delete button — visible on hover (or always on touch). Opens
+            a confirmation dialog before dismissing the row. */}
+        <button
+          onClick={() => onRequestDelete(alert)}
+          className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-neutral-600 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all"
+          title="Delete this alert"
+          aria-label="Delete this alert"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
       </CardContent>
     </Card>
   );
