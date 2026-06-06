@@ -53,18 +53,30 @@ export function LinksProvider({ children }: { children: ReactNode }) {
     if (!teamId) return;
     setLoading(true);
 
-    const { data, error } = await supabase
-      .from("links")
-      .select("*, click_count:link_clicks(count)")
-      .eq("team_id", teamId)
-      .order("created_at", { ascending: false });
+    // Two parallel queries: the link rows themselves and a single
+    // aggregate-per-link click count via RPC. Previously we shoved both
+    // into one nested `click_count:link_clicks(count)` select which made
+    // PostgREST run a correlated subquery per link row — slow on busy
+    // accounts. The RPC is one GROUP BY scan.
+    const [linksRes, countsRes] = await Promise.all([
+      supabase
+        .from("links")
+        .select("*")
+        .eq("team_id", teamId)
+        .order("created_at", { ascending: false }),
+      supabase.rpc("team_link_click_counts", { p_team_id: teamId }),
+    ]);
 
-    if (error) {
-      console.error("Error fetching links:", error.message || error);
+    if (linksRes.error) {
+      console.error("Error fetching links:", linksRes.error.message || linksRes.error);
     } else {
-      const formattedLinks = (data || []).map((l: any) => ({
+      const counts = new Map<string, number>();
+      for (const row of (countsRes.data ?? []) as { link_id: string; count: number | string }[]) {
+        counts.set(row.link_id, Number(row.count) || 0);
+      }
+      const formattedLinks = ((linksRes.data || []) as Link[]).map((l) => ({
         ...l,
-        click_count: l.click_count?.[0]?.count || 0,
+        click_count: counts.get(l.id) ?? 0,
       }));
       setLinks(formattedLinks);
     }

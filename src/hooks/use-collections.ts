@@ -75,12 +75,41 @@ export function useCollections() {
     };
   }, [activeTeam?.id, supabase, fetchCollections]);
 
-  // Cross-instance refresh: any collection mutation (or link mutation that
-  // affects link_count) emits — every useCollections() instance refetches.
+  // Cross-instance refresh. We mirror the pattern from LinksProvider:
+  // typed events (create / update / delete) apply the mutation locally
+  // in every other useCollections() instance, so the UI updates the
+  // SAME TICK the mutation happens — no waiting for a server round trip.
+  // Untyped events (or `kind: "refetch"`) still fall back to a full
+  // refetch for bulk ops.
   useEffect(() => {
-    const offCollections = subscribe("collections", () => fetchCollections());
-    const offLinks = subscribe("links", () => fetchCollections());
-    return () => { offCollections(); offLinks(); };
+    const offCollections = subscribe("collections", (event) => {
+      if (!event || event.kind === "refetch") {
+        fetchCollections();
+        return;
+      }
+      if (event.kind === "create") {
+        const row = event.row as Collection;
+        setCollections((prev) =>
+          prev.some((c) => c.id === row.id) ? prev : [row, ...prev]
+        );
+        return;
+      }
+      if (event.kind === "update") {
+        const row = event.row as Collection;
+        setCollections((prev) =>
+          prev.map((c) => (c.id === row.id ? { ...c, ...row, link_count: c.link_count } : c))
+        );
+        return;
+      }
+      if (event.kind === "delete") {
+        setCollections((prev) => prev.filter((c) => c.id !== event.id));
+        return;
+      }
+    });
+    // Link mutations may shift link_count per collection, but it's
+    // expensive to refetch on every link change. Skip — the click_count
+    // surfaces only on the detail view.
+    return () => { offCollections(); };
   }, [fetchCollections]);
 
   const createCollection = useCallback(
@@ -112,8 +141,14 @@ export function useCollections() {
         throw error;
       }
 
-      setCollections((prev) => [{ ...data, link_count: 0 }, ...prev]);
-      emit("collections");
+      const row = { ...data, link_count: 0 } as Collection;
+      setCollections((prev) =>
+        prev.some((c) => c.id === row.id) ? prev : [row, ...prev]
+      );
+      // Typed event so other useCollections() instances (e.g. the page
+      // listing the tree) prepend the new row immediately without a
+      // server round-trip.
+      emit("collections", { kind: "create", row });
       toast.success("Collection created!");
       return data;
     },
@@ -130,7 +165,7 @@ export function useCollections() {
       }
 
       setCollections((prev) => prev.filter((c) => c.id !== id));
-      emit("collections");
+      emit("collections", { kind: "delete", id });
       toast.success("Collection deleted");
     },
     [supabase]
@@ -148,10 +183,18 @@ export function useCollections() {
         throw error;
       }
 
+      let updatedRow: Collection | null = null;
       setCollections((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
+        prev.map((c) => {
+          if (c.id !== id) return c;
+          const next = { ...c, ...updates } as Collection;
+          updatedRow = next;
+          return next;
+        })
       );
-      emit("collections");
+      // Broadcast the merged row so other instances (page tree, canvas,
+      // dialogs) mirror the change in the same tick.
+      if (updatedRow) emit("collections", { kind: "update", row: updatedRow });
       if (!opts?.silent) toast.success("Collection updated");
     },
     [supabase]

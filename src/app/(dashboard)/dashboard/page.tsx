@@ -9,7 +9,8 @@ import { ClickChart } from "@/components/dashboard/click-chart";
 import { QuickCreate } from "@/components/dashboard/quick-create";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { DashboardLinks } from "@/components/dashboard/dashboard-links";
-import { RealtimeAlerts } from "@/components/dashboard/realtime-alerts";
+// Alerts moved to the NotificationBell in the global header so the
+// dashboard stays compact. /dashboard/alerts is still the full view.
 import { Link as LinkIcon, MousePointer2, Users, TrendingUp } from "lucide-react";
 
 export default function DashboardPage() {
@@ -96,9 +97,6 @@ export default function DashboardPage() {
             </Card>
           ))}
         </div>
-
-        {/* Real-time Anomaly Alerts */}
-        <RealtimeAlerts />
 
         {/* Quick Create Link */}
         <QuickCreate />
