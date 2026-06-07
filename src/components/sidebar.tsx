@@ -143,6 +143,7 @@ const navigation = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 0 1-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 0 1 4.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0 1 12 15a9.065 9.065 0 0 0-6.23.693L5 14.5m14.8.8 1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0 1 12 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
       </svg>
     ),
+    comingSoon: true,
   },
   {
     name: "Settings",
@@ -359,33 +360,54 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
             item.href === "/dashboard"
               ? pathname === "/dashboard"
               : pathname === item.href || pathname.startsWith(item.href + "/");
-          const linkContent = (
-            <Link
-              key={item.name}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition-all duration-300",
-                isActive
-                  ? "bg-[#00D26A]/10 text-[#00D26A] shadow-[inset_0_0_12px_rgba(0,210,106,0.05)]"
-                  : "text-neutral-500 hover:text-neutral-200 hover:bg-white/[0.03]",
-                collapsed && "justify-center px-2"
-              )}
-            >
-              <span className={cn("shrink-0 transition-colors duration-300", isActive ? "text-[#00D26A]" : "group-hover:text-neutral-300")}>{item.icon}</span>
-              {!collapsed && <span>{item.name}</span>}
+          const comingSoon = (item as { comingSoon?: boolean }).comingSoon === true;
+          // Coming-soon items render as a non-interactive div so users
+          // see them in the sidebar (signalling roadmap) but can't
+          // navigate. The page itself also gates by URL for safety.
+          const inner = (
+            <>
+              <span className={cn(
+                "shrink-0 transition-colors duration-300",
+                isActive && !comingSoon ? "text-[#00D26A]" : "group-hover:text-neutral-300",
+                comingSoon && "opacity-60"
+              )}>{item.icon}</span>
+              {!collapsed && <span className={cn(comingSoon && "opacity-60")}>{item.name}</span>}
               {!collapsed && item.name === "Alerts" && unreadCount > 0 && (
                 <span className="ml-auto text-[9px] font-black px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 tracking-wider animate-pulse">
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               )}
-              {!collapsed && (item as { badge?: string }).badge && (
+              {!collapsed && comingSoon && (
+                <span className="ml-auto text-[9px] font-black px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 tracking-wider">
+                  SOON
+                </span>
+              )}
+              {!collapsed && !comingSoon && (item as { badge?: string }).badge && (
                 <span className="ml-auto text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#00D26A]/20 text-[#00D26A] border border-[#00D26A]/30 tracking-wider">
                   {(item as { badge?: string }).badge}
                 </span>
               )}
-              {isActive && !collapsed && !(item as { badge?: string }).badge && item.name !== "Alerts" && (
+              {isActive && !collapsed && !comingSoon && !(item as { badge?: string }).badge && item.name !== "Alerts" && (
                 <div className="ml-auto w-1 h-1 rounded-full bg-[#39FF14] shadow-[0_0_8px_rgba(57,255,20,0.8)]" />
               )}
+            </>
+          );
+          const baseClass = cn(
+            "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition-all duration-300",
+            isActive && !comingSoon
+              ? "bg-[#00D26A]/10 text-[#00D26A] shadow-[inset_0_0_12px_rgba(0,210,106,0.05)]"
+              : comingSoon
+                ? "text-neutral-600 cursor-not-allowed"
+                : "text-neutral-500 hover:text-neutral-200 hover:bg-white/[0.03]",
+            collapsed && "justify-center px-2"
+          );
+          const linkContent = comingSoon ? (
+            <div key={item.name} className={baseClass} aria-disabled="true" title="Coming soon">
+              {inner}
+            </div>
+          ) : (
+            <Link key={item.name} href={item.href} className={baseClass}>
+              {inner}
             </Link>
           );
 

@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useCollections } from "@/hooks/use-collections";
 import { useLinks } from "@/hooks/use-links";
-import { CreateCollectionDialog, CollectionsInfo } from "@/components/collections/create-collection-dialog";
+import { CreateCollectionDialog } from "@/components/collections/create-collection-dialog";
 import { CreateLinkDialog } from "@/components/links/create-link-dialog";
 import { AddLinkToCollectionDialog } from "@/components/collections/add-link-to-collection-dialog";
 import { EditCollectionDialog } from "@/components/collections/edit-collection-dialog";
@@ -34,6 +34,7 @@ import {
   ListTree,
   Maximize2,
   X,
+  Info,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect, useMemo, useCallback } from "react";
@@ -478,9 +479,45 @@ export default function CollectionsPage() {
       <div className="p-4 md:p-6 space-y-8 max-w-7xl mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
-            <h2 className="text-3xl font-black tracking-tighter text-white uppercase italic">
-              Collections
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-3xl font-black tracking-tighter text-white uppercase italic">
+                Collections
+              </h2>
+              {/* Hover-info icon — replaces the old sidebar that ate
+                  real-estate on every visit. Pure CSS group-hover so no
+                  dependency on a tooltip lib. */}
+              <div className="relative group">
+                <button
+                  type="button"
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-500 hover:text-[#00D26A] hover:bg-white/5 transition-all"
+                  aria-label="What are collections?"
+                >
+                  <Info className="w-4 h-4" />
+                </button>
+                <div className="invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all absolute left-0 top-full mt-2 w-[340px] z-30 p-4 rounded-xl glass-card bg-black/95 border border-white/10 shadow-[0_0_30px_rgba(0,0,0,0.5)] pointer-events-none">
+                  <p className="text-xs font-black uppercase tracking-widest text-[#00D26A] mb-2">
+                    How collections work
+                  </p>
+                  <p className="text-xs text-neutral-300 leading-relaxed mb-3">
+                    Group your links into folders. View aggregated clicks, set goals per folder, and filter analytics by collection. Folders can be nested — drag in Tree, drag-connect in Canvas.
+                  </p>
+                  <ul className="space-y-1.5 text-[11px] text-neutral-400">
+                    <li className="flex items-start gap-2">
+                      <span className="text-[#00D26A] font-black">1.</span>
+                      <span>Click <span className="font-bold text-white">+ New Collection</span> — give it a name and color.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-[#00D26A] font-black">2.</span>
+                      <span>Hover any folder to <span className="font-bold text-white">📁 sub-folder</span> or <span className="font-bold text-white">🔗 add link</span> directly.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-[#00D26A] font-black">3.</span>
+                      <span>Use the <span className="font-bold text-white">Canvas</span> view for a Miro-style map of your structure.</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
             <p className="text-[10px] text-[#00D26A] font-black uppercase tracking-[0.2em] opacity-80">
               Organize Your Links Into Groups
             </p>
@@ -517,8 +554,8 @@ export default function CollectionsPage() {
             </div>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-20">
-          <div className="lg:col-span-2 space-y-4">
+          <div className="pb-20">
+          <div className="space-y-4">
             <CollectionsToolbar
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
@@ -704,9 +741,6 @@ export default function CollectionsPage() {
               />
               </>
             )}
-          </div>
-          <div className="lg:col-span-1">
-            <CollectionsInfo />
           </div>
           </div>
         )}

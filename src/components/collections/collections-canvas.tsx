@@ -278,17 +278,70 @@ function InnerCanvas({ collections, links = [], onOpen, onMoveNode, onReparent, 
 
   const initialNodes: Node[] = useMemo(() => {
     const out: Node[] = [];
-    // Track each collection's effective position so we can lay link
-    // leaves next to wherever the folder actually sits — including
-    // user-dragged custom positions. Without this, a folder you've
-    // dragged to (1000, 500) would have its links land at dagre's
-    // computed coords (often hundreds of px away), which is jarring.
+    // Effective on-screen position per collection. Three sources, in
+    // priority order:
+    //  1. Persisted position_x/y on the row (user dragged it).
+    //  2. Computed relative to parent's effective position — used when
+    //     a brand-new sub-folder gets created under a folder you've
+    //     already moved. dagre would otherwise drop it hundreds of px
+    //     away from where you'd expect.
+    //  3. Dagre fallback — for roots with no saved coords on first load.
     const collectionPositions = new Map<string, { x: number; y: number }>();
 
+    // BFS from roots so a child is only placed once its parent has a
+    // known position. Roots first, then their children, then grandchildren.
+    const childrenByParent = new Map<string | null, Collection[]>();
     for (const c of collections) {
-      const fb = fallback.get(c.id) ?? { x: 0, y: 0 };
-      const pos = { x: c.position_x ?? fb.x, y: c.position_y ?? fb.y };
-      collectionPositions.set(c.id, pos);
+      const key = c.parent_id ?? null;
+      if (!childrenByParent.has(key)) childrenByParent.set(key, []);
+      childrenByParent.get(key)!.push(c);
+    }
+    // Stable visual ordering — siblings without saved positions stack
+    // top-to-bottom by created_at.
+    for (const arr of childrenByParent.values()) {
+      arr.sort((a, b) =>
+        new Date(a.created_at ?? 0).getTime() - new Date(b.created_at ?? 0).getTime()
+      );
+    }
+
+    const NEW_CHILD_X_OFFSET = NODE_WIDTH + 60 + LINK_NODE_WIDTH + 80; // past parent's link stack
+    const NEW_CHILD_Y_STEP   = NODE_HEIGHT + 30;
+
+    const queue: Collection[] = [...(childrenByParent.get(null) ?? [])];
+    let safety = 0;
+    while (queue.length && safety++ < 5000) {
+      const c = queue.shift()!;
+      if (collectionPositions.has(c.id)) {
+        // Already placed in a previous iteration (defensive).
+      } else {
+        let pos: { x: number; y: number };
+        if (c.position_x != null && c.position_y != null) {
+          pos = { x: c.position_x, y: c.position_y };
+        } else if (c.parent_id && collectionPositions.has(c.parent_id)) {
+          // Sibling-indexed offset so multiple newly-created children
+          // don't stack on top of each other.
+          const siblings = childrenByParent.get(c.parent_id) ?? [];
+          const idx = siblings.findIndex((s) => s.id === c.id);
+          const parentPos = collectionPositions.get(c.parent_id)!;
+          pos = {
+            x: parentPos.x + NEW_CHILD_X_OFFSET,
+            y: parentPos.y + idx * NEW_CHILD_Y_STEP,
+          };
+        } else {
+          const fb = fallback.get(c.id) ?? { x: 0, y: 0 };
+          pos = { x: fb.x, y: fb.y };
+        }
+        collectionPositions.set(c.id, pos);
+      }
+      // Queue this folder's children for placement.
+      const kids = childrenByParent.get(c.id) ?? [];
+      queue.push(...kids);
+    }
+
+    // Emit collection nodes in stable collections-array order so React
+    // doesn't reshuffle node identities each render.
+    for (const c of collections) {
+      const pos = collectionPositions.get(c.id) ?? { x: 0, y: 0 };
       out.push({
         id: c.id,
         type: "collection",

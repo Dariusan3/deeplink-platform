@@ -717,7 +717,64 @@ fetch("/api/v1/ab-tests", {
   );
 }
 
+// Master switch — keep the original component WIP'd below for the day
+// we ship A/B Testing. Flip to `false` to enable it again. The sidebar
+// item also reads this signal via its `comingSoon` flag.
+const AB_TESTING_COMING_SOON = true;
+
 export default function ABTestingPage() {
+  if (AB_TESTING_COMING_SOON) {
+    return <ABTestingComingSoon />;
+  }
+  return <ABTestingPageImpl />;
+}
+
+function ABTestingComingSoon() {
+  return (
+    <>
+      <Header title="A/B Testing" />
+      <div className="p-6 min-h-[calc(100vh-4rem)] flex items-center justify-center">
+        <div className="max-w-md w-full text-center space-y-6">
+          <div className="mx-auto w-20 h-20 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shadow-[0_0_30px_rgba(245,158,11,0.15)]">
+            <svg className="w-10 h-10 text-amber-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 0 1-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 0 1 4.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0 1 12 15a9.065 9.065 0 0 0-6.23.693L5 14.5m14.8.8 1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0 1 12 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
+            </svg>
+          </div>
+          <div className="space-y-2">
+            <span className="inline-block text-[10px] font-black uppercase tracking-[0.3em] px-2.5 py-1 rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/30">
+              Coming Soon
+            </span>
+            <h1 className="text-3xl font-black tracking-tighter text-white uppercase italic">
+              A/B Testing
+            </h1>
+            <p className="text-sm text-neutral-400 leading-relaxed">
+              Run head-to-head experiments between two destinations on the same link, with automatic winner detection and revenue tracking.
+            </p>
+          </div>
+          <div className="rounded-2xl glass-card bg-white/[0.02] border border-white/5 p-4 text-left space-y-2">
+            <p className="text-[10px] font-black uppercase tracking-widest text-[#00D26A]">
+              What&apos;s landing
+            </p>
+            <ul className="text-xs text-neutral-400 space-y-1.5">
+              <li className="flex gap-2"><span className="text-[#00D26A]">▸</span> 50/50 traffic split with sticky sessions</li>
+              <li className="flex gap-2"><span className="text-[#00D26A]">▸</span> Conversion + revenue tracking per variant</li>
+              <li className="flex gap-2"><span className="text-[#00D26A]">▸</span> Auto winner detection at significance</li>
+              <li className="flex gap-2"><span className="text-[#00D26A]">▸</span> One-click rollout of the winner</li>
+            </ul>
+          </div>
+          <a
+            href="/dashboard"
+            className="inline-flex items-center gap-2 px-4 h-10 rounded-xl border border-white/10 bg-white/[0.02] text-xs font-black uppercase tracking-widest text-neutral-300 hover:text-white hover:border-white/20 transition-all"
+          >
+            ← Back to dashboard
+          </a>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function ABTestingPageImpl() {
   const { tests, loading, createTest, updateTest, deleteTest, selectWinner } = useABTests();
   const [showCreate, setShowCreate] = useState(false);
 
