@@ -56,6 +56,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "invalid JSON" }, { status: 400 });
   }
 
+  // TEMP: log the full event payload so we can see which fields
+  // FanBasis actually sends. Remove once the field map is confirmed.
+  console.log("[fanbasis-webhook] raw event:", JSON.stringify(event, null, 2));
+
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceKey) {
     return NextResponse.json({ error: "service role missing" }, { status: 500 });
@@ -92,20 +96,52 @@ export async function POST(request: NextRequest) {
       const periodDays = 30;
       const expiresAt = new Date(Date.now() + periodDays * 86_400_000).toISOString();
 
-      const { data: existing } = await admin
-        .from("subscriptions")
-        .select("id, team_id, plan")
-        .or(
-          [
-            checkoutSessionId ? `fanbasis_checkout_session_id.eq.${checkoutSessionId}` : null,
-            fbSubscriptionId ? `fanbasis_subscription_id.eq.${fbSubscriptionId}` : null,
-          ]
-            .filter(Boolean)
-            .join(",") || "id.is.null"
-        )
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // Try the cleanest match first: checkout_session_id /
+      // subscription_id from the event payload. FanBasis sometimes omits
+      // these on the first events, so we also fall back to the most
+      // recent trial row for the buyer's email — that's enough to map
+      // back to OUR tenant because /api/billing/checkout creates the
+      // trial row with `customer_email` already populated.
+      const buyerEmail =
+        typeof event.buyer === "object" && event.buyer
+          ? (event.buyer as { email?: string }).email ?? null
+          : null;
+
+      let existing: { id: string; team_id: string; plan: string } | null = null;
+
+      if (checkoutSessionId || fbSubscriptionId) {
+        const { data } = await admin
+          .from("subscriptions")
+          .select("id, team_id, plan")
+          .or(
+            [
+              checkoutSessionId ? `fanbasis_checkout_session_id.eq.${checkoutSessionId}` : null,
+              fbSubscriptionId ? `fanbasis_subscription_id.eq.${fbSubscriptionId}` : null,
+            ]
+              .filter(Boolean)
+              .join(",")
+          )
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        existing = data ?? null;
+      }
+
+      // Fallback: latest trial row for this buyer's email. Necessary
+      // because FanBasis is currently sending events without our
+      // api_metadata or session ids, so without this the trial row
+      // never gets activated.
+      if (!existing && buyerEmail) {
+        const { data } = await admin
+          .from("subscriptions")
+          .select("id, team_id, plan")
+          .eq("customer_email", buyerEmail)
+          .eq("status", "trial")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        existing = data ?? null;
+      }
 
       if (existing) {
         await admin
