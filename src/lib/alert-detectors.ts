@@ -88,37 +88,73 @@ export async function detectDestinationBroken(supabase: SupabaseClient, teamId: 
 export async function detectClickDrop(supabase: SupabaseClient, teamId: string): Promise<DetectedAlert[]> {
   const today = startOfDay();
   const sevenDaysAgo = new Date(today.getTime() - 7 * 86_400_000);
-  const linkIds = await teamLinkIds(supabase, teamId);
-  if (linkIds.length === 0) return [];
 
-  const { count: todayClicks } = await supabase
-    .from("link_clicks")
-    .select("*", { count: "exact", head: true })
-    .in("link_id", linkIds)
-    .gte("clicked_at", today.toISOString());
+  // Pull links with slug + title so we can name the affected one in the
+  // alert. Previously this detector was team-wide and only ever said
+  // "Traffic is down X% today" without telling you WHICH link — useless
+  // when you have a busy account with many destinations.
+  const { data: links } = await supabase
+    .from("links")
+    .select("id, slug, title")
+    .eq("team_id", teamId);
+  if (!links || links.length === 0) return [];
 
-  const { count: weekClicks } = await supabase
-    .from("link_clicks")
-    .select("*", { count: "exact", head: true })
-    .in("link_id", linkIds)
-    .gte("clicked_at", sevenDaysAgo.toISOString())
-    .lt("clicked_at", today.toISOString());
+  // Pull clicks for both windows in two queries (covers all team links),
+  // then group per link in JS. Cheaper than firing 2N queries — and
+  // link_clicks already has a composite (link_id, clicked_at) index.
+  const linkIds = links.map((l) => l.id);
+  const [todayRes, weekRes] = await Promise.all([
+    supabase
+      .from("link_clicks")
+      .select("link_id")
+      .in("link_id", linkIds)
+      .gte("clicked_at", today.toISOString()),
+    supabase
+      .from("link_clicks")
+      .select("link_id")
+      .in("link_id", linkIds)
+      .gte("clicked_at", sevenDaysAgo.toISOString())
+      .lt("clicked_at", today.toISOString()),
+  ]);
 
-  const avg = (weekClicks ?? 0) / 7;
-  if (avg < 50) return [];
-  if ((todayClicks ?? 0) >= avg * 0.4) return [];
+  const todayByLink = new Map<string, number>();
+  for (const r of (todayRes.data ?? []) as { link_id: string }[]) {
+    todayByLink.set(r.link_id, (todayByLink.get(r.link_id) ?? 0) + 1);
+  }
+  const weekByLink = new Map<string, number>();
+  for (const r of (weekRes.data ?? []) as { link_id: string }[]) {
+    weekByLink.set(r.link_id, (weekByLink.get(r.link_id) ?? 0) + 1);
+  }
 
-  const dropPct = Math.round(((avg - (todayClicks ?? 0)) / avg) * 100);
-  return [{
-    team_id: teamId,
-    alert_type: "click_drop",
-    severity: dropPct >= 80 ? "high" : "medium",
-    title: `Traffic is down ${dropPct}% today`,
-    description: `You averaged ${Math.round(avg)} clicks/day this past week but only ${todayClicks ?? 0} so far today. Check if a destination broke, an ad set paused, or a traffic source got bannered.`,
-    affected_link: null,
-    dedup_key: dedupKey("click_drop"),
-    metadata: { today: todayClicks ?? 0, avg7d: avg, drop_pct: dropPct },
-  }];
+  // Thresholds tuned per-link (vs. team-wide): a link needs at least 10
+  // clicks/day on average to be worth alerting on — quieter links would
+  // flap from one slow day. Drop must be >=60% (today below 40% of avg).
+  const MIN_AVG_PER_DAY = 10;
+  const out: DetectedAlert[] = [];
+  for (const link of links) {
+    const todayCount = todayByLink.get(link.id) ?? 0;
+    const weekCount  = weekByLink.get(link.id) ?? 0;
+    const avg = weekCount / 7;
+    if (avg < MIN_AVG_PER_DAY) continue;
+    if (todayCount >= avg * 0.4) continue;
+
+    const dropPct = Math.round(((avg - todayCount) / avg) * 100);
+    const label = link.title || link.slug;
+    out.push({
+      team_id: teamId,
+      alert_type: "click_drop",
+      severity: dropPct >= 80 ? "high" : "medium",
+      title: `Traffic on "${label}" is down ${dropPct}% today`,
+      description: `"${label}" averaged ${Math.round(avg)} clicks/day this past week but only ${todayCount} so far today. Check if the destination broke, an ad set paused, or a traffic source got bannered.`,
+      affected_link: link.slug,
+      // dedup_key includes the link id so each link gets its own alert
+      // row — without this, the second link's drop would silently
+      // overwrite the first's.
+      dedup_key: dedupKey("click_drop", { id: link.id }),
+      metadata: { today: todayCount, avg7d: avg, drop_pct: dropPct, link_id: link.id, slug: link.slug },
+    });
+  }
+  return out;
 }
 
 export async function detectClickSpam(supabase: SupabaseClient, teamId: string): Promise<DetectedAlert[]> {
