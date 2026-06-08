@@ -45,14 +45,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "user not found" }, { status: 404 });
   }
 
-  // Already a partner? Return existing profile.
+  // Already a partner? Return existing profile — but if the profile is
+  // missing (can happen after a manual delete-and-resignup or any
+  // cascade that dropped partner_profiles), fall through to the
+  // create path so we self-heal instead of permanently breaking the
+  // partner page.
   if (target.is_partner) {
     const { data: existing } = await admin
       .from("partner_profiles")
       .select("*")
       .eq("user_id", user_id)
       .maybeSingle();
-    return NextResponse.json({ ok: true, profile: existing, alreadyActive: true });
+    if (existing) {
+      return NextResponse.json({ ok: true, profile: existing, alreadyActive: true });
+    }
+    // is_partner=true but no profile → broken state. Continue to the
+    // create-profile branch below so this request repairs it.
   }
 
   // Generate a unique 8-char referral code (retry on rare collision).

@@ -156,9 +156,9 @@ export type TapprPlan = "starter" | "growth" | "agency";
 
 export const TAPPR_PLANS: Record<TapprPlan, { title: string; amountCents: number; frequencyDays: number }> = {
   starter: { title: "Tappr Starter", amountCents: 8900,  frequencyDays: 30 },
-  // TEMP for testing: 1 cent ($0.01). FanBasis may reject anything
-  // under their processor minimum (usually $0.50). If checkout fails,
-  // bump to 50 ($0.50) or 100 ($1.00). REVERT to 18900 when done.
-  growth:  { title: "Tappr Growth",  amountCents: 1, frequencyDays: 30 },
+  // TEMP for testing: $1.00 — FanBasis enforces a 100 cents minimum
+  // (rejected $0.01 and $0.50 with "Amount is below the minimum limit
+  // allowed"). REVERT to 18900 when done testing.
+  growth:  { title: "Tappr Growth",  amountCents: 100, frequencyDays: 30 },
   agency:  { title: "Tappr Agency",  amountCents: 38900, frequencyDays: 30 },
 };

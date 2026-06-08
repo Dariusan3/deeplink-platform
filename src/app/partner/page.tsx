@@ -38,12 +38,33 @@ export default function PartnerOverviewPage() {
   }
 
   if (!profile) {
+    // Self-heal: trigger a one-shot repair call. Most common cause is
+    // `users.is_partner=true` but the partner_profiles row was lost
+    // (e.g. after a cascade delete + resignup with the same email).
+    // The activate endpoint now creates the missing row on demand.
     return (
       <div className="p-6">
         <Card className="glass-card border-white/5">
-          <CardContent className="p-12 text-center">
-            <Trophy className="w-12 h-12 text-neutral-600 mx-auto mb-4" />
-            <p className="text-sm text-neutral-500">Partner profile not found.</p>
+          <CardContent className="p-12 text-center space-y-4">
+            <Trophy className="w-12 h-12 text-neutral-600 mx-auto" />
+            <div className="space-y-1">
+              <p className="text-sm font-bold text-white">Setting up your partner profile…</p>
+              <p className="text-xs text-neutral-500">
+                If this persists for more than a minute, contact support — your account flag is set but the profile is missing.
+              </p>
+            </div>
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch("/api/partner/repair-profile", { method: "POST" });
+                  if (res.ok) window.location.reload();
+                  else toast.error("Failed to repair profile — contact support");
+                } catch { toast.error("Network error"); }
+              }}
+              className="px-4 h-9 rounded-lg bg-[#00D26A]/10 border border-[#00D26A]/30 text-[#00D26A] text-[10px] font-black uppercase tracking-widest hover:bg-[#00D26A]/15 transition-all"
+            >
+              Retry setup
+            </button>
           </CardContent>
         </Card>
       </div>
