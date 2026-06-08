@@ -24,11 +24,11 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json().catch(() => ({}));
-  const { team_id, plan } = body as { team_id?: string; plan?: TapprPlan };
+  const { team_id: bodyTeamId, plan } = body as { team_id?: string; plan?: TapprPlan };
 
-  if (!team_id || !plan || !TAPPR_PLANS[plan]) {
+  if (!plan || !TAPPR_PLANS[plan]) {
     return NextResponse.json(
-      { error: "team_id and a valid plan (starter|growth|agency) are required" },
+      { error: "a valid plan (starter|growth|agency) is required" },
       { status: 400 }
     );
   }
@@ -39,16 +39,38 @@ export async function POST(request: NextRequest) {
   }
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey);
 
-  // Verify the caller actually owns this team — anything weaker would let
-  // any member upgrade the team on someone else's card.
-  const { data: membership } = await admin
-    .from("team_members")
-    .select("role")
-    .eq("team_id", team_id)
-    .eq("user_id", authData.user.id)
-    .single();
-  if (!membership || membership.role !== "owner") {
-    return NextResponse.json({ error: "owner only" }, { status: 403 });
+  // Resolve team: prefer the body-supplied team_id (when /billing inside
+  // the dashboard has the context), otherwise pick the user's owned
+  // team. This is what lets /pricing — which sits OUTSIDE the dashboard
+  // TeamProvider — still kick off a checkout: the button doesn't need
+  // to know which team it's billing for, we figure it out server-side.
+  let team_id = bodyTeamId;
+  if (!team_id) {
+    const { data: owned } = await admin
+      .from("team_members")
+      .select("team_id")
+      .eq("user_id", authData.user.id)
+      .eq("role", "owner")
+      .limit(1)
+      .maybeSingle();
+    team_id = owned?.team_id;
+    if (!team_id) {
+      return NextResponse.json(
+        { error: "no owned team — create one first" },
+        { status: 400 }
+      );
+    }
+  } else {
+    // team_id came from the body — verify the caller actually owns it.
+    const { data: membership } = await admin
+      .from("team_members")
+      .select("role")
+      .eq("team_id", team_id)
+      .eq("user_id", authData.user.id)
+      .single();
+    if (!membership || membership.role !== "owner") {
+      return NextResponse.json({ error: "owner only" }, { status: 403 });
+    }
   }
 
   const cfg = TAPPR_PLANS[plan];
