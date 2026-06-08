@@ -155,10 +155,11 @@ export async function deleteWebhookSubscription(id: number) {
 export type TapprPlan = "starter" | "growth" | "agency";
 
 export const TAPPR_PLANS: Record<TapprPlan, { title: string; amountCents: number; frequencyDays: number }> = {
-  starter: { title: "Tappr Starter", amountCents: 8900,  frequencyDays: 30 },
-  // TEMP for testing: $1.00 — FanBasis enforces a 100 cents minimum
-  // (rejected $0.01 and $0.50 with "Amount is below the minimum limit
-  // allowed"). REVERT to 18900 when done testing.
+  // TEMP for end-to-end testing: all 3 plans at $1 (FanBasis minimum is
+  // 100 cents). Lets us validate the full payment + webhook + activation
+  // flow for any plan without burning real money. REVERT to real prices
+  // (starter=8900, growth=18900, agency=38900) before going live.
+  starter: { title: "Tappr Starter", amountCents: 100, frequencyDays: 30 },
   growth:  { title: "Tappr Growth",  amountCents: 100, frequencyDays: 30 },
-  agency:  { title: "Tappr Agency",  amountCents: 38900, frequencyDays: 30 },
+  agency:  { title: "Tappr Agency",  amountCents: 100, frequencyDays: 30 },
 };

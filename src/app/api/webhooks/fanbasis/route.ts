@@ -86,6 +86,15 @@ export async function POST(request: NextRequest) {
 
   const eventType = event.event_type || (event as { type?: string }).type;
 
+  // Hoisted so the audit-log section at the end of the handler can see
+  // the values resolved inside the payment-success branch (where we
+  // look up the trial row by buyer email when FanBasis doesn't echo
+  // back api_metadata).
+  let resolvedPlan: TapprPlan | undefined = planFromMd;
+  let resolvedTeamId: string | undefined = teamId;
+  let resolvedPayerUserId: string | undefined = payerUserId;
+  let resolvedTargetEmail: string | null = null;
+
   switch (eventType) {
     case "payment.succeeded":
     case "subscription.created":
@@ -143,7 +152,28 @@ export async function POST(request: NextRequest) {
         existing = data ?? null;
       }
 
+      // Resolve plan + payer from the matched subscription (the most
+      // reliable source) before falling back to metadata. The trial row
+      // already knows which plan was bought and which team owns it —
+      // we don't need FanBasis to tell us. Reuses the hoisted resolved*
+      // vars so the audit-log section below can read them too.
       if (existing) {
+        resolvedPlan = (existing.plan as TapprPlan) || resolvedPlan;
+        resolvedTeamId = existing.team_id || resolvedTeamId;
+        // If we don't already have the payer from metadata, look up the
+        // owner of the matched team. Owner = the user who started the
+        // checkout in /api/billing/checkout.
+        if (!resolvedPayerUserId) {
+          const { data: owner } = await admin
+            .from("team_members")
+            .select("user_id")
+            .eq("team_id", existing.team_id)
+            .eq("role", "owner")
+            .limit(1)
+            .maybeSingle();
+          resolvedPayerUserId = owner?.user_id ?? undefined;
+        }
+
         await admin
           .from("subscriptions")
           .update({
@@ -153,10 +183,10 @@ export async function POST(request: NextRequest) {
             notes: `Activated by ${eventType}`,
           })
           .eq("id", existing.id);
-      } else if (teamId && planFromMd) {
+      } else if (resolvedTeamId && resolvedPlan) {
         await admin.from("subscriptions").insert({
-          team_id: teamId,
-          plan: planFromMd,
+          team_id: resolvedTeamId,
+          plan: resolvedPlan,
           status: "active",
           is_free: false,
           starts_at: new Date().toISOString(),
@@ -173,9 +203,10 @@ export async function POST(request: NextRequest) {
       // payment for the referral — the partner_referrals row goes from
       // "pending" to "converted" and a one-time commission is logged.
       // Renewal events skip the partner_earnings insert since the row is
-      // already "converted".
-      if (payerUserId && planFromMd) {
-        await creditPartnerOnPaidSignup(admin, payerUserId, planFromMd).catch((err) => {
+      // already "converted". Uses the resolved payer/plan so it works
+      // even when FanBasis sends empty api_metadata.
+      if (resolvedPayerUserId && resolvedPlan) {
+        await creditPartnerOnPaidSignup(admin, resolvedPayerUserId, resolvedPlan).catch((err) => {
           console.error("[fanbasis-webhook] partner credit failed", err);
         });
       }
@@ -228,15 +259,17 @@ export async function POST(request: NextRequest) {
   // the subscriptions table.
   if (eventType && AUDIT_MAP[eventType]) {
     const map = AUDIT_MAP[eventType];
-    const planLabel = planFromMd ? ` ${planFromMd}` : "";
+    // Prefer the resolved plan (from the matched trial row) over the
+    // metadata one — FanBasis often sends empty api_metadata so the
+    // resolved value is the only one we'll have.
+    const planLabel = resolvedPlan ? ` ${resolvedPlan}` : "";
     const amount = (event as Record<string, unknown>).amount;
     const amountLabel = typeof amount === "number" ? ` ($${amount})` : "";
 
-    let targetEmail: string | null = null;
     let buyerName: string | null = null;
     if (typeof event.buyer === "object" && event.buyer) {
       const b = event.buyer as { email?: string; name?: string };
-      targetEmail = b.email ?? null;
+      resolvedTargetEmail = b.email ?? null;
       buyerName = b.name ?? null;
     }
 
@@ -244,16 +277,16 @@ export async function POST(request: NextRequest) {
       eventType: map.type,
       severity: map.severity,
       description: `${map.label}${planLabel}${amountLabel}${buyerName ? ` — ${buyerName}` : ""}`,
-      teamId: teamId || null,
-      targetUserId: payerUserId || null,
-      targetEmail,
+      teamId: resolvedTeamId || null,
+      targetUserId: resolvedPayerUserId || null,
+      targetEmail: resolvedTargetEmail,
       source: "webhook:fanbasis",
       metadata: {
         event_type: eventType,
         checkout_session_id: checkoutSessionId,
         subscription_id: fbSubscriptionId,
         amount,
-        plan: planFromMd,
+        plan: resolvedPlan,
         api_metadata: md,
       },
     });
