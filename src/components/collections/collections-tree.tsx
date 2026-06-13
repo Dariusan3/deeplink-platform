@@ -2,7 +2,8 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { Collection } from "@/hooks/use-collections";
-import { FolderOpen, ChevronRight, ChevronDown, Link2, Pencil, Trash2, FolderPlus, LinkIcon } from "lucide-react";
+import type { Link as LinkType } from "@/types/links";
+import { FolderOpen, ChevronRight, ChevronDown, Link2, Pencil, Trash2, FolderPlus, LinkIcon, ExternalLink, Pause } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -63,6 +64,9 @@ function isDescendantOf(
 
 interface CollectionsTreeProps {
   collections: Collection[];
+  // Links to render as leaf rows inside their collection (Finder-style).
+  // Omit to show only the folder hierarchy.
+  links?: LinkType[];
   onOpen: (collectionId: string) => void;
   onEdit: (collectionId: string) => void;
   onDelete: (collectionId: string) => void;
@@ -73,18 +77,40 @@ interface CollectionsTreeProps {
   onCreateChild?: (parentId: string) => void;
   // Same idea but for creating a NEW LINK pre-assigned to this collection.
   onCreateLink?: (collectionId: string) => void;
+  // Clicking a link leaf selects it — the page shows its info panel.
+  selectedLinkId?: string | null;
+  onSelectLink?: (linkId: string) => void;
 }
 
 export function CollectionsTree({
   collections,
+  links = [],
   onOpen,
   onEdit,
   onDelete,
   onReparent,
   onCreateChild,
   onCreateLink,
+  selectedLinkId,
+  onSelectLink,
 }: CollectionsTreeProps) {
   const tree = useMemo(() => buildTree(collections), [collections]);
+  // Group links by collection_id for O(1) lookup when rendering a folder.
+  const linksByCollection = useMemo(() => {
+    const map = new Map<string, LinkType[]>();
+    for (const l of links) {
+      if (!l.collection_id) continue;
+      if (!map.has(l.collection_id)) map.set(l.collection_id, []);
+      map.get(l.collection_id)!.push(l);
+    }
+    // Newest first within each folder.
+    for (const arr of map.values()) {
+      arr.sort((a, b) =>
+        new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
+      );
+    }
+    return map;
+  }, [links]);
   const [expanded, setExpanded] = useState<Set<string>>(() => {
     // Start with all root nodes expanded so the user immediately sees
     // their hierarchy.
@@ -166,6 +192,9 @@ export function CollectionsTree({
           onDelete={onDelete}
           onCreateChild={onCreateChild}
           onCreateLink={onCreateLink}
+          linksByCollection={linksByCollection}
+          selectedLinkId={selectedLinkId}
+          onSelectLink={onSelectLink}
           dragging={dragging}
           setDragging={setDragging}
           dragOverId={dragOverId}
@@ -194,6 +223,9 @@ interface TreeRowProps {
   onDelete: (id: string) => void;
   onCreateChild?: (parentId: string) => void;
   onCreateLink?: (collectionId: string) => void;
+  linksByCollection: Map<string, LinkType[]>;
+  selectedLinkId?: string | null;
+  onSelectLink?: (linkId: string) => void;
   dragging: string | null;
   setDragging: (id: string | null) => void;
   dragOverId: string | null;
@@ -211,6 +243,9 @@ function TreeRow({
   onDelete,
   onCreateChild,
   onCreateLink,
+  linksByCollection,
+  selectedLinkId,
+  onSelectLink,
   dragging,
   setDragging,
   dragOverId,
@@ -218,7 +253,8 @@ function TreeRow({
   onDrop,
 }: TreeRowProps) {
   const isOpen = expanded.has(node.collection.id);
-  const hasChildren = node.children.length > 0;
+  const folderLinks = linksByCollection.get(node.collection.id) ?? [];
+  const hasChildren = node.children.length > 0 || folderLinks.length > 0;
   const isDragOver = dragOverId === node.collection.id;
   const isDragging = dragging === node.collection.id;
   const color = node.collection.color || "#00D26A";
@@ -345,7 +381,7 @@ function TreeRow({
         </div>
       </div>
 
-      {/* Children */}
+      {/* Children: sub-folders first, then link leaves (Finder order). */}
       {isOpen && hasChildren && (
         <div>
           {node.children.map((child) => (
@@ -360,6 +396,9 @@ function TreeRow({
               onDelete={onDelete}
               onCreateChild={onCreateChild}
               onCreateLink={onCreateLink}
+              linksByCollection={linksByCollection}
+              selectedLinkId={selectedLinkId}
+              onSelectLink={onSelectLink}
               dragging={dragging}
               setDragging={setDragging}
               dragOverId={dragOverId}
@@ -367,8 +406,80 @@ function TreeRow({
               onDrop={onDrop}
             />
           ))}
+          {folderLinks.map((link) => (
+            <LinkLeaf
+              key={link.id}
+              link={link}
+              depth={depth + 1}
+              selected={selectedLinkId === link.id}
+              onSelect={onSelectLink}
+            />
+          ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Link leaf row — the "file" inside a folder. Clicking it selects the
+// link (the page shows its info panel). Indented one level past its
+// parent folder, like a file under a directory in Finder.
+
+function LinkLeaf({
+  link,
+  depth,
+  selected,
+  onSelect,
+}: {
+  link: LinkType;
+  depth: number;
+  selected: boolean;
+  onSelect?: (linkId: string) => void;
+}) {
+  let host = "";
+  try { host = new URL(link.destination_url).hostname.replace(/^www\./, ""); } catch {}
+  const paused = link.is_active === false;
+
+  return (
+    <div
+      onClick={() => onSelect?.(link.id)}
+      className={cn(
+        "group flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-all",
+        selected ? "bg-[#00D26A]/15 ring-1 ring-[#00D26A]/40" : "hover:bg-white/[0.03]"
+      )}
+      style={{ paddingLeft: 8 + depth * 20 + 24 }}
+    >
+      <div className="w-6 h-6 rounded-md bg-white/5 flex items-center justify-center shrink-0">
+        <Link2 className={cn("w-3.5 h-3.5", selected ? "text-[#00D26A]" : "text-neutral-400")} />
+      </div>
+      <div className="flex-1 min-w-0 flex items-baseline gap-2">
+        <span className={cn("text-[13px] font-medium truncate", selected ? "text-white" : "text-neutral-300")}>
+          {link.title || link.slug}
+        </span>
+        <span className="text-[10px] text-neutral-600 font-medium truncate shrink-0">
+          {host}
+        </span>
+      </div>
+      {paused && (
+        <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-amber-400 shrink-0">
+          <Pause className="w-2.5 h-2.5" /> paused
+        </span>
+      )}
+      <span className="text-[10px] text-neutral-500 font-bold shrink-0 inline-flex items-center gap-1">
+        <Link2 className="w-2.5 h-2.5" />
+        {link.click_count ?? 0}
+      </span>
+      <a
+        href={link.destination_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className="w-6 h-6 rounded-md flex items-center justify-center text-neutral-600 hover:text-[#00D26A] opacity-0 group-hover:opacity-100 transition-all shrink-0"
+        title="Open destination"
+      >
+        <ExternalLink className="w-3 h-3" />
+      </a>
     </div>
   );
 }

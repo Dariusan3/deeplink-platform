@@ -17,6 +17,7 @@ import {
 } from "@/components/collections/collections-toolbar";
 import { LinkPagination } from "@/components/links/link-pagination";
 import { CollectionsTree } from "@/components/collections/collections-tree";
+import { LinkInfoPanel } from "@/components/collections/link-info-panel";
 import { CollectionsCanvas } from "@/components/collections/collections-canvas";
 import {
   FolderOpen,
@@ -218,6 +219,8 @@ export default function CollectionsPage() {
   // pre-select the picker.
   const [linkCollectionId, setLinkCollectionId] = useState<string | null>(null);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  // Selected link in the tree view — drives the Finder-style info panel.
+  const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const openCreateLink = (collectionId: string) => {
     setLinkCollectionId(collectionId);
     setLinkDialogOpen(true);
@@ -610,15 +613,29 @@ export default function CollectionsPage() {
                 <p className="text-sm font-bold text-neutral-500">No collections match your filters</p>
               </div>
             ) : viewMode === "tree" ? (
-              <CollectionsTree
-                collections={filteredCollections}
-                onOpen={setActiveCollectionId}
-                onEdit={setEditId}
-                onDelete={setDeleteId}
-                onReparent={reparentCollection}
-                onCreateChild={openCreateSubFolder}
-                onCreateLink={openCreateLink}
-              />
+              // Finder-style: tree on the left, link info/analytics
+              // preview on the right when a link is selected.
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4 items-start">
+                <CollectionsTree
+                  collections={filteredCollections}
+                  links={links}
+                  onOpen={setActiveCollectionId}
+                  onEdit={setEditId}
+                  onDelete={setDeleteId}
+                  onReparent={reparentCollection}
+                  onCreateChild={openCreateSubFolder}
+                  onCreateLink={openCreateLink}
+                  selectedLinkId={selectedLinkId}
+                  onSelectLink={setSelectedLinkId}
+                />
+                <div className="rounded-2xl border border-white/5 bg-white/[0.01] lg:sticky lg:top-6 min-h-[300px] overflow-hidden">
+                  <LinkInfoPanel
+                    linkId={selectedLinkId}
+                    onClose={() => setSelectedLinkId(null)}
+                    onOpenFull={(id) => router.push(`/dashboard/links/${id}`)}
+                  />
+                </div>
+              </div>
             ) : viewMode === "canvas" ? (
               <CollectionsCanvas
                 collections={filteredCollections}
