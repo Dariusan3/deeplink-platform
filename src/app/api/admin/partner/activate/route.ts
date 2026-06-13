@@ -45,51 +45,50 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "user not found" }, { status: 404 });
   }
 
-  // Already a partner? Return existing profile — but if the profile is
-  // missing (can happen after a manual delete-and-resignup or any
-  // cascade that dropped partner_profiles), fall through to the
-  // create path so we self-heal instead of permanently breaking the
-  // partner page.
-  if (target.is_partner) {
-    const { data: existing } = await admin
-      .from("partner_profiles")
-      .select("*")
-      .eq("user_id", user_id)
-      .maybeSingle();
-    if (existing) {
-      return NextResponse.json({ ok: true, profile: existing, alreadyActive: true });
-    }
-    // is_partner=true but no profile → broken state. Continue to the
-    // create-profile branch below so this request repairs it.
-  }
-
-  // Generate a unique 8-char referral code (retry on rare collision).
-  let referralCode = "";
-  for (let attempt = 0; attempt < 5; attempt++) {
-    referralCode = Math.random().toString(36).slice(2, 10);
-    const { data: clash } = await admin
-      .from("partner_profiles")
-      .select("id")
-      .eq("referral_code", referralCode)
-      .maybeSingle();
-    if (!clash) break;
-  }
+  // A partner_profiles row can already exist independently of the
+  // is_partner flag — e.g. the user was deactivated (flag flipped to
+  // false) but the profile row was kept (DELETE only toggles the flag).
+  // Re-activating must NOT blindly INSERT or we hit
+  // partner_profiles_user_id_key. So: if a profile exists for this
+  // user_id, reuse it (keeping the same referral_code so existing
+  // referral links don't break). Only INSERT when truly absent.
+  const { data: existingProfile } = await admin
+    .from("partner_profiles")
+    .select("*")
+    .eq("user_id", user_id)
+    .maybeSingle();
 
   const now = new Date().toISOString();
+  let profile = existingProfile;
 
-  const { data: profile, error: profileErr } = await admin
-    .from("partner_profiles")
-    .insert({
-      user_id,
-      referral_code: referralCode,
-      commission_rate: 0.25,
-      activated_at: now,
-    })
-    .select()
-    .single();
+  if (!existingProfile) {
+    // Generate a unique 8-char referral code (retry on rare collision).
+    let referralCode = "";
+    for (let attempt = 0; attempt < 5; attempt++) {
+      referralCode = Math.random().toString(36).slice(2, 10);
+      const { data: clash } = await admin
+        .from("partner_profiles")
+        .select("id")
+        .eq("referral_code", referralCode)
+        .maybeSingle();
+      if (!clash) break;
+    }
 
-  if (profileErr) {
-    return NextResponse.json({ error: profileErr.message }, { status: 500 });
+    const { data: created, error: profileErr } = await admin
+      .from("partner_profiles")
+      .insert({
+        user_id,
+        referral_code: referralCode,
+        commission_rate: 0.25,
+        activated_at: now,
+      })
+      .select()
+      .single();
+
+    if (profileErr) {
+      return NextResponse.json({ error: profileErr.message }, { status: 500 });
+    }
+    profile = created;
   }
 
   await admin
@@ -98,16 +97,20 @@ export async function POST(request: NextRequest) {
     .eq("id", user_id);
 
   // Welcome email — best-effort, don't fail activation if email fails.
-  if (target.email) {
+  // Only send for a freshly-created profile (not a reactivation of an
+  // existing one) so we don't spam returning partners. Uses the
+  // profile's referral_code, which works whether it was just created
+  // or reused.
+  if (target.email && !existingProfile && profile) {
     const origin = request.nextUrl.origin;
     sendPartnerWelcomeEmail({
       to: target.email,
       name: target.full_name || target.email.split("@")[0],
-      referralUrl: `${origin}/?ref=${referralCode}`,
+      referralUrl: `${origin}/?ref=${(profile as { referral_code: string }).referral_code}`,
     }).catch((err) => console.error("Welcome email failed:", err));
   }
 
-  return NextResponse.json({ ok: true, profile, alreadyActive: false });
+  return NextResponse.json({ ok: true, profile, alreadyActive: !!existingProfile });
 }
 
 // DELETE = deactivate partner (does not delete data, just flips flag).
