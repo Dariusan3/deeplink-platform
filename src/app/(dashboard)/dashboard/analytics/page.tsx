@@ -151,16 +151,9 @@ function AnalyticsContent() {
     <>
       <Header title="Deep Analytics" />
       <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <h2 className="text-3xl font-black tracking-tighter text-white uppercase italic">
-              Analytics
-            </h2>
-            <p className="text-sm text-neutral-400">
-              Track your link performance and visitor analytics in real-time
-            </p>
-          </div>
+        {/* Toolbar — title lives in the sticky <Header> above, so this
+            row only holds the filters/actions, right-aligned. */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-4">
           <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="ghost"

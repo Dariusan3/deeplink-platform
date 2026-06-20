@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PageHeader } from "@/components/ui/page-header";
 import {
   Dialog,
   DialogContent,
@@ -183,12 +184,11 @@ export default function AdminUsersPage() {
 
   return (
     <div className="p-8 space-y-6">
-      <div>
-        <h1 className="text-3xl font-black text-white">Users & Teams</h1>
-        <p className="text-sm text-neutral-500 mt-1">
-          {users.length} total users · Search, manage subscriptions, grant plans
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Admin"
+        title="Users & Teams"
+        subtitle={`${users.length} total users · Search, manage subscriptions, grant plans`}
+      />
 
       {/* Search */}
       <div className="relative max-w-md">

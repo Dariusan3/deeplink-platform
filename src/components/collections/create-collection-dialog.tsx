@@ -244,29 +244,6 @@ export function CreateCollectionDialog({
             </button>
           </div>
 
-          {/* Star Collection */}
-          <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.01] border border-white/5">
-            <div>
-              <p className="text-sm font-bold text-white">Star Collection</p>
-              <p className="text-[10px] text-neutral-500 mt-0.5">
-                Starred collections will show up in the sidebar navigation for quick access.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setIsStarred(!isStarred)}
-              className={cn(
-                "relative w-12 h-6 rounded-full transition-all duration-300",
-                isStarred ? "bg-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.3)]" : "bg-white/5 border border-white/10"
-              )}
-            >
-              <div className={cn(
-                "absolute top-1 w-4 h-4 rounded-full transition-all duration-300 shadow-sm",
-                isStarred ? "left-7 bg-white" : "left-1 bg-neutral-500"
-              )} />
-            </button>
-          </div>
-
           <DialogFooter className="pt-2 gap-2">
             <Button type="button" variant="ghost" onClick={() => setOpen(false)} className="font-bold">
               Cancel

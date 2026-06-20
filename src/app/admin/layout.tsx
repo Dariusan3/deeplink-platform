@@ -16,6 +16,7 @@ import {
   ArrowLeft,
   Lock,
   ScrollText,
+  Wallet,
 } from "lucide-react";
 
 const ADMIN_PIN = process.env.NEXT_PUBLIC_ADMIN_PIN || "tappr2026";
@@ -25,6 +26,7 @@ const adminNav = [
   { name: "Activity Log", href: "/admin/activity", icon: ScrollText },
   { name: "Users & Teams", href: "/admin/users", icon: Users },
   { name: "Subscriptions", href: "/admin/subscriptions", icon: CreditCard },
+  { name: "Payouts", href: "/admin/payouts", icon: Wallet },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
 import {
   Users,
   CreditCard,
@@ -94,10 +95,7 @@ export default function AdminOverviewPage() {
 
   return (
     <div className="p-8 space-y-8">
-      <div>
-        <h1 className="text-3xl font-black text-white">Admin Overview</h1>
-        <p className="text-sm text-neutral-500 mt-1">CRM dashboard — platform statistics at a glance</p>
-      </div>
+      <PageHeader eyebrow="Admin" title="Overview" subtitle="CRM dashboard — platform statistics at a glance" />
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">

@@ -16,7 +16,6 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link, RedirectRule } from "@/types/links";
 import { useLinks } from "@/hooks/use-links";
-import { DateTimePicker } from "@/components/ui/date-picker";
 import { CountryMultiSelect } from "@/components/ui/country-multiselect";
 import { normalizeDestinationUrl } from "@/lib/url-normalize";
 import { toast } from "sonner";
@@ -79,22 +78,6 @@ export function RulesDialog({ link, trigger, open: controlledOpen, onOpenChange:
     });
   };
 
-  const toLocalValue = (iso?: string) => {
-    if (!iso) return "";
-    try {
-      const date = new Date(iso);
-      if (isNaN(date.getTime())) return "";
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const day = String(date.getDate()).padStart(2, "0");
-      const hours = String(date.getHours()).padStart(2, "0");
-      const minutes = String(date.getMinutes()).padStart(2, "0");
-      return `${year}-${month}-${day}T${hours}:${minutes}`;
-    } catch {
-      return "";
-    }
-  };
-
   const formatHour = (h: number) => {
     if (h === 0) return "12 AM";
     if (h < 12) return `${h} AM`;
@@ -111,38 +94,6 @@ export function RulesDialog({ link, trigger, open: controlledOpen, onOpenChange:
         }
         if (!isValidUrl(rule.destination_url)) {
           throw new Error(`Rule #${rule.priority}: Please enter a valid URL (e.g. https://example.com)`);
-        }
-      }
-
-      const now = new Date();
-      // Load the originally-persisted rules once so we can distinguish an
-      // already-expired rule from one the user has just edited into the past.
-      const originalRules = (link.redirect_rules as unknown as RedirectRule[]) || [];
-      for (const rule of rules) {
-        const hasTimeStart = !!rule.conditions.time?.after;
-        const hasTimeEnd = !!rule.conditions.time?.before;
-        if (hasTimeStart || hasTimeEnd) {
-          if (!hasTimeStart || !hasTimeEnd) {
-            throw new Error(`Rule #${rule.priority}: Both Start and End dates are required for date range.`);
-          }
-          const start = new Date(rule.conditions.time!.after!);
-          const end = new Date(rule.conditions.time!.before!);
-          const orig = originalRules[rule.priority - 1];
-          const startUnchanged = orig?.conditions?.time?.after === rule.conditions.time!.after;
-          const endUnchanged = orig?.conditions?.time?.before === rule.conditions.time!.before;
-
-          // Only reject past dates when the user touched them. Existing
-          // expired rules stay editable — otherwise re-opening the dialog
-          // on an old rule would block saves for unrelated changes.
-          if (!startUnchanged && start.getTime() < now.getTime() - 60_000) {
-            throw new Error(`Rule #${rule.priority}: Start date cannot be in the past.`);
-          }
-          if (!endUnchanged && end.getTime() < now.getTime()) {
-            throw new Error(`Rule #${rule.priority}: End date cannot be in the past.`);
-          }
-          if (start >= end) {
-            throw new Error(`Rule #${rule.priority}: Start date must be earlier than End date.`);
-          }
         }
       }
 
@@ -192,6 +143,15 @@ export function RulesDialog({ link, trigger, open: controlledOpen, onOpenChange:
         </DialogHeader>
 
         <div className="space-y-6 py-6">
+          {/* How it works — precedence explainer */}
+          <div className="p-3 rounded-xl bg-[#00D26A]/5 border border-[#00D26A]/15">
+            <p className="text-[11px] text-neutral-300 leading-relaxed">
+              Rules are checked <span className="font-bold text-[#00D26A]">top to bottom</span> — the
+              first one that matches the visitor wins. If none match, they go to the default below.
+              Leave a condition empty to mean &quot;any&quot;.
+            </p>
+          </div>
+
           {/* Default destination info */}
           <div className="p-4 rounded-xl bg-white/2 border border-white/5">
             <p className="text-[9px] font-black uppercase tracking-widest text-neutral-500 mb-1">Default Destination (no rules match)</p>
@@ -396,68 +356,6 @@ export function RulesDialog({ link, trigger, open: controlledOpen, onOpenChange:
                               <option key={h} value={h} className="bg-neutral-900">{formatHour(h)}</option>
                             ))}
                           </select>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Row 4: Date Range (optional) */}
-                    <div className="space-y-2">
-                      <Label className="text-[9px] font-black uppercase tracking-widest text-neutral-500 flex items-center gap-2">
-                        <Clock className="w-3 h-3 text-[#39FF14]" /> Date Range (optional)
-                      </Label>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest">Start</span>
-                          <DateTimePicker
-                            value={rule.conditions.time?.after || ""}
-                            onChange={(iso) => {
-                              // If the new start pushes past the existing end, clear end
-                              // so the user can re-pick — avoids saving an invalid range.
-                              const currentEnd = rule.conditions.time?.before;
-                              const endInvalid =
-                                iso && currentEnd && new Date(iso) >= new Date(currentEnd);
-                              handleUpdateRule(idx, {
-                                conditions: {
-                                  ...rule.conditions,
-                                  time: {
-                                    ...rule.conditions.time,
-                                    after: iso || undefined,
-                                    before: endInvalid ? undefined : currentEnd,
-                                  },
-                                },
-                              });
-                            }}
-                            placeholder="Start date & time"
-                            minDate={new Date()}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest">End</span>
-                          <DateTimePicker
-                            value={rule.conditions.time?.before || ""}
-                            onChange={(iso) => {
-                              handleUpdateRule(idx, {
-                                conditions: {
-                                  ...rule.conditions,
-                                  time: { ...rule.conditions.time, before: iso || undefined }
-                                }
-                              });
-                            }}
-                            placeholder="End date & time"
-                            // End can't be in the past AND must be after start.
-                            // Picker itself adds a 1-minute buffer over start so
-                            // same-minute picks don't fail the <= check below.
-                            minDate={(() => {
-                              const now = new Date();
-                              const start = rule.conditions.time?.after
-                                ? new Date(rule.conditions.time.after)
-                                : null;
-                              if (!start) return now;
-                              return start > now
-                                ? new Date(start.getTime() + 60_000)
-                                : now;
-                            })()}
-                          />
                         </div>
                       </div>
                     </div>

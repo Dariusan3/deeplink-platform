@@ -690,55 +690,31 @@ export default function CollectionsPage() {
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all shrink-0">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openCreateSubFolder(col.id);
-                        }}
-                        className="h-8 w-8 text-neutral-600 hover:text-[#00D26A]"
-                        title="Create sub-folder here"
-                      >
-                        <FolderPlus className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openCreateLink(col.id);
-                        }}
-                        className="h-8 w-8 text-neutral-600 hover:text-blue-400"
-                        title="Create link in this collection"
-                      >
-                        <LinkIcon className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditId(col.id);
-                        }}
-                        className="h-8 w-8 text-neutral-600 hover:text-[#00D26A]"
-                        title="Edit collection"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteId(col.id);
-                        }}
-                        className="h-8 w-8 text-neutral-600 hover:text-red-500"
-                        title="Delete collection"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <CollectionAction
+                        icon={FolderPlus}
+                        label="New sub-folder"
+                        hoverClass="hover:text-[#00D26A]"
+                        onClick={(e) => { e.stopPropagation(); openCreateSubFolder(col.id); }}
+                      />
+                      <CollectionAction
+                        icon={LinkIcon}
+                        label="New link"
+                        hoverClass="hover:text-blue-400"
+                        onClick={(e) => { e.stopPropagation(); openCreateLink(col.id); }}
+                      />
+                      <CollectionAction
+                        icon={Pencil}
+                        label="Edit"
+                        hoverClass="hover:text-[#00D26A]"
+                        onClick={(e) => { e.stopPropagation(); setEditId(col.id); }}
+                      />
+                      <CollectionAction
+                        icon={Trash2}
+                        label="Delete"
+                        hoverClass="hover:text-red-500"
+                        onClick={(e) => { e.stopPropagation(); setDeleteId(col.id); }}
+                      />
                     </div>
                   </div>
                   <div className="flex items-center gap-2 mt-4">
@@ -861,5 +837,36 @@ export default function CollectionsPage() {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+// Always-visible action icon for a collection card, with an instant
+// hover tooltip describing what it does. Replaces the old hover-to-reveal
+// row so the actions are discoverable without hunting.
+function CollectionAction({
+  icon: Icon,
+  label,
+  hoverClass,
+  onClick,
+}: {
+  icon: typeof FolderPlus;
+  label: string;
+  hoverClass: string;
+  onClick: (e: React.MouseEvent) => void;
+}) {
+  return (
+    <div className="relative group/act">
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={label}
+        className={`h-8 w-8 rounded-lg flex items-center justify-center text-neutral-500 hover:bg-white/5 transition-all ${hoverClass}`}
+      >
+        <Icon className="w-4 h-4" />
+      </button>
+      <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 rounded-md bg-black border border-white/10 text-[10px] font-bold text-white whitespace-nowrap opacity-0 group-hover/act:opacity-100 transition-opacity z-20 shadow-lg">
+        {label}
+      </span>
+    </div>
   );
 }

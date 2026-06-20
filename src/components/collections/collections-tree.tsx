@@ -5,7 +5,6 @@ import { Collection } from "@/hooks/use-collections";
 import type { Link as LinkType } from "@/types/links";
 import { FolderOpen, ChevronRight, ChevronDown, Link2, Pencil, Trash2, FolderPlus, LinkIcon, ExternalLink, Pause } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 // Tree node type — derived from the flat collections list by linking
@@ -336,48 +335,36 @@ function TreeRow({
           </span>
         </div>
 
-        {/* New sub-folder / new link / edit / delete */}
-        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all shrink-0">
+        {/* Actions — always visible, each with an instant hover tooltip. */}
+        <div className="flex items-center gap-0.5 shrink-0">
           {onCreateChild && (
-            <Button
-              variant="ghost"
-              size="icon"
+            <TreeAction
+              icon={FolderPlus}
+              label="New sub-folder"
+              hoverClass="hover:text-[#00D26A]"
               onClick={(e) => { e.stopPropagation(); onCreateChild(node.collection.id); }}
-              className="h-7 w-7 text-neutral-600 hover:text-[#00D26A]"
-              title="Create sub-folder here"
-            >
-              <FolderPlus className="w-3.5 h-3.5" />
-            </Button>
+            />
           )}
           {onCreateLink && (
-            <Button
-              variant="ghost"
-              size="icon"
+            <TreeAction
+              icon={LinkIcon}
+              label="New link"
+              hoverClass="hover:text-blue-400"
               onClick={(e) => { e.stopPropagation(); onCreateLink(node.collection.id); }}
-              className="h-7 w-7 text-neutral-600 hover:text-blue-400"
-              title="Create link in this collection"
-            >
-              <LinkIcon className="w-3.5 h-3.5" />
-            </Button>
+            />
           )}
-          <Button
-            variant="ghost"
-            size="icon"
+          <TreeAction
+            icon={Pencil}
+            label="Edit"
+            hoverClass="hover:text-[#00D26A]"
             onClick={(e) => { e.stopPropagation(); onEdit(node.collection.id); }}
-            className="h-7 w-7 text-neutral-600 hover:text-[#00D26A]"
-            title="Edit"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
+          />
+          <TreeAction
+            icon={Trash2}
+            label="Delete"
+            hoverClass="hover:text-red-500"
             onClick={(e) => { e.stopPropagation(); onDelete(node.collection.id); }}
-            className="h-7 w-7 text-neutral-600 hover:text-red-500"
-            title="Delete"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </Button>
+          />
         </div>
       </div>
 
@@ -480,6 +467,38 @@ function LinkLeaf({
       >
         <ExternalLink className="w-3 h-3" />
       </a>
+    </div>
+  );
+}
+
+// Always-visible tree-row action with an instant hover tooltip.
+function TreeAction({
+  icon: Icon,
+  label,
+  hoverClass,
+  onClick,
+}: {
+  icon: typeof FolderPlus;
+  label: string;
+  hoverClass: string;
+  onClick: (e: React.MouseEvent) => void;
+}) {
+  return (
+    <div className="relative group/act">
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={label}
+        className={cn(
+          "h-7 w-7 rounded-lg flex items-center justify-center text-neutral-600 hover:bg-white/5 transition-all",
+          hoverClass
+        )}
+      >
+        <Icon className="w-3.5 h-3.5" />
+      </button>
+      <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 rounded-md bg-black border border-white/10 text-[10px] font-bold text-white whitespace-nowrap opacity-0 group-hover/act:opacity-100 transition-opacity z-20 shadow-lg">
+        {label}
+      </span>
     </div>
   );
 }

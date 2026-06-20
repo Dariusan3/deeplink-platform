@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { usePartner } from "@/hooks/use-partner";
 import { Megaphone, Copy, Check, MessageCircle, Mail, Instagram, Linkedin } from "lucide-react";
 import { toast } from "sonner";
@@ -63,11 +64,11 @@ export default function PartnerPromoPage() {
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-4xl mx-auto pb-20">
-      <div>
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#00D26A] mb-1">Partner Dashboard</p>
-        <h1 className="text-3xl font-black tracking-tighter text-white uppercase italic">Promo Kit</h1>
-        <p className="text-sm text-neutral-500 mt-2">Copy-paste templates for the platforms you use. All include your partner link automatically.</p>
-      </div>
+      <PageHeader
+        eyebrow="Partner Dashboard"
+        title="Promo Kit"
+        subtitle="Copy-paste templates for the platforms you use. All include your partner link automatically."
+      />
 
       <Card className="glass-card border-[#00D26A]/20 bg-[#00D26A]/5">
         <CardContent className="p-4 flex items-center gap-3">

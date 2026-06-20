@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { DatePicker } from "@/components/ui/date-picker";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -138,31 +139,23 @@ export default function AdminActivityPage() {
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20">
-            <ScrollText className="w-5 h-5 text-red-400" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-black tracking-tight text-white uppercase italic">
-              Activity Log
-            </h1>
-            <p className="text-xs text-neutral-500 font-medium">
-              Every payment, subscription change, signup, and partner event — append-only audit trail.
-            </p>
-          </div>
-        </div>
-        <Button
-          onClick={fetchRows}
-          disabled={loading}
-          variant="outline"
-          className="h-9 rounded-xl border-white/10 bg-white/[0.02] gap-2 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30"
-        >
-          <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
-          Refresh
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Admin"
+        title="Activity Log"
+        subtitle="Every payment, subscription change, signup, and partner event — append-only audit trail."
+        icon={ScrollText}
+        action={
+          <Button
+            onClick={fetchRows}
+            disabled={loading}
+            variant="outline"
+            className="h-9 rounded-xl border-white/10 bg-white/[0.02] gap-2 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30"
+          >
+            <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
+            Refresh
+          </Button>
+        }
+      />
 
       {/* Prefix chips */}
       <div className="flex flex-wrap gap-2">

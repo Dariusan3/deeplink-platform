@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PageHeader } from "@/components/ui/page-header";
 import { usePartner } from "@/hooks/use-partner";
 import { Wallet, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -51,10 +52,7 @@ export default function PartnerEarningsPage() {
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto pb-20">
-      <div>
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#00D26A] mb-1">Partner Dashboard</p>
-        <h1 className="text-3xl font-black tracking-tighter text-white uppercase italic">Earnings</h1>
-      </div>
+      <PageHeader eyebrow="Partner Dashboard" title="Earnings" />
 
       {/* Top stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">

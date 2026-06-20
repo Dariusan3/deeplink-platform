@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import {
   CreditCard,
   Gift,
@@ -116,24 +117,20 @@ export default function AdminSubscriptionsPage() {
 
   return (
     <div className="p-8 space-y-6">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-3xl font-black text-white">Subscriptions</h1>
-          <p className="text-sm text-neutral-500 mt-1">
-            {activeSubs.length} active · {subs.length} total
-            {expiringSoon.length > 0 && (
-              <span className="text-amber-400"> · {expiringSoon.length} expiring soon</span>
-            )}
-          </p>
-        </div>
-        <Button
-          onClick={() => setGrantOpen(true)}
-          className="h-10 px-4 rounded-xl bg-red-500 hover:bg-red-600 text-white font-black uppercase text-[10px] tracking-widest gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Grant Plan
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Admin"
+        title="Subscriptions"
+        subtitle={`${activeSubs.length} active · ${subs.length} total${expiringSoon.length > 0 ? ` · ${expiringSoon.length} expiring soon` : ""}`}
+        action={
+          <Button
+            onClick={() => setGrantOpen(true)}
+            className="h-10 px-4 rounded-xl bg-red-500 hover:bg-red-600 text-white font-black uppercase text-[10px] tracking-widest gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Grant Plan
+          </Button>
+        }
+      />
 
       <GrantPlanDialog
         open={grantOpen}

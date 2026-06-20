@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
 import { usePartner } from "@/hooks/use-partner";
 import { Search, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -35,10 +36,7 @@ export default function PartnerReferralsPage() {
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto pb-20">
-      <div>
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#00D26A] mb-1">Partner Dashboard</p>
-        <h1 className="text-3xl font-black tracking-tighter text-white uppercase italic">Referrals</h1>
-      </div>
+      <PageHeader eyebrow="Partner Dashboard" title="Referrals" />
 
       {/* MRR header */}
       <Card className="glass-card border-white/5">

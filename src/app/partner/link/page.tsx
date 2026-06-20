@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { usePartner } from "@/hooks/use-partner";
 import { usePartnerStats } from "@/hooks/use-partner-stats";
 import { Copy, Check, Download, Globe, Smartphone, Monitor } from "lucide-react";
@@ -47,10 +48,7 @@ export default function PartnerLinkPage() {
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto pb-20">
-      <div>
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#00D26A] mb-1">Partner Dashboard</p>
-        <h1 className="text-3xl font-black tracking-tighter text-white uppercase italic">My Link</h1>
-      </div>
+      <PageHeader eyebrow="Partner Dashboard" title="My Link" />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="glass-card border-white/5 lg:col-span-2">

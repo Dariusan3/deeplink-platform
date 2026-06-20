@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { usePartner } from "@/hooks/use-partner";
 import {
   TrendingUp, Users, Wallet, Target, Copy, Check, ArrowRight, Sparkles, Trophy,
@@ -78,11 +79,7 @@ export default function PartnerOverviewPage() {
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto pb-20">
-      {/* Header */}
-      <div>
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#00D26A] mb-1">Partner Dashboard</p>
-        <h1 className="text-3xl font-black tracking-tighter text-white uppercase italic">Overview</h1>
-      </div>
+      <PageHeader eyebrow="Partner Dashboard" title="Overview" />
 
       {/* Payout progress / withdraw banner — always visible. Shows
           progress toward the $500 minimum until it's hit, then flips

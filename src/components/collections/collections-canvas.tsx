@@ -97,29 +97,39 @@ function CollectionNode({ data, selected }: NodeProps<Node<CollectionNodeData>>)
         )}
       </div>
 
-      {/* Quick action buttons on hover: "+ Sub-folder" and "+ Link".
-          Both pre-select this collection as the parent / container so the
-          user lands in the dialog with one click. Stacked vertically in
-          the top-right corner so they don't push the node layout. */}
+      {/* Quick action buttons: "+ Sub-folder" and "+ Link". Always
+          visible (stacked in the top-right corner), each with an instant
+          tooltip on hover. Both pre-select this collection so the user
+          lands in the dialog with one click. */}
       {data.onCreateChild && (
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); data.onCreateChild!(c.id); }}
-          className="absolute -top-2 -right-2 w-6 h-6 rounded-lg bg-[#00D26A] text-black flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-[0_0_10px_rgba(0,210,106,0.4)]"
-          title="Create sub-folder here"
-        >
-          <FolderPlus className="w-3 h-3" />
-        </button>
+        <div className="absolute -top-2 -right-2 group/act">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); data.onCreateChild!(c.id); }}
+            aria-label="New sub-folder"
+            className="w-6 h-6 rounded-lg bg-[#00D26A] text-black flex items-center justify-center transition-all shadow-[0_0_10px_rgba(0,210,106,0.4)] hover:scale-110"
+          >
+            <FolderPlus className="w-3 h-3" />
+          </button>
+          <span className="pointer-events-none absolute bottom-full right-0 mb-1.5 px-2 py-1 rounded-md bg-black border border-white/10 text-[10px] font-bold text-white whitespace-nowrap opacity-0 group-hover/act:opacity-100 transition-opacity z-30 shadow-lg">
+            New sub-folder
+          </span>
+        </div>
       )}
       {data.onCreateLink && (
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); data.onCreateLink!(c.id); }}
-          className="absolute top-5 -right-2 w-6 h-6 rounded-lg bg-blue-400 text-black flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-[0_0_10px_rgba(96,165,250,0.4)]"
-          title="Create link in this collection"
-        >
-          <LinkIcon className="w-3 h-3" />
-        </button>
+        <div className="absolute top-5 -right-2 group/act">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); data.onCreateLink!(c.id); }}
+            aria-label="New link"
+            className="w-6 h-6 rounded-lg bg-blue-400 text-black flex items-center justify-center transition-all shadow-[0_0_10px_rgba(96,165,250,0.4)] hover:scale-110"
+          >
+            <LinkIcon className="w-3 h-3" />
+          </button>
+          <span className="pointer-events-none absolute bottom-full right-0 mb-1.5 px-2 py-1 rounded-md bg-black border border-white/10 text-[10px] font-bold text-white whitespace-nowrap opacity-0 group-hover/act:opacity-100 transition-opacity z-30 shadow-lg">
+            New link
+          </span>
+        </div>
       )}
 
       {/* Source handle on the RIGHT — drag from here to another node's
