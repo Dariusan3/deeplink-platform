@@ -339,18 +339,35 @@ async function creditPartnerOnPaidSignup(
   const monthlyValue = monthlyValueCents / 100;
   const commission = monthlyValue * Number(partner.commission_rate);
 
-  // 1. Flip the referral to converted with the plan + value.
-  await admin
+  // 1. Flip the referral to its converted state. The status check
+  //    constraint allows only 'pending' | 'active' | 'churned' —
+  //    'active' is the converted state. (Using 'converted' silently
+  //    failed: the JS client returns the error in the response rather
+  //    than throwing, so the referral stayed 'pending'.)
+  const { error: updErr } = await admin
     .from("partner_referrals")
     .update({
-      status: "converted",
+      status: "active",
       plan,
       monthly_value: monthlyValue,
       converted_at: new Date().toISOString(),
     })
     .eq("id", referral.id);
+  if (updErr) {
+    console.error("[fanbasis-webhook] referral convert failed", updErr);
+    return;
+  }
 
-  // 2. Log the commission. period_month is the 1st of this month so we
+  // 2. Idempotency — skip if an earning already exists for this referral
+  //    (activate endpoint + webhook can both fire for one payment).
+  const { data: existingEarning } = await admin
+    .from("partner_earnings")
+    .select("id")
+    .eq("referral_id", referral.id)
+    .maybeSingle();
+  if (existingEarning) return;
+
+  // 3. Log the commission. period_month is the 1st of this month so we
   //    can sum monthly earnings later for payouts.
   const now = new Date();
   const periodMonth = new Date(now.getFullYear(), now.getMonth(), 1)

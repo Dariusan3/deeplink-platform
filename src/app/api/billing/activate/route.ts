@@ -153,15 +153,33 @@ async function creditPartnerOnPaidSignup(
   const monthlyValue = TAPPR_PLANS[plan].amountCents / 100;
   const commission = monthlyValue * Number(partner.commission_rate);
 
-  await admin
+  // Mark the referral converted. NOTE: the status check constraint only
+  // allows 'pending' | 'active' | 'churned' — 'active' IS the converted
+  // state. Using 'converted' here silently failed (the JS client returns
+  // the error in the response instead of throwing) so referrals stayed
+  // 'pending' even after a paid signup.
+  const { error: updErr } = await admin
     .from("partner_referrals")
     .update({
-      status: "converted",
+      status: "active",
       plan,
       monthly_value: monthlyValue,
       converted_at: new Date().toISOString(),
     })
     .eq("id", referral.id);
+  if (updErr) {
+    console.error("[billing/activate] referral convert failed", updErr);
+    return;
+  }
+
+  // Idempotency: don't double-credit if an earning already exists for
+  // this referral (e.g. webhook + activate both fire for one payment).
+  const { data: existingEarning } = await admin
+    .from("partner_earnings")
+    .select("id")
+    .eq("referral_id", referral.id)
+    .maybeSingle();
+  if (existingEarning) return;
 
   await admin.from("partner_earnings").insert({
     partner_id: referral.partner_id,
