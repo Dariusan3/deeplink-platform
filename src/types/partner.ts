@@ -21,10 +21,17 @@ export interface PartnerProfile {
 }
 
 export interface PartnerPayoutMethod {
-  type: "paypal" | "bank";
-  email?: string;          // for paypal
-  iban?: string;           // for bank
-  account_holder?: string; // for bank
+  // Crypto-only payouts. Older rows may still carry paypal/bank shapes;
+  // kept in the union so existing data type-checks, but the UI only
+  // writes/reads crypto going forward.
+  type: "crypto" | "paypal" | "bank";
+  // Crypto fields
+  network?: string;        // e.g. "USDT (TRC20)", "USDC (ERC20)", "BTC", "ETH"
+  wallet_address?: string;
+  // Legacy fields (paypal / bank) — read-only fallback for old rows.
+  email?: string;
+  iban?: string;
+  account_holder?: string;
 }
 
 export interface PartnerReferral {

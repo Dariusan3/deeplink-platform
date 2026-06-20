@@ -189,4 +189,28 @@ async function creditPartnerOnPaidSignup(
     status: "pending",
     period_month: new Date().toISOString().slice(0, 10),
   });
+
+  // Recompute the partner's running totals from the earnings table —
+  // the Overview / Earnings pages read these columns directly. Summing
+  // (rather than incrementing) keeps them drift-proof regardless of
+  // which path credited (webhook vs this endpoint).
+  await recomputePartnerTotals(admin, referral.partner_id);
+}
+
+// Sums partner_earnings into the partner_profiles running totals.
+// pending_payout = unpaid earnings, total_earned = everything earned.
+async function recomputePartnerTotals(admin: SupabaseClient, partnerId: string) {
+  const { data: earnings } = await admin
+    .from("partner_earnings")
+    .select("amount, status")
+    .eq("partner_id", partnerId);
+  const rows = (earnings ?? []) as { amount: number; status: string }[];
+  const total = rows.reduce((s, e) => s + Number(e.amount), 0);
+  const pending = rows
+    .filter((e) => e.status === "pending")
+    .reduce((s, e) => s + Number(e.amount), 0);
+  await admin
+    .from("partner_profiles")
+    .update({ total_earned: total, pending_payout: pending })
+    .eq("id", partnerId);
 }

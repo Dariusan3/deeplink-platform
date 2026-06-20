@@ -9,40 +9,37 @@ import { usePartner } from "@/hooks/use-partner";
 import { Wallet, Settings as SettingsIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type Method = "paypal" | "bank";
+// Supported crypto networks for payouts.
+const NETWORKS = ["USDT (TRC20)", "USDT (ERC20)", "USDC (ERC20)", "BTC", "ETH", "SOL"];
 
 export default function PartnerSettingsPage() {
   const { profile, updatePayoutMethod } = usePartner();
-  const [method, setMethod] = useState<Method>("paypal");
-  const [paypalEmail, setPaypalEmail] = useState("");
-  const [iban, setIban] = useState("");
-  const [accountHolder, setAccountHolder] = useState("");
+  const [network, setNetwork] = useState<string>(NETWORKS[0]);
+  const [wallet, setWallet] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Hydrate from server-saved value
+  // Hydrate from server-saved value (crypto only).
   useEffect(() => {
     if (!profile?.payout_method) return;
     const m = profile.payout_method;
-    setMethod(m.type === "bank" ? "bank" : "paypal");
-    setPaypalEmail(m.email || "");
-    setIban(m.iban || "");
-    setAccountHolder(m.account_holder || "");
+    if (m.type === "crypto") {
+      setNetwork(m.network || NETWORKS[0]);
+      setWallet(m.wallet_address || "");
+    }
   }, [profile?.payout_method]);
 
-  const isValid =
-    method === "paypal"
-      ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(paypalEmail.trim())
-      : iban.trim().length >= 15 && accountHolder.trim().length > 0;
+  // Minimal sanity check — most chains use 26-95 char addresses.
+  const isValid = wallet.trim().length >= 20 && !!network;
 
   const save = async () => {
     if (!isValid) return;
     setSaving(true);
     try {
-      await updatePayoutMethod(
-        method === "paypal"
-          ? { type: "paypal", email: paypalEmail.trim() }
-          : { type: "bank", iban: iban.trim(), account_holder: accountHolder.trim() }
-      );
+      await updatePayoutMethod({
+        type: "crypto",
+        network,
+        wallet_address: wallet.trim(),
+      });
     } finally {
       setSaving(false);
     }
@@ -80,64 +77,44 @@ export default function PartnerSettingsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => setMethod("paypal")}
-              className={cn(
-                "h-11 rounded-xl border text-xs font-black uppercase tracking-widest transition-all",
-                method === "paypal"
-                  ? "bg-[#00D26A]/10 border-[#00D26A]/30 text-[#00D26A]"
-                  : "bg-white/[0.02] border-white/10 text-neutral-500 hover:text-white"
-              )}
-            >
-              PayPal
-            </button>
-            <button
-              onClick={() => setMethod("bank")}
-              className={cn(
-                "h-11 rounded-xl border text-xs font-black uppercase tracking-widest transition-all",
-                method === "bank"
-                  ? "bg-[#00D26A]/10 border-[#00D26A]/30 text-[#00D26A]"
-                  : "bg-white/[0.02] border-white/10 text-neutral-500 hover:text-white"
-              )}
-            >
-              Bank Transfer
-            </button>
+          <p className="text-[11px] text-neutral-500 font-medium leading-relaxed">
+            Payouts are sent in <span className="text-[#00D26A] font-bold">crypto only</span>. Pick a network and paste your wallet address — double-check it, transfers can&apos;t be reversed.
+          </p>
+
+          {/* Network picker */}
+          <div className="space-y-2">
+            <Label className="text-[10px] font-black uppercase tracking-widest text-[#00D26A]">Network</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {NETWORKS.map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setNetwork(n)}
+                  className={cn(
+                    "h-10 rounded-lg border text-[10px] font-black uppercase tracking-widest transition-all px-1",
+                    network === n
+                      ? "bg-[#00D26A]/10 border-[#00D26A]/30 text-[#00D26A]"
+                      : "bg-white/[0.02] border-white/10 text-neutral-500 hover:text-white"
+                  )}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {method === "paypal" ? (
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-[#00D26A]">PayPal Email</Label>
-              <Input
-                type="email"
-                value={paypalEmail}
-                onChange={(e) => setPaypalEmail(e.target.value)}
-                placeholder="you@example.com"
-                className="bg-white/[0.02] border-white/10 h-11"
-              />
-            </div>
-          ) : (
-            <>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-[#00D26A]">IBAN</Label>
-                <Input
-                  value={iban}
-                  onChange={(e) => setIban(e.target.value.toUpperCase())}
-                  placeholder="RO49AAAA1B31007593840000"
-                  className="bg-white/[0.02] border-white/10 h-11 font-mono"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-[#00D26A]">Account Holder</Label>
-                <Input
-                  value={accountHolder}
-                  onChange={(e) => setAccountHolder(e.target.value)}
-                  placeholder="Full legal name"
-                  className="bg-white/[0.02] border-white/10 h-11"
-                />
-              </div>
-            </>
-          )}
+          {/* Wallet address */}
+          <div className="space-y-2">
+            <Label className="text-[10px] font-black uppercase tracking-widest text-[#00D26A]">Wallet Address</Label>
+            <Input
+              value={wallet}
+              onChange={(e) => setWallet(e.target.value.trim())}
+              placeholder="Paste your wallet address"
+              className="bg-white/[0.02] border-white/10 h-11 font-mono text-xs"
+            />
+            <p className="text-[10px] text-neutral-600">
+              Make sure the address matches the selected network ({network}).
+            </p>
+          </div>
 
           <Button
             onClick={save}
@@ -147,7 +124,7 @@ export default function PartnerSettingsPage() {
               isValid ? "bg-[#00D26A] hover:bg-[#00D26A]/90 text-black" : "bg-white/5 text-neutral-600 cursor-not-allowed"
             )}
           >
-            {saving ? "Saving..." : "Save Payment Method"}
+            {saving ? "Saving..." : "Save Wallet"}
           </Button>
         </CardContent>
       </Card>

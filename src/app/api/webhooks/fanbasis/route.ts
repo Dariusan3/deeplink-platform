@@ -383,15 +383,25 @@ async function creditPartnerOnPaidSignup(
     type: "commission",
   });
 
-  // 3. Bump the partner's running totals so the Earnings page shows
-  //    the new commission immediately (without summing on each load).
-  await admin
-    .from("partner_profiles")
-    .update({
-      pending_payout: Number(partner.pending_payout) + commission,
-      total_earned: Number(partner.total_earned) + commission,
-    })
-    .eq("id", partner.id);
+  // 3. Recompute the partner's running totals from the earnings table.
+  //    Summing (not incrementing) keeps pending_payout / total_earned
+  //    drift-proof no matter which path credited (webhook vs
+  //    /api/billing/activate), and is idempotent on retries.
+  {
+    const { data: allEarnings } = await admin
+      .from("partner_earnings")
+      .select("amount, status")
+      .eq("partner_id", partner.id);
+    const rows = (allEarnings ?? []) as { amount: number; status: string }[];
+    const total = rows.reduce((s, e) => s + Number(e.amount), 0);
+    const pending = rows
+      .filter((e) => e.status === "pending")
+      .reduce((s, e) => s + Number(e.amount), 0);
+    await admin
+      .from("partner_profiles")
+      .update({ total_earned: total, pending_payout: pending })
+      .eq("id", partner.id);
+  }
 
   // Audit the commission so admin sees who got paid when on the activity
   // page (separate from the payment.succeeded event for the buyer).
