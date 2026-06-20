@@ -130,12 +130,15 @@ function MetricTile({
   tone?: "neutral" | "good" | "warn" | "bad" | "info";
   highlight?: boolean;
 }) {
+  // Only three signal colours: green (good), amber (warn), red (bad).
+  // "neutral" and "info" both render muted white/gray — not a 4th colour,
+  // just an absence of signal.
   const toneStyles = {
     neutral: { tint: "bg-white/5",      text: "text-white",       border: "border-white/10" },
     good:    { tint: "bg-[#00D26A]/10", text: "text-[#00D26A]",   border: "border-[#00D26A]/30" },
     warn:    { tint: "bg-amber-500/10", text: "text-amber-400",   border: "border-amber-500/30" },
     bad:     { tint: "bg-red-500/10",   text: "text-red-400",     border: "border-red-500/30" },
-    info:    { tint: "bg-cyan-500/10",  text: "text-cyan-400",    border: "border-cyan-500/30" },
+    info:    { tint: "bg-white/5",      text: "text-neutral-300", border: "border-white/10" },
   }[tone];
 
   return (

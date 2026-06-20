@@ -2,6 +2,7 @@
 
 import { Link as LinkType } from "@/types/links";
 import { RulesDialog } from "./rules-dialog";
+import { LinkAnalyticsDialog } from "./link-analytics-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -64,6 +65,7 @@ export function LinkCard({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const [showQr, setShowQr] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
   const [copied, setCopied] = useState(false);
   const [faviconError, setFaviconError] = useState(false);
 
@@ -263,9 +265,9 @@ export function LinkCard({
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       className="text-xs font-bold gap-2 focus:bg-[#00D26A]/10 focus:text-[#00D26A]"
-                      onClick={() =>
-                        router.push(`/dashboard/analytics?linkId=${link.id}`)
-                      }
+                      onClick={() => {
+                        setTimeout(() => setShowAnalytics(true), 0);
+                      }}
                     >
                       <BarChart3 className="w-3.5 h-3.5" />
                       Analytics
@@ -349,6 +351,8 @@ export function LinkCard({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <LinkAnalyticsDialog linkId={link.id} open={showAnalytics} onOpenChange={setShowAnalytics} />
 
       <RulesDialog
         link={link}

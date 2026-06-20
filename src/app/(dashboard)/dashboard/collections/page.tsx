@@ -613,9 +613,10 @@ export default function CollectionsPage() {
                 <p className="text-sm font-bold text-neutral-500">No collections match your filters</p>
               </div>
             ) : viewMode === "tree" ? (
-              // Finder-style: tree on the left, link info/analytics
-              // preview on the right when a link is selected.
-              <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4 items-start">
+              // Finder-style: the tree takes the full width. The info /
+              // analytics panel only appears once a link is selected —
+              // no empty placeholder eating space when nothing is picked.
+              <div className={`grid grid-cols-1 gap-4 items-start ${selectedLinkId ? "lg:grid-cols-[1fr_340px]" : ""}`}>
                 <CollectionsTree
                   collections={filteredCollections}
                   links={links}
@@ -628,13 +629,15 @@ export default function CollectionsPage() {
                   selectedLinkId={selectedLinkId}
                   onSelectLink={setSelectedLinkId}
                 />
-                <div className="rounded-2xl border border-white/5 bg-white/[0.01] lg:sticky lg:top-6 min-h-[300px] overflow-hidden">
-                  <LinkInfoPanel
-                    linkId={selectedLinkId}
-                    onClose={() => setSelectedLinkId(null)}
-                    onOpenFull={(id) => router.push(`/dashboard/links/${id}`)}
-                  />
-                </div>
+                {selectedLinkId && (
+                  <div className="rounded-2xl border border-white/5 bg-white/[0.01] lg:sticky lg:top-6 overflow-hidden">
+                    <LinkInfoPanel
+                      linkId={selectedLinkId}
+                      onClose={() => setSelectedLinkId(null)}
+                      onOpenFull={(id) => router.push(`/dashboard/links/${id}`)}
+                    />
+                  </div>
+                )}
               </div>
             ) : viewMode === "canvas" ? (
               <CollectionsCanvas

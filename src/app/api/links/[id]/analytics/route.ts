@@ -37,7 +37,7 @@ export async function GET(
 
   const { data: clicks } = await supabase
     .from("link_clicks")
-    .select("clicked_at, country, device_type")
+    .select("clicked_at, country, city, device_type, referer")
     .eq("link_id", id)
     .gte("clicked_at", since.toISOString())
     .order("clicked_at", { ascending: false });
@@ -45,7 +45,9 @@ export async function GET(
   const rows = (clicks ?? []) as {
     clicked_at: string;
     country: string | null;
+    city: string | null;
     device_type: string | null;
+    referer: string | null;
   }[];
 
   // 14-day daily counts (zero-filled).
@@ -60,17 +62,33 @@ export async function GET(
     daily.push({ date: d, count: byDay.get(d) ?? 0 });
   }
 
-  // Top country + device split over the window.
+  // Country / device / referrer breakdowns over the window.
   const countryCount = new Map<string, number>();
   const deviceCount = new Map<string, number>();
+  const refCount = new Map<string, number>();
   for (const r of rows) {
     if (r.country) countryCount.set(r.country, (countryCount.get(r.country) ?? 0) + 1);
     const dev = r.device_type || "unknown";
     deviceCount.set(dev, (deviceCount.get(dev) ?? 0) + 1);
+    // Normalise referrer to a hostname; blank/null → "Direct".
+    let ref = "Direct";
+    if (r.referer) {
+      try { ref = new URL(r.referer).hostname.replace(/^www\./, ""); }
+      catch { ref = r.referer; }
+    }
+    refCount.set(ref, (refCount.get(ref) ?? 0) + 1);
   }
   const topCountry = [...countryCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  const countries = [...countryCount.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([name, count]) => ({ name, count }));
   const devices = [...deviceCount.entries()]
     .sort((a, b) => b[1] - a[1])
+    .map(([name, count]) => ({ name, count }));
+  const referrers = [...refCount.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
     .map(([name, count]) => ({ name, count }));
 
   // Total clicks all-time (separate count query — head only).
@@ -90,7 +108,9 @@ export async function GET(
     prev7,
     daily,
     topCountry,
+    countries,
     devices,
+    referrers,
     lastClickAt: rows[0]?.clicked_at ?? null,
   });
 }

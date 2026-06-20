@@ -19,6 +19,7 @@ import { useLinks } from "@/hooks/use-links";
 import { useCollections } from "@/hooks/use-collections";
 import { RulesDialog } from "@/components/links/rules-dialog";
 import { QrDialog } from "@/components/qr/qr-dialog";
+import { LinkAnalyticsDialog } from "@/components/links/link-analytics-dialog";
 import { normalizeDestinationUrl, buildShortUrl, getDisplayHost, sanitizePath } from "@/lib/url-normalize";
 import {
   ArrowLeft,
@@ -62,6 +63,7 @@ export default function LinkEditPage() {
   const [saving, setSaving] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const [showQr, setShowQr] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -441,7 +443,7 @@ export default function LinkEditPage() {
                   </span>
                 </div>
                 <Button
-                  onClick={() => router.push(`/dashboard/analytics?linkId=${link.id}`)}
+                  onClick={() => setShowAnalytics(true)}
                   variant="outline"
                   className="w-full mt-2 h-9 rounded-lg border-white/10 bg-white/[0.02] text-[10px] font-black uppercase tracking-widest hover:bg-[#00D26A]/10 hover:text-[#00D26A] gap-2"
                 >
@@ -454,6 +456,7 @@ export default function LinkEditPage() {
       </div>
 
       {/* Embedded dialogs */}
+      <LinkAnalyticsDialog linkId={link.id} open={showAnalytics} onOpenChange={setShowAnalytics} />
       <RulesDialog link={link} open={showRules} onOpenChange={setShowRules} trigger={null} />
       <QrDialog open={showQr} onOpenChange={setShowQr} shortUrl={shortUrl} title={link.title || link.slug} />
 

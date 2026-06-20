@@ -90,10 +90,3 @@ export interface PartnerStats {
   countries: { country: string; count: number }[];
   devices: { device: string; count: number }[];
 }
-
-export interface PartnerLeaderboardEntry {
-  rank: number;
-  partner_id: string;
-  amount: number;
-  is_me: boolean;
-}

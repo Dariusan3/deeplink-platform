@@ -65,30 +65,46 @@ type AlertRow = {
 
 // Visual style per alert type. Tier 1 = red/amber, Tier 2 = green (good
 // news), Tier 3 = amber/blue, Tier 4 = neutral.
-const CATEGORY_STYLES: Record<AlertType, {
-  Icon: typeof ShieldAlert;
-  tint: string;
-  text: string;
-  border: string;
-  ring: string;
-}> = {
+// Each alert type maps ONLY to an icon — colour comes from severity (see
+// SEVERITY_STYLES) so the whole page sticks to three signal colours:
+// red (high), amber (medium), green (low). Keeping the icon per type
+// still tells you what KIND of alert it is at a glance.
+const CATEGORY_ICONS: Record<AlertType, typeof ShieldAlert> = {
   // Tier 1
-  destination_broken:    { Icon: Link2,        tint: "bg-red-500/10",     text: "text-red-400",      border: "border-red-500/30",     ring: "ring-red-500/20" },
-  click_drop:            { Icon: TrendingDown, tint: "bg-amber-500/10",   text: "text-amber-400",    border: "border-amber-500/30",   ring: "ring-amber-500/20" },
-  click_spam:            { Icon: ShieldAlert,  tint: "bg-purple-500/10",  text: "text-purple-400",   border: "border-purple-500/30",  ring: "ring-purple-500/20" },
-  plan_limit:            { Icon: Gauge,        tint: "bg-blue-500/10",    text: "text-blue-400",     border: "border-blue-500/30",    ring: "ring-blue-500/20" },
-  // Tier 2 — opportunity / good news → green family
-  ab_winner:             { Icon: Trophy,       tint: "bg-[#00D26A]/10",   text: "text-[#00D26A]",    border: "border-[#00D26A]/30",   ring: "ring-[#00D26A]/20" },
-  goal_hit:              { Icon: Target,       tint: "bg-[#00D26A]/10",   text: "text-[#00D26A]",    border: "border-[#00D26A]/30",   ring: "ring-[#00D26A]/20" },
-  traffic_spike:         { Icon: Rocket,       tint: "bg-[#00D26A]/10",   text: "text-[#00D26A]",    border: "border-[#00D26A]/30",   ring: "ring-[#00D26A]/20" },
-  peak_hour_shift:       { Icon: Clock,        tint: "bg-cyan-500/10",    text: "text-cyan-400",     border: "border-cyan-500/30",    ring: "ring-cyan-500/20" },
-  // Tier 3 — strategic
-  country_shift:         { Icon: Globe,        tint: "bg-amber-500/10",   text: "text-amber-400",    border: "border-amber-500/30",   ring: "ring-amber-500/20" },
-  device_shift:          { Icon: Smartphone,   tint: "bg-amber-500/10",   text: "text-amber-400",    border: "border-amber-500/30",   ring: "ring-amber-500/20" },
-  stale_links:           { Icon: Trash2,       tint: "bg-neutral-500/10", text: "text-neutral-400",  border: "border-neutral-500/30", ring: "ring-neutral-500/20" },
-  // Tier 4 — ops
-  subscription_expiring: { Icon: CreditCard,   tint: "bg-blue-500/10",    text: "text-blue-400",     border: "border-blue-500/30",    ring: "ring-blue-500/20" },
+  destination_broken:    Link2,
+  click_drop:            TrendingDown,
+  click_spam:            ShieldAlert,
+  plan_limit:            Gauge,
+  // Tier 2
+  ab_winner:             Trophy,
+  goal_hit:              Target,
+  traffic_spike:         Rocket,
+  peak_hour_shift:       Clock,
+  // Tier 3
+  country_shift:         Globe,
+  device_shift:          Smartphone,
+  stale_links:           Trash2,
+  // Tier 4
+  subscription_expiring: CreditCard,
 };
+
+// The only three colours on the page. high = red, medium = amber,
+// low = green. Everything that shows colour reads from here.
+type Sev = "high" | "medium" | "low";
+const SEVERITY_STYLES: Record<Sev, { tint: string; text: string; border: string; ring: string }> = {
+  high:   { tint: "bg-red-500/10",   text: "text-red-400",   border: "border-red-500/30",   ring: "ring-red-500/20" },
+  medium: { tint: "bg-amber-500/10", text: "text-amber-400", border: "border-amber-500/30", ring: "ring-amber-500/20" },
+  low:    { tint: "bg-[#00D26A]/10", text: "text-[#00D26A]", border: "border-[#00D26A]/30", ring: "ring-[#00D26A]/20" },
+};
+function sevStyle(severity: string) {
+  return SEVERITY_STYLES[(severity as Sev)] ?? SEVERITY_STYLES.medium;
+}
+// Highest severity in a list — drives a category group's badge colour.
+function maxSeverity(list: { severity: string }[]): Sev {
+  if (list.some((a) => a.severity === "high")) return "high";
+  if (list.some((a) => a.severity === "medium")) return "medium";
+  return "low";
+}
 
 const TIER_ORDER: AlertTier[] = [1, 2, 3, 4];
 
@@ -344,7 +360,10 @@ export default function AlertsPage() {
                   const list = tierMap[cat] || [];
                   if (list.length === 0) return null;
                   const meta = ALERT_LABELS[cat];
-                  const style = CATEGORY_STYLES[cat];
+                  // Badge colour = highest severity in this group, so a
+                  // category with a critical alert reads red even if it
+                  // also holds lower ones.
+                  const style = sevStyle(maxSeverity(list));
                   const ackedCount = list.filter((a) => a.acknowledged_at).length;
                   return (
                     <div key={cat} className="space-y-2">
@@ -453,8 +472,8 @@ function AlertCard({
   onRequestDelete: (alert: AlertRow) => void;
 }) {
   const cat = alert.alert_type as AlertType;
-  const style = CATEGORY_STYLES[cat];
-  const Icon = style.Icon;
+  const Icon = CATEGORY_ICONS[cat] ?? ShieldAlert;
+  const style = sevStyle(alert.severity);
   const acked = !!alert.acknowledged_at;
 
   return (
@@ -490,10 +509,8 @@ function AlertCard({
               {alert.title}
             </h3>
             <span className={cn(
-              "px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest",
-              alert.severity === "high" && "bg-red-500/10 text-red-400",
-              alert.severity === "medium" && "bg-amber-500/10 text-amber-400",
-              alert.severity === "low" && "bg-[#00D26A]/10 text-[#00D26A]"
+              "px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-widest",
+              style.tint, style.text
             )}>
               {alert.severity}
             </span>
@@ -591,10 +608,10 @@ function PlanBanner({ activeTeamPlan }: { activeTeamPlan: string }) {
 
   const planKey = (activeTeamPlan ?? "free").toLowerCase();
   const planMeta = {
-    free:    { label: "FREE",    capLabel: "500 clicks/mo",       accent: "text-neutral-300", chip: "bg-neutral-700/30 border-neutral-600/40", bar: "bg-neutral-400" },
-    starter: { label: "STARTER", capLabel: "50,000 clicks/mo",    accent: "text-blue-400",    chip: "bg-blue-500/10 border-blue-500/30",       bar: "bg-blue-400" },
-    growth:  { label: "GROWTH",  capLabel: "250,000 clicks/mo",   accent: "text-[#00D26A]",   chip: "bg-[#00D26A]/10 border-[#00D26A]/30",     bar: "bg-[#00D26A]" },
-    agency:  { label: "AGENCY",  capLabel: "1,000,000 clicks/mo", accent: "text-amber-400",   chip: "bg-amber-500/10 border-amber-500/30",     bar: "bg-amber-400" },
+    free:    { label: "FREE",    capLabel: "500 clicks/mo",       accent: "text-neutral-400", chip: "bg-white/5 border-white/10",          bar: "bg-neutral-500" },
+    starter: { label: "STARTER", capLabel: "50,000 clicks/mo",    accent: "text-neutral-200", chip: "bg-white/5 border-white/10",          bar: "bg-neutral-300" },
+    growth:  { label: "GROWTH",  capLabel: "250,000 clicks/mo",   accent: "text-[#00D26A]",   chip: "bg-[#00D26A]/10 border-[#00D26A]/30", bar: "bg-[#00D26A]" },
+    agency:  { label: "AGENCY",  capLabel: "1,000,000 clicks/mo", accent: "text-amber-400",   chip: "bg-amber-500/10 border-amber-500/30", bar: "bg-amber-400" },
   }[planKey] ?? { label: planKey.toUpperCase(), capLabel: "", accent: "text-white", chip: "bg-white/5 border-white/10", bar: "bg-white" };
 
   const barColor =
