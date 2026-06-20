@@ -52,14 +52,16 @@ export default function PartnerEarningsPage() {
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto pb-20">
-      <PageHeader eyebrow="Partner Dashboard" title="Earnings" />
+      <PageHeader
+        accent="purple"
+        eyebrow="Partner Dashboard" title="Earnings" />
 
       {/* Top stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <Card className="glass-card border-[#00D26A]/20 bg-[#00D26A]/5">
+        <Card className="glass-card border-[#A855F7]/20 bg-[#A855F7]/5">
           <CardContent className="p-5">
-            <p className="text-[10px] font-black uppercase tracking-widest text-[#00D26A]">Pending Payout</p>
-            <p className="text-3xl font-black text-[#00D26A] mt-1">${pending.toFixed(2)}</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-[#A855F7]">Pending Payout</p>
+            <p className="text-3xl font-black text-[#A855F7] mt-1">€{pending.toFixed(2)}</p>
 
             {/* Progress to threshold — same visual story as the overview banner */}
             {(() => {
@@ -70,14 +72,14 @@ export default function PartnerEarningsPage() {
                 <>
                   <div className="mt-3 h-1.5 rounded-full bg-white/[0.04] overflow-hidden">
                     <div
-                      className={`h-full transition-all duration-700 ${ready ? "bg-[#00D26A] shadow-[0_0_10px_rgba(0,210,106,0.45)]" : "bg-[#00D26A]/60"}`}
+                      className={`h-full transition-all duration-700 ${ready ? "bg-[#A855F7] shadow-[0_0_10px_rgba(168,85,247,0.45)]" : "bg-[#A855F7]/60"}`}
                       style={{ width: `${pct}%` }}
                     />
                   </div>
                   <p className="text-[10px] text-neutral-500 mt-2">
                     {ready
-                      ? `Above the $${MIN_PAYOUT} minimum — ready to withdraw`
-                      : `$${remaining.toFixed(2)} more to reach $${MIN_PAYOUT} minimum`}
+                      ? `Above the €${MIN_PAYOUT} minimum — ready to withdraw`
+                      : `€${remaining.toFixed(2)} more to reach €${MIN_PAYOUT} minimum`}
                   </p>
                 </>
               );
@@ -87,7 +89,7 @@ export default function PartnerEarningsPage() {
         <Card className="glass-card border-white/5">
           <CardContent className="p-5">
             <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Total Earned</p>
-            <p className="text-3xl font-black text-white mt-1">${Number(profile?.total_earned ?? 0).toFixed(2)}</p>
+            <p className="text-3xl font-black text-white mt-1">€{Number(profile?.total_earned ?? 0).toFixed(2)}</p>
             <p className="text-[10px] text-neutral-500 mt-1">All-time, all paid</p>
           </CardContent>
         </Card>
@@ -104,7 +106,7 @@ export default function PartnerEarningsPage() {
       <Card className="glass-card border-white/5">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-black flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-[#00D26A]" />
+            <TrendingUp className="w-4 h-4 text-[#A855F7]" />
             Earnings · Last 12 Months
           </CardTitle>
         </CardHeader>
@@ -112,9 +114,9 @@ export default function PartnerEarningsPage() {
           <div className="flex items-end gap-2 h-32">
             {monthlyEarnings.map((m) => (
               <div key={m.month} className="flex-1 flex flex-col items-center gap-1 group">
-                <div className="w-full bg-[#00D26A]/20 hover:bg-[#00D26A]/40 rounded-t transition-all relative" style={{ height: `${(m.amount / maxAmount) * 100}%`, minHeight: m.amount > 0 ? 2 : 0 }}>
+                <div className="w-full bg-[#A855F7]/20 hover:bg-[#A855F7]/40 rounded-t transition-all relative" style={{ height: `${(m.amount / maxAmount) * 100}%`, minHeight: m.amount > 0 ? 2 : 0 }}>
                   <div className="opacity-0 group-hover:opacity-100 absolute -top-7 left-1/2 -translate-x-1/2 text-[9px] font-black text-white bg-black px-1.5 py-0.5 rounded whitespace-nowrap">
-                    ${m.amount.toFixed(0)}
+                    €{m.amount.toFixed(0)}
                   </div>
                 </div>
                 <span className="text-[8px] font-black text-neutral-500 uppercase">{m.month.slice(5)}</span>
@@ -129,7 +131,7 @@ export default function PartnerEarningsPage() {
         <Card className="glass-card border-white/5">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-black flex items-center gap-2">
-              <Wallet className="w-4 h-4 text-[#00D26A]" />
+              <Wallet className="w-4 h-4 text-[#A855F7]" />
               Request Payout
             </CardTitle>
           </CardHeader>
@@ -144,7 +146,7 @@ export default function PartnerEarningsPage() {
             ) : (
               <>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Amount (USD)</Label>
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Amount (EUR)</Label>
                   <Input
                     type="number"
                     min={MIN_PAYOUT}
@@ -154,14 +156,14 @@ export default function PartnerEarningsPage() {
                     onChange={(e) => setRequestAmount(e.target.value)}
                     className="bg-white/[0.02] border-white/10 h-11"
                   />
-                  <p className="text-[10px] text-neutral-500">Available: ${pending.toFixed(2)} · Min ${MIN_PAYOUT}</p>
+                  <p className="text-[10px] text-neutral-500">Available: €{pending.toFixed(2)} · Min €{MIN_PAYOUT}</p>
                 </div>
                 <Button
                   onClick={handleRequest}
                   disabled={submitting || !canRequest || !requestAmount || Number(requestAmount) < MIN_PAYOUT || Number(requestAmount) > pending}
                   className={cn(
                     "w-full h-11 rounded-xl font-black uppercase tracking-widest text-xs",
-                    canRequest ? "bg-[#00D26A] hover:bg-[#00D26A]/90 text-black" : "bg-white/5 text-neutral-600 cursor-not-allowed"
+                    canRequest ? "bg-[#A855F7] hover:bg-[#A855F7]/90 text-black" : "bg-white/5 text-neutral-600 cursor-not-allowed"
                   )}
                 >
                   {submitting ? "Requesting..." : "Request Payout"}
@@ -183,7 +185,7 @@ export default function PartnerEarningsPage() {
                 {payouts.map((p) => (
                   <div key={p.id} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
                     <div>
-                      <p className="text-sm font-black text-white">${Number(p.amount).toFixed(2)}</p>
+                      <p className="text-sm font-black text-white">€{Number(p.amount).toFixed(2)}</p>
                       <p className="text-[9px] text-neutral-500">
                         {new Date(p.requested_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                         {p.method ? ` · ${p.method}` : ""}
@@ -191,7 +193,7 @@ export default function PartnerEarningsPage() {
                     </div>
                     <span className={cn(
                       "text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full",
-                      p.status === "paid" && "bg-[#00D26A]/10 text-[#00D26A]",
+                      p.status === "paid" && "bg-[#A855F7]/10 text-[#A855F7]",
                       p.status === "requested" && "bg-amber-500/10 text-amber-400",
                       p.status === "rejected" && "bg-red-500/10 text-red-400"
                     )}>

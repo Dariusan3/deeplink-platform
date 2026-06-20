@@ -117,7 +117,7 @@ export function usePartner() {
             const oldRow = payload.old as PartnerReferral;
             if (oldRow.status !== "active" && newRow.status === "active") {
               toast.success(
-                `Referral converted! +$${newRow.monthly_value * (profile.commission_rate || 0.25)}/mo`
+                `Referral converted! +€${newRow.monthly_value * (profile.commission_rate || 0.25)}/mo`
               );
             }
           }
@@ -134,7 +134,7 @@ export function usePartner() {
         (payload: { new: unknown }) => {
           const row = payload.new as PartnerPayout;
           if (row.status === "paid") {
-            toast.success(`Payout processed: $${row.amount}`);
+            toast.success(`Payout processed: €${row.amount}`);
             fetchAll();
           }
         }

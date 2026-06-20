@@ -26,9 +26,9 @@ type Subscription = {
 
 const PLAN_PRICES: Record<string, number> = {
   free: 0,
-  starter: 89,
-  growth: 189,
-  agency: 389,
+  starter: 97,
+  growth: 297,
+  agency: 997,
 };
 
 const PLAN_STYLES: Record<string, { label: string; tint: string; text: string; border: string; icon: typeof Crown }> = {
@@ -109,7 +109,7 @@ export default function BillingPage() {
                   <p className="text-sm text-neutral-400 mt-1">
                     {plan === "free"
                       ? "500 clicks/month, all routing rules, limited AI."
-                      : `$${monthlyPrice}/month · billed monthly`}
+                      : `€${monthlyPrice}/month · billed monthly`}
                   </p>
                 </div>
               </div>
@@ -205,7 +205,7 @@ export default function BillingPage() {
                         </span>
                         <div className="min-w-0">
                           <p className="text-xs font-bold text-white">
-                            {s.is_free ? "Granted" : `$${PLAN_PRICES[s.plan]}/mo`}
+                            {s.is_free ? "Granted" : `€${PLAN_PRICES[s.plan]}/mo`}
                             {" · "}
                             {capital(s.status)}
                           </p>

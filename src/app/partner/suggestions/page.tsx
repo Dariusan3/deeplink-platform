@@ -20,7 +20,7 @@ const STATUS_META: Record<PartnerSuggestionStatus, {
 }> = {
   open:        { label: "Open",        chip: "bg-white/5 text-neutral-300 border-white/10",        icon: CircleDot },
   in_progress: { label: "In Progress", chip: "bg-amber-500/10 text-amber-400 border-amber-500/30", icon: Clock },
-  done:        { label: "Shipped",     chip: "bg-[#00D26A]/10 text-[#00D26A] border-[#00D26A]/30", icon: CheckCircle2 },
+  done:        { label: "Shipped",     chip: "bg-[#A855F7]/10 text-[#A855F7] border-[#A855F7]/30", icon: CheckCircle2 },
   rejected:    { label: "Declined",    chip: "bg-red-500/10 text-red-400 border-red-500/30",        icon: XCircle },
 };
 
@@ -82,13 +82,14 @@ export default function PartnerSuggestionsPage() {
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-4xl mx-auto pb-20">
       <PageHeader
+        accent="purple"
         eyebrow="Partner Dashboard"
         title="Suggestions"
         subtitle="Shape the roadmap. Vote on ideas, submit your own."
         action={
           <Button
             onClick={() => setShowForm(!showForm)}
-            className="bg-[#00D26A] hover:bg-[#00D26A]/90 text-black font-black uppercase text-xs tracking-widest h-10 px-5 gap-2"
+            className="bg-[#A855F7] hover:bg-[#A855F7]/90 text-black font-black uppercase text-xs tracking-widest h-10 px-5 gap-2"
           >
             <Plus className="w-4 h-4" /> New Idea
           </Button>
@@ -97,22 +98,22 @@ export default function PartnerSuggestionsPage() {
 
       {/* Stats strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatTile icon={Lightbulb} iconClass="text-[#00D26A] bg-[#00D26A]/10" value={counts.total} label="Ideas" />
-        <StatTile icon={ChevronUp} iconClass="text-[#00D26A] bg-[#00D26A]/10" value={counts.totalVotes} label="Total votes" />
+        <StatTile icon={Lightbulb} iconClass="text-[#A855F7] bg-[#A855F7]/10" value={counts.total} label="Ideas" />
+        <StatTile icon={ChevronUp} iconClass="text-[#A855F7] bg-[#A855F7]/10" value={counts.totalVotes} label="Total votes" />
         <StatTile icon={Clock} iconClass="text-amber-400 bg-amber-500/10" value={counts.inProgress} label="In progress" />
-        <StatTile icon={Rocket} iconClass="text-[#00D26A] bg-[#00D26A]/10" value={counts.shipped} label="Shipped" />
+        <StatTile icon={Rocket} iconClass="text-[#A855F7] bg-[#A855F7]/10" value={counts.shipped} label="Shipped" />
       </div>
 
       {/* New idea form */}
       {showForm && (
-        <Card className="glass-card border-[#00D26A]/20 bg-[#00D26A]/5">
+        <Card className="glass-card border-[#A855F7]/20 bg-[#A855F7]/5">
           <CardContent className="p-5 space-y-4">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[#00D26A]" />
+              <Sparkles className="w-4 h-4 text-[#A855F7]" />
               <span className="text-sm font-black text-white">Pitch your idea</span>
             </div>
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-[#00D26A]">Title</Label>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-[#A855F7]">Title</Label>
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
@@ -122,14 +123,14 @@ export default function PartnerSuggestionsPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-[#00D26A]">Description</Label>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-[#A855F7]">Description</Label>
               <textarea
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 placeholder="What's the problem and how would this solve it?"
                 rows={5}
                 maxLength={1000}
-                className="w-full resize-none bg-white/[0.02] border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-[#00D26A]/50"
+                className="w-full resize-none bg-white/[0.02] border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-[#A855F7]/50"
               />
               <p className="text-[10px] text-neutral-600 text-right">{body.length}/1000</p>
             </div>
@@ -138,7 +139,7 @@ export default function PartnerSuggestionsPage() {
               <Button
                 onClick={handleSubmit}
                 disabled={submitting || !title.trim() || !body.trim() || !profile}
-                className="h-10 px-5 bg-[#00D26A] hover:bg-[#00D26A]/90 text-black font-black uppercase text-xs tracking-widest disabled:opacity-50"
+                className="h-10 px-5 bg-[#A855F7] hover:bg-[#A855F7]/90 text-black font-black uppercase text-xs tracking-widest disabled:opacity-50"
               >
                 {submitting ? "Submitting..." : "Submit"}
               </Button>
@@ -157,11 +158,11 @@ export default function PartnerSuggestionsPage() {
               onClick={() => setFilter(key)}
               className={cn(
                 "flex items-center gap-1.5 px-3 h-8 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap",
-                filter === key ? "bg-[#00D26A]/10 text-[#00D26A]" : "text-neutral-500 hover:text-white hover:bg-white/5"
+                filter === key ? "bg-[#A855F7]/10 text-[#A855F7]" : "text-neutral-500 hover:text-white hover:bg-white/5"
               )}
             >
               {label}
-              <span className={cn("text-[9px]", filter === key ? "text-[#00D26A]/70" : "text-neutral-600")}>{n}</span>
+              <span className={cn("text-[9px]", filter === key ? "text-[#A855F7]/70" : "text-neutral-600")}>{n}</span>
             </button>
           );
         })}
@@ -170,8 +171,8 @@ export default function PartnerSuggestionsPage() {
       {/* List */}
       {filtered.length === 0 ? (
         <div className="text-center py-16 rounded-2xl border border-dashed border-white/10">
-          <div className="mx-auto w-14 h-14 rounded-2xl bg-[#00D26A]/10 border border-[#00D26A]/20 flex items-center justify-center mb-4">
-            <Lightbulb className="w-6 h-6 text-[#00D26A]" />
+          <div className="mx-auto w-14 h-14 rounded-2xl bg-[#A855F7]/10 border border-[#A855F7]/20 flex items-center justify-center mb-4">
+            <Lightbulb className="w-6 h-6 text-[#A855F7]" />
           </div>
           <p className="text-sm font-bold text-white">
             {filter === "all" ? "No ideas yet — be the first" : "Nothing here"}
@@ -192,7 +193,7 @@ export default function PartnerSuggestionsPage() {
                 key={s.id}
                 className={cn(
                   "flex gap-3 p-4 rounded-2xl border transition-all",
-                  isTop ? "bg-[#00D26A]/[0.04] border-[#00D26A]/20" : "bg-white/[0.02] border-white/5 hover:border-white/10"
+                  isTop ? "bg-[#A855F7]/[0.04] border-[#A855F7]/20" : "bg-white/[0.02] border-white/5 hover:border-white/10"
                 )}
               >
                 {/* Vote button */}
@@ -202,20 +203,20 @@ export default function PartnerSuggestionsPage() {
                   className={cn(
                     "flex flex-col items-center justify-center w-14 shrink-0 py-2 rounded-xl border transition-all",
                     hasVoted
-                      ? "bg-[#00D26A]/15 border-[#00D26A]/40 cursor-default"
-                      : "bg-white/[0.02] border-white/5 hover:border-[#00D26A]/30 hover:bg-[#00D26A]/5"
+                      ? "bg-[#A855F7]/15 border-[#A855F7]/40 cursor-default"
+                      : "bg-white/[0.02] border-white/5 hover:border-[#A855F7]/30 hover:bg-[#A855F7]/5"
                   )}
                   title={hasVoted ? "You voted" : "Upvote"}
                 >
-                  <ChevronUp className={cn("w-4 h-4", hasVoted ? "text-[#00D26A]" : "text-neutral-400")} />
-                  <span className={cn("text-base font-black", hasVoted ? "text-[#00D26A]" : "text-white")}>{s.votes}</span>
+                  <ChevronUp className={cn("w-4 h-4", hasVoted ? "text-[#A855F7]" : "text-neutral-400")} />
+                  <span className={cn("text-base font-black", hasVoted ? "text-[#A855F7]" : "text-white")}>{s.votes}</span>
                 </button>
 
                 {/* Body */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2 mb-1">
                     <h3 className="text-sm font-black text-white">
-                      {isTop && <span className="text-[#00D26A] mr-1">★</span>}
+                      {isTop && <span className="text-[#A855F7] mr-1">★</span>}
                       {s.title}
                     </h3>
                     <span className={cn(

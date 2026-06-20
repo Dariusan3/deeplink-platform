@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { Reveal } from "./Reveal";
+import { PricingComparison } from "@/components/pricing/pricing-comparison";
 
 const TIERS = [
   {
     name: "Free",
-    price: "$0",
+    price: "€0",
     cadence: "forever",
     blurb: "For testing the routing engine and personal links.",
     features: [
@@ -19,32 +20,32 @@ const TIERS = [
   },
   {
     name: "Starter",
-    price: "$9",
+    price: "€97",
     cadence: "/month",
-    blurb: "For solo creators running a few campaigns.",
+    blurb: "For solo entrepreneurs who want to start smart.",
     features: [
-      "10,000 clicks / month",
-      "Unlimited AI Brain",
-      "A/B testing",
-      "Priority alerts + email",
+      "50,000 clicks / month",
+      "Smart routing — device + geo",
+      "AI Brain — chat about your stats",
+      "20 dynamic QR codes",
     ],
     cta: "Try Starter",
-    href: "/signup?plan=starter",
+    href: "/pricing",
     accent: false,
   },
   {
     name: "Growth",
-    price: "$29",
+    price: "€297",
     cadence: "/month",
-    blurb: "For marketers and small teams scaling distribution.",
+    blurb: "For businesses that scale and want full control.",
     features: [
-      "100,000 clicks / month",
-      "Instagram funnel",
-      "Developer API",
-      "Partner program access",
+      "250,000 clicks / month",
+      "Advanced routing + A/B testing",
+      "Proactive AI Brain alerts",
+      "Partial white-label",
     ],
     cta: "Try Growth",
-    href: "/signup?plan=growth",
+    href: "/pricing",
     accent: true,
   },
 ];
@@ -113,13 +114,11 @@ export function Pricing() {
           ))}
         </div>
 
+        {/* Full feature comparison — same matrix as /pricing */}
         <Reveal delay={240}>
-          <p className="mt-10 text-center text-[13px] font-mono text-[var(--ink-2)]">
-            See full comparison ·{" "}
-            <Link href="/pricing" className="text-[var(--tappr-green)] hover:underline">
-              tappr.me/pricing →
-            </Link>
-          </p>
+          <div className="mt-20">
+            <PricingComparison />
+          </div>
         </Reveal>
       </div>
     </section>

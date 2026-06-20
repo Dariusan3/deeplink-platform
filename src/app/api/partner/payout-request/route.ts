@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
   const reqAmount = Number(amount);
   if (!reqAmount || reqAmount < MIN_PAYOUT) {
     return NextResponse.json(
-      { error: `Minimum payout is $${MIN_PAYOUT}` },
+      { error: `Minimum payout is €${MIN_PAYOUT}` },
       { status: 400 }
     );
   }

@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
     await logAuditEvent(admin, {
       eventType: "billing.checkout_started",
       severity: "info",
-      description: `Started checkout for ${plan} ($${(cfg.amountCents / 100).toFixed(2)}/mo)`,
+      description: `Started checkout for ${plan} (€${(cfg.amountCents / 100).toFixed(2)}/mo)`,
       actorUserId: authData.user.id,
       actorEmail: authData.user.email || null,
       teamId: team_id,

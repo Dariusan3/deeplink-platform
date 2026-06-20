@@ -322,8 +322,8 @@ export async function sendPartnerReferralConvertedEmail({
     <p style="font-size: 14px; color: #999; line-height: 1.6; margin: 0 0 16px;">Hey ${escapeHtml(name)} — <strong style="color:#fff">${escapeHtml(referredEmail)}</strong> just upgraded to the <strong style="color:#00D26A">${escapeHtml(plan)}</strong> plan.</p>
     <div style="background: rgba(0,210,106,0.05); border: 1px solid rgba(0,210,106,0.15); border-radius: 8px; padding: 16px; margin-bottom: 12px;">
       <div style="display: flex; gap: 24px;">
-        <div><p style="font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.1em; margin: 0;">Their plan</p><p style="font-size: 16px; color: #fff; font-weight: 800; margin: 2px 0 0;">$${monthlyValue}/mo</p></div>
-        <div><p style="font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.1em; margin: 0;">Your commission</p><p style="font-size: 16px; color: #00D26A; font-weight: 800; margin: 2px 0 0;">$${commission.toFixed(2)}/mo</p></div>
+        <div><p style="font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.1em; margin: 0;">Their plan</p><p style="font-size: 16px; color: #fff; font-weight: 800; margin: 2px 0 0;">€${monthlyValue}/mo</p></div>
+        <div><p style="font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.1em; margin: 0;">Your commission</p><p style="font-size: 16px; color: #00D26A; font-weight: 800; margin: 2px 0 0;">€${commission.toFixed(2)}/mo</p></div>
       </div>
     </div>
     <p style="font-size: 13px; color: #ccc; margin: 0;">Recurring — credited every month they stay subscribed.</p>
@@ -332,7 +332,7 @@ export async function sendPartnerReferralConvertedEmail({
     await resend.emails.send({
       from: FROM_EMAIL,
       to,
-      subject: `+$${commission.toFixed(2)}/mo — your referral upgraded`,
+      subject: `+€${commission.toFixed(2)}/mo — your referral upgraded`,
       html,
     });
   } catch (err) {
@@ -358,7 +358,7 @@ export async function sendPartnerPayoutConfirmedEmail({
     <h2 style="font-size: 18px; font-weight: 900; color: #fff; margin: 0 0 8px;">Payout sent</h2>
     <p style="font-size: 14px; color: #999; line-height: 1.6; margin: 0 0 16px;">Hey ${escapeHtml(name)} — your payout has been processed.</p>
     <div style="background: rgba(0,210,106,0.05); border: 1px solid rgba(0,210,106,0.15); border-radius: 8px; padding: 16px; margin-bottom: 12px;">
-      <p style="font-size: 26px; color: #00D26A; font-weight: 900; margin: 0 0 4px;">$${amount.toFixed(2)}</p>
+      <p style="font-size: 26px; color: #00D26A; font-weight: 900; margin: 0 0 4px;">€${amount.toFixed(2)}</p>
       <p style="font-size: 11px; color: #999; margin: 0;">via ${escapeHtml(method)}</p>
       ${reference ? `<p style="font-size: 11px; color: #666; margin: 6px 0 0;">Ref: ${escapeHtml(reference)}</p>` : ""}
     </div>
@@ -368,7 +368,7 @@ export async function sendPartnerPayoutConfirmedEmail({
     await resend.emails.send({
       from: FROM_EMAIL,
       to,
-      subject: `Payout processed: $${amount.toFixed(2)}`,
+      subject: `Payout processed: €${amount.toFixed(2)}`,
       html,
     });
   } catch (err) {
@@ -398,12 +398,12 @@ export async function sendPartnerMonthlyReportEmail({
     <h2 style="font-size: 18px; font-weight: 900; color: #fff; margin: 0 0 8px;">${escapeHtml(monthName)} — partner recap</h2>
     <p style="font-size: 14px; color: #999; line-height: 1.6; margin: 0 0 16px;">Hey ${escapeHtml(name)} — here's how last month went.</p>
     <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px;">
-      <div style="background: rgba(0,210,106,0.05); border: 1px solid rgba(0,210,106,0.15); border-radius: 8px; padding: 12px;"><p style="font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.1em; margin: 0;">Earned</p><p style="font-size: 20px; color: #00D26A; font-weight: 900; margin: 4px 0 0;">$${totalEarned.toFixed(2)}</p></div>
+      <div style="background: rgba(0,210,106,0.05); border: 1px solid rgba(0,210,106,0.15); border-radius: 8px; padding: 12px;"><p style="font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.1em; margin: 0;">Earned</p><p style="font-size: 20px; color: #00D26A; font-weight: 900; margin: 4px 0 0;">€${totalEarned.toFixed(2)}</p></div>
       <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 12px;"><p style="font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.1em; margin: 0;">New referrals</p><p style="font-size: 20px; color: #fff; font-weight: 900; margin: 4px 0 0;">${newReferrals}</p></div>
       <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 12px;"><p style="font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.1em; margin: 0;">Active</p><p style="font-size: 20px; color: #fff; font-weight: 900; margin: 4px 0 0;">${activeReferrals}</p></div>
-      <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 12px;"><p style="font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.1em; margin: 0;">Pending payout</p><p style="font-size: 20px; color: #fff; font-weight: 900; margin: 4px 0 0;">$${pendingPayout.toFixed(2)}</p></div>
+      <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 12px;"><p style="font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.1em; margin: 0;">Pending payout</p><p style="font-size: 20px; color: #fff; font-weight: 900; margin: 4px 0 0;">€${pendingPayout.toFixed(2)}</p></div>
     </div>
-    <p style="font-size: 13px; color: #ccc; margin: 0;">${pendingPayout >= PARTNER_MIN_PAYOUT ? `You can request a payout anytime — minimum $${PARTNER_MIN_PAYOUT} is met.` : `Once your pending payout reaches $${PARTNER_MIN_PAYOUT} you can request a withdrawal.`}</p>
+    <p style="font-size: 13px; color: #ccc; margin: 0;">${pendingPayout >= PARTNER_MIN_PAYOUT ? `You can request a payout anytime — minimum €${PARTNER_MIN_PAYOUT} is met.` : `Once your pending payout reaches €${PARTNER_MIN_PAYOUT} you can request a withdrawal.`}</p>
   `, `${monthName.toUpperCase()} REPORT`);
   try {
     await resend.emails.send({

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Check, ChevronDown, Gift, Building2, Link2, Image, BarChart3, Shuffle, QrCode, Globe, Smartphone, Languages, CalendarOff, Shield, Tag, ShoppingCart, Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UpgradeButton } from "@/components/billing/upgrade-button";
+import { PricingComparison } from "@/components/pricing/pricing-comparison";
 
 type PlanKey = "starter" | "growth" | "agency";
 
@@ -15,8 +16,8 @@ const plans = [
   {
     name: "STARTER",
     description: "For solo entrepreneurs who want to start smart.",
-    monthlyPrice: 89,
-    yearlyPrice: 67,
+    monthlyPrice: 97,
+    yearlyPrice: 78,
     popular: false,
     cta: "Start with Starter",
     features: [
@@ -33,8 +34,8 @@ const plans = [
   {
     name: "GROWTH",
     description: "For businesses that scale and want full control.",
-    monthlyPrice: 189,
-    yearlyPrice: 142,
+    monthlyPrice: 297,
+    yearlyPrice: 237,
     popular: true,
     cta: "Choose Growth",
     features: [
@@ -53,8 +54,8 @@ const plans = [
   {
     name: "AGENCY",
     description: "For agencies and entrepreneurs with multiple brands or clients.",
-    monthlyPrice: 389,
-    yearlyPrice: 292,
+    monthlyPrice: 997,
+    yearlyPrice: 797,
     popular: false,
     cta: "Choose Agency",
     features: [
@@ -279,7 +280,7 @@ export default function PricingPage() {
                   <div className="mb-6">
                     <h3 className="text-xs font-black uppercase tracking-[0.2em] text-neutral-400 mb-2">{plan.name}</h3>
                     <div className="mb-2">
-                      <span className="text-xs text-neutral-500 align-top">$</span>
+                      <span className="text-xs text-neutral-500 align-top">€</span>
                       <span className={cn("text-5xl font-black", plan.popular ? "text-[#00D26A]" : "text-white")}>
                         {price}
                       </span>
@@ -351,6 +352,9 @@ export default function PricingPage() {
             </div>
           </div>
         </section>
+
+        {/* Feature comparison matrix */}
+        <PricingComparison />
 
         {/* All Features */}
         <section className="pb-20">

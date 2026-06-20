@@ -53,14 +53,14 @@ export function PartnerSidebar() {
     <div className="flex flex-col h-full w-64 bg-sidebar border-r border-sidebar-border">
       {/* Header — Tappr logo with partner badge */}
       <div className="h-16 px-4 flex items-center gap-3 border-b border-sidebar-border">
-        <div className="w-9 h-9 rounded-xl bg-[#00D26A]/10 border border-[#00D26A]/20 flex items-center justify-center shadow-[0_0_20px_rgba(0,210,106,0.1)]">
-          <Trophy className="w-5 h-5 text-[#00D26A]" />
+        <div className="w-9 h-9 rounded-xl bg-[#A855F7]/10 border border-[#A855F7]/20 flex items-center justify-center shadow-[0_0_20px_rgba(168,85,247,0.1)]">
+          <Trophy className="w-5 h-5 text-[#A855F7]" />
         </div>
         <div className="flex flex-col">
           <span className="font-black text-sm text-white tracking-tight">
-            Ta<span className="text-[#00D26A]">ppr</span> Partner
+            Ta<span className="text-[#A855F7]">ppr</span> Partner
           </span>
-          <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[#00D26A]">25% Commission</span>
+          <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[#A855F7]">25% Commission</span>
         </div>
       </div>
 
@@ -87,13 +87,13 @@ export function PartnerSidebar() {
               className={cn(
                 "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition-all",
                 isActive
-                  ? "bg-[#00D26A]/10 text-[#00D26A] shadow-[inset_0_0_12px_rgba(0,210,106,0.05)]"
+                  ? "bg-[#A855F7]/10 text-[#A855F7] shadow-[inset_0_0_12px_rgba(168,85,247,0.05)]"
                   : "text-neutral-500 hover:text-neutral-200 hover:bg-white/[0.03]"
               )}
             >
               <Icon className="w-4 h-4 shrink-0" />
               <span>{item.name}</span>
-              {isActive && <div className="ml-auto w-1 h-1 rounded-full bg-[#39FF14] shadow-[0_0_8px_rgba(57,255,20,0.8)]" />}
+              {isActive && <div className="ml-auto w-1 h-1 rounded-full bg-[#C084FC] shadow-[0_0_8px_rgba(192,132,252,0.8)]" />}
             </Link>
           );
         })}
@@ -102,8 +102,8 @@ export function PartnerSidebar() {
       {/* User */}
       <div className="p-3 border-t border-sidebar-border">
         <div className="flex items-center gap-3 px-2 py-2">
-          <Avatar className="w-8 h-8 rounded-lg border border-[#00D26A]/20">
-            <AvatarFallback className="bg-[#00D26A]/10 text-[#00D26A] text-xs font-black">
+          <Avatar className="w-8 h-8 rounded-lg border border-[#A855F7]/20">
+            <AvatarFallback className="bg-[#A855F7]/10 text-[#A855F7] text-xs font-black">
               {initials || "P"}
             </AvatarFallback>
           </Avatar>

@@ -154,12 +154,12 @@ export async function deleteWebhookSubscription(id: number) {
 
 export type TapprPlan = "starter" | "growth" | "agency";
 
+// Real production pricing in EUR (cents). amountCents is what FanBasis
+// charges; the actual currency shown to the buyer is the FanBasis
+// account's configured currency — make sure that's set to EUR so €97 is
+// charged as euros, not dollars.
 export const TAPPR_PLANS: Record<TapprPlan, { title: string; amountCents: number; frequencyDays: number }> = {
-  // TEMP for end-to-end testing: all 3 plans at $1 (FanBasis minimum is
-  // 100 cents). Lets us validate the full payment + webhook + activation
-  // flow for any plan without burning real money. REVERT to real prices
-  // (starter=8900, growth=18900, agency=38900) before going live.
-  starter: { title: "Tappr Starter", amountCents: 100, frequencyDays: 30 },
-  growth:  { title: "Tappr Growth",  amountCents: 100, frequencyDays: 30 },
-  agency:  { title: "Tappr Agency",  amountCents: 100, frequencyDays: 30 },
+  starter: { title: "Tappr Starter", amountCents: 9700,  frequencyDays: 30 },
+  growth:  { title: "Tappr Growth",  amountCents: 29700, frequencyDays: 30 },
+  agency:  { title: "Tappr Agency",  amountCents: 99700, frequencyDays: 30 },
 };

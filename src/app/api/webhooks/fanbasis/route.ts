@@ -264,7 +264,7 @@ export async function POST(request: NextRequest) {
     // resolved value is the only one we'll have.
     const planLabel = resolvedPlan ? ` ${resolvedPlan}` : "";
     const amount = (event as Record<string, unknown>).amount;
-    const amountLabel = typeof amount === "number" ? ` ($${amount})` : "";
+    const amountLabel = typeof amount === "number" ? ` (€${amount})` : "";
 
     let buyerName: string | null = null;
     if (typeof event.buyer === "object" && event.buyer) {
@@ -408,7 +408,7 @@ async function creditPartnerOnPaidSignup(
   await logAuditEvent(admin, {
     eventType: "partner.commission_paid",
     severity: "success",
-    description: `Partner earned $${commission.toFixed(2)} commission on ${plan} signup`,
+    description: `Partner earned €${commission.toFixed(2)} commission on ${plan} signup`,
     targetUserId: payerUserId,
     source: "webhook:fanbasis",
     metadata: {

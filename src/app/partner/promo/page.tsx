@@ -43,10 +43,10 @@ function CopyBlock({ icon: Icon, label, body }: { icon: typeof Instagram; label:
     <Card className="glass-card border-white/5">
       <CardHeader className="pb-3 flex flex-row items-center justify-between">
         <CardTitle className="text-sm font-black flex items-center gap-2">
-          <Icon className="w-4 h-4 text-[#00D26A]" />
+          <Icon className="w-4 h-4 text-[#A855F7]" />
           {label}
         </CardTitle>
-        <Button onClick={copy} variant="outline" className="h-8 px-3 text-[10px] font-black uppercase tracking-widest border-white/10 bg-white/[0.02] hover:bg-[#00D26A]/10 hover:text-[#00D26A] gap-1.5">
+        <Button onClick={copy} variant="outline" className="h-8 px-3 text-[10px] font-black uppercase tracking-widest border-white/10 bg-white/[0.02] hover:bg-[#A855F7]/10 hover:text-[#A855F7] gap-1.5">
           {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
           {copied ? "Copied" : "Copy"}
         </Button>
@@ -65,14 +65,15 @@ export default function PartnerPromoPage() {
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-4xl mx-auto pb-20">
       <PageHeader
+        accent="purple"
         eyebrow="Partner Dashboard"
         title="Promo Kit"
         subtitle="Copy-paste templates for the platforms you use. All include your partner link automatically."
       />
 
-      <Card className="glass-card border-[#00D26A]/20 bg-[#00D26A]/5">
+      <Card className="glass-card border-[#A855F7]/20 bg-[#A855F7]/5">
         <CardContent className="p-4 flex items-center gap-3">
-          <Megaphone className="w-5 h-5 text-[#00D26A] shrink-0" />
+          <Megaphone className="w-5 h-5 text-[#A855F7] shrink-0" />
           <div>
             <p className="text-xs font-bold text-white">Customize before you post</p>
             <p className="text-[10px] text-neutral-400">Best results come from your own voice. Treat these as starting points, not scripts.</p>

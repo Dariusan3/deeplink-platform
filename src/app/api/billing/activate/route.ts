@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
   await logAuditEvent(admin, {
     eventType: "subscription.created",
     severity: "success",
-    description: `Plan activated: ${plan} ($${(TAPPR_PLANS[plan].amountCents / 100).toFixed(2)}/mo)`,
+    description: `Plan activated: ${plan} (€${(TAPPR_PLANS[plan].amountCents / 100).toFixed(2)}/mo)`,
     actorUserId: authData.user.id,
     actorEmail: authData.user.email || null,
     teamId: team_id,

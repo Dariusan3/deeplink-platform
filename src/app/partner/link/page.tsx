@@ -48,7 +48,9 @@ export default function PartnerLinkPage() {
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto pb-20">
-      <PageHeader eyebrow="Partner Dashboard" title="My Link" />
+      <PageHeader
+        accent="purple"
+        eyebrow="Partner Dashboard" title="My Link" />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="glass-card border-white/5 lg:col-span-2">
@@ -57,10 +59,10 @@ export default function PartnerLinkPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-2">
-              <div className="flex-1 p-3 rounded-lg bg-white/[0.02] border border-white/5 font-mono text-sm text-[#00D26A] truncate">
+              <div className="flex-1 p-3 rounded-lg bg-white/[0.02] border border-white/5 font-mono text-sm text-[#A855F7] truncate">
                 {referralUrl}
               </div>
-              <Button onClick={copyLink} className={copied ? "bg-[#00D26A] text-black h-11 px-4" : "bg-white/5 hover:bg-white/10 text-white h-11 px-4"}>
+              <Button onClick={copyLink} className={copied ? "bg-[#A855F7] text-black h-11 px-4" : "bg-white/5 hover:bg-white/10 text-white h-11 px-4"}>
                 {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
               </Button>
             </div>
@@ -85,7 +87,7 @@ export default function PartnerLinkPage() {
               <p className="text-[9px] font-black uppercase tracking-widest text-neutral-500 mb-2">Clicks · Last 14 days</p>
               <div className="flex items-end gap-1 h-24">
                 {(stats?.clicksByDay ?? []).map((d) => (
-                  <div key={d.date} className="flex-1 bg-[#00D26A]/20 hover:bg-[#00D26A]/40 rounded-sm transition-all relative group" style={{ height: `${(d.count / maxBar) * 100}%` }}>
+                  <div key={d.date} className="flex-1 bg-[#A855F7]/20 hover:bg-[#A855F7]/40 rounded-sm transition-all relative group" style={{ height: `${(d.count / maxBar) * 100}%` }}>
                     <div className="opacity-0 group-hover:opacity-100 absolute -top-7 left-1/2 -translate-x-1/2 text-[9px] font-black text-white bg-black px-1.5 py-0.5 rounded whitespace-nowrap">
                       {d.count} · {d.date.slice(5)}
                     </div>
@@ -110,7 +112,7 @@ export default function PartnerLinkPage() {
                   <div className="w-[180px] h-[180px]" />
                 )}
               </div>
-              <Button onClick={downloadQr} variant="outline" className="w-full h-9 rounded-lg border-white/10 bg-white/[0.02] text-[10px] font-black uppercase tracking-widest hover:bg-[#00D26A]/10 hover:text-[#00D26A] gap-2">
+              <Button onClick={downloadQr} variant="outline" className="w-full h-9 rounded-lg border-white/10 bg-white/[0.02] text-[10px] font-black uppercase tracking-widest hover:bg-[#A855F7]/10 hover:text-[#A855F7] gap-2">
                 <Download className="w-3.5 h-3.5" /> Download PNG
               </Button>
             </div>
@@ -122,7 +124,7 @@ export default function PartnerLinkPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="glass-card border-white/5">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-black flex items-center gap-2"><Globe className="w-4 h-4 text-[#00D26A]" /> Top Countries</CardTitle>
+            <CardTitle className="text-sm font-black flex items-center gap-2"><Globe className="w-4 h-4 text-[#A855F7]" /> Top Countries</CardTitle>
           </CardHeader>
           <CardContent>
             {(stats?.countries ?? []).length === 0 ? (

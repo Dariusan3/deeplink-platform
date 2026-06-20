@@ -12,7 +12,7 @@ type Filter = "all" | "active" | "pending" | "churned";
 
 const PLAN_COLORS: Record<string, string> = {
   agency: "bg-amber-500/10 text-amber-400 border-amber-500/30",
-  growth: "bg-[#00D26A]/10 text-[#00D26A] border-[#00D26A]/30",
+  growth: "bg-[#A855F7]/10 text-[#A855F7] border-[#A855F7]/30",
   starter: "bg-blue-500/10 text-blue-400 border-blue-500/30",
 };
 
@@ -36,19 +36,21 @@ export default function PartnerReferralsPage() {
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto pb-20">
-      <PageHeader eyebrow="Partner Dashboard" title="Referrals" />
+      <PageHeader
+        accent="purple"
+        eyebrow="Partner Dashboard" title="Referrals" />
 
       {/* MRR header */}
       <Card className="glass-card border-white/5">
         <CardContent className="p-5 flex items-center justify-between">
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">MRR Generated</p>
-            <p className="text-3xl font-black text-[#00D26A]">${monthlyMrr.toFixed(2)}</p>
+            <p className="text-3xl font-black text-[#A855F7]">€{monthlyMrr.toFixed(2)}</p>
           </div>
           <div className="text-right">
             <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Your Cut</p>
             <p className="text-xl font-black text-white">
-              ${(monthlyMrr * (profile?.commission_rate ?? 0.25)).toFixed(2)}/mo
+              €{(monthlyMrr * (profile?.commission_rate ?? 0.25)).toFixed(2)}/mo
             </p>
           </div>
         </CardContent>
@@ -63,7 +65,7 @@ export default function PartnerReferralsPage() {
             className={cn(
               "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all",
               filter === f
-                ? "bg-[#00D26A]/10 text-[#00D26A] border-[#00D26A]/30"
+                ? "bg-[#A855F7]/10 text-[#A855F7] border-[#A855F7]/30"
                 : "bg-white/[0.02] text-neutral-500 border-white/10 hover:text-white"
             )}
           >
@@ -128,11 +130,11 @@ export default function PartnerReferralsPage() {
                         ) : <span className="text-[10px] text-neutral-600">—</span>}
                       </td>
                       <td className="py-3 px-2 text-xs text-right font-bold text-white">
-                        {r.monthly_value > 0 ? `$${Number(r.monthly_value).toFixed(0)}` : "—"}
+                        {r.monthly_value > 0 ? `€${Number(r.monthly_value).toFixed(0)}` : "—"}
                       </td>
-                      <td className="py-3 px-2 text-xs text-right font-black text-[#00D26A]">
+                      <td className="py-3 px-2 text-xs text-right font-black text-[#A855F7]">
                         {r.status === "active" && r.monthly_value > 0
-                          ? `$${(Number(r.monthly_value) * (profile?.commission_rate ?? 0.25)).toFixed(2)}`
+                          ? `€${(Number(r.monthly_value) * (profile?.commission_rate ?? 0.25)).toFixed(2)}`
                           : "—"}
                       </td>
                       <td className="py-3 px-2 text-[10px] text-neutral-500">
@@ -141,7 +143,7 @@ export default function PartnerReferralsPage() {
                       <td className="py-3 px-2 text-right">
                         <span className={cn(
                           "text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full",
-                          r.status === "active" && "bg-[#00D26A]/10 text-[#00D26A]",
+                          r.status === "active" && "bg-[#A855F7]/10 text-[#A855F7]",
                           r.status === "pending" && "bg-amber-500/10 text-amber-400",
                           r.status === "churned" && "bg-red-500/10 text-red-400"
                         )}>

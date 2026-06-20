@@ -50,9 +50,9 @@ interface GrantSubForm {
 }
 
 const PLAN_PRICES: Record<string, number> = {
-  starter: 89,
-  growth: 189,
-  agency: 389,
+  starter: 97,
+  growth: 297,
+  agency: 997,
 };
 
 export default function AdminUsersPage() {
@@ -371,7 +371,7 @@ export default function AdminUsersPage() {
                       )}
                     >
                       <p className="text-sm font-black text-white capitalize">{plan}</p>
-                      <p className="text-[10px] text-neutral-500">${PLAN_PRICES[plan]}/mo</p>
+                      <p className="text-[10px] text-neutral-500">€{PLAN_PRICES[plan]}/mo</p>
                     </button>
                   ))}
                 </div>
@@ -436,7 +436,7 @@ export default function AdminUsersPage() {
                   <span className="text-neutral-400">
                     <strong className="text-white capitalize">{grantForm.plan}</strong> plan for{" "}
                     <strong className="text-white">{grantForm.months} month{grantForm.months > 1 ? "s" : ""}</strong>
-                    {grantForm.isFree ? " · Free (gifted)" : ` · $${PLAN_PRICES[grantForm.plan] * grantForm.months}`}
+                    {grantForm.isFree ? " · Free (gifted)" : ` · €${PLAN_PRICES[grantForm.plan] * grantForm.months}`}
                   </span>
                 </div>
               </div>
