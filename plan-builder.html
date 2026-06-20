@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tappr · Plan Builder</title>
+    <style>
+      :root {
+        --bg: #0a0a0a;
+        --panel: #111111;
+        --line: rgba(255, 255, 255, 0.08);
+        --line2: rgba(255, 255, 255, 0.14);
+        --ink: #ffffff;
+        --ink2: #a3a3a3;
+        --muted: #6b6b6b;
+        --green: #00d26a;
+        --green-soft: rgba(0, 210, 106, 0.1);
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: var(--bg);
+        color: var(--ink);
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        padding: 40px 20px 120px;
+        line-height: 1.5;
+      }
+      .wrap {
+        max-width: 1100px;
+        margin: 0 auto;
+      }
+
+      header {
+        margin-bottom: 32px;
+      }
+      .eyebrow {
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--green);
+        margin-bottom: 6px;
+      }
+      h1 {
+        font-size: 38px;
+        font-weight: 900;
+        letter-spacing: -0.03em;
+        font-style: italic;
+        text-transform: uppercase;
+      }
+      .sub {
+        color: var(--ink2);
+        font-size: 14px;
+        margin-top: 10px;
+        max-width: 640px;
+      }
+      .legend {
+        display: flex;
+        gap: 18px;
+        flex-wrap: wrap;
+        margin-top: 16px;
+        font-size: 12px;
+        color: var(--ink2);
+      }
+      .legend b {
+        color: var(--ink);
+      }
+
+      /* sticky plan header */
+      .plans-head {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        display: grid;
+        grid-template-columns: 1.6fr 1fr 1fr 1fr 1fr;
+        gap: 8px;
+        background: var(--bg);
+        padding: 14px 0;
+        border-bottom: 1px solid var(--line2);
+      }
+      .plan-col {
+        text-align: center;
+        padding: 8px;
+        border-radius: 12px;
+      }
+      .plan-col.popular {
+        background: var(--green-soft);
+        border: 1px solid rgba(0, 210, 106, 0.25);
+      }
+      .plan-col .pname {
+        font-weight: 900;
+        text-transform: uppercase;
+        font-size: 14px;
+        letter-spacing: 0.04em;
+      }
+      .plan-col.popular .pname {
+        color: var(--green);
+      }
+      .plan-col .pprice {
+        font-size: 12px;
+        color: var(--muted);
+        font-weight: 700;
+        margin-top: 2px;
+      }
+      .plan-col .fillbtn {
+        margin-top: 6px;
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--line);
+        color: var(--ink2);
+        border-radius: 6px;
+        padding: 3px 6px;
+        cursor: pointer;
+      }
+      .plan-col .fillbtn:hover {
+        color: var(--green);
+        border-color: rgba(0, 210, 106, 0.3);
+      }
+
+      .cat {
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--muted);
+        padding: 26px 4px 10px;
+      }
+
+      .row {
+        display: grid;
+        grid-template-columns: 1.6fr 1fr 1fr 1fr 1fr;
+        gap: 8px;
+        align-items: center;
+        padding: 8px 0;
+        border-top: 1px solid var(--line);
+      }
+      .row .label {
+        font-size: 13px;
+        color: var(--ink2);
+        padding-left: 4px;
+      }
+      .cell {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        justify-content: center;
+      }
+      .cell.popcol {
+        background: var(--green-soft);
+        border-left: 1px solid rgba(0, 210, 106, 0.2);
+        border-right: 1px solid rgba(0, 210, 106, 0.2);
+        border-radius: 4px;
+        padding: 4px;
+      }
+      .toggle {
+        width: 26px;
+        height: 26px;
+        border-radius: 7px;
+        cursor: pointer;
+        flex-shrink: 0;
+        border: 1px solid var(--line2);
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--muted);
+        font-weight: 900;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s;
+      }
+      .toggle.on {
+        background: var(--green);
+        border-color: var(--green);
+        color: #000;
+      }
+      .toggle:hover {
+        border-color: var(--green);
+      }
+      .valinput {
+        width: 100%;
+        min-width: 0;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--line);
+        color: var(--ink);
+        border-radius: 7px;
+        padding: 5px 7px;
+        font-size: 11px;
+        font-weight: 700;
+        text-align: center;
+      }
+      .valinput::placeholder {
+        color: var(--muted);
+        font-weight: 400;
+      }
+      .valinput:focus {
+        outline: none;
+        border-color: rgba(0, 210, 106, 0.4);
+      }
+
+      .toolbar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 30;
+        background: rgba(10, 10, 10, 0.95);
+        backdrop-filter: blur(10px);
+        border-top: 1px solid var(--line2);
+        padding: 14px 20px;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        justify-content: center;
+      }
+      .btn {
+        border-radius: 10px;
+        padding: 11px 22px;
+        font-weight: 900;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        cursor: pointer;
+        border: none;
+      }
+      .btn.primary {
+        background: var(--green);
+        color: #000;
+      }
+      .btn.primary:hover {
+        filter: brightness(1.1);
+      }
+      .btn.ghost {
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--ink);
+        border: 1px solid var(--line);
+      }
+
+      .hint {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      /* export modal */
+      .modal-bg {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        background: rgba(0, 0, 0, 0.7);
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+      .modal-bg.open {
+        display: flex;
+      }
+      .modal {
+        background: var(--panel);
+        border: 1px solid var(--line2);
+        border-radius: 16px;
+        max-width: 700px;
+        width: 100%;
+        max-height: 80vh;
+        display: flex;
+        flex-direction: column;
+        padding: 22px;
+      }
+      .modal h3 {
+        font-size: 18px;
+        font-weight: 900;
+        text-transform: uppercase;
+        font-style: italic;
+      }
+      .modal p {
+        color: var(--ink2);
+        font-size: 13px;
+        margin: 6px 0 14px;
+      }
+      textarea {
+        flex: 1;
+        min-height: 280px;
+        background: #000;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        color: var(--green);
+        font-family: ui-monospace, monospace;
+        font-size: 12px;
+        padding: 14px;
+        resize: none;
+      }
+      .modal-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 14px;
+        justify-content: flex-end;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="eyebrow">Tappr · Internal Tool</div>
+        <h1>Plan Builder</h1>
+        <p class="sub">
+          Bifează ce feature merge pe fiecare plan. <b>Click</b> pe pătrat =
+          inclus (✓) / exclus (—). <b>Dublu-click</b> pe pătrat dacă vrei să
+          scrii o valoare (ex. „50,000", „Unlimited"). Când termini, apasă
+          <b style="color: var(--green)">Export JSON</b> și trimite-mi textul
+          înapoi.
+        </p>
+        <div class="legend">
+          <span><b>✓</b> = inclus</span>
+          <span><b>—</b> = exclus</span>
+          <span><b>dublu-click</b> = scrie o valoare în loc de bifă</span>
+        </div>
+      </header>
+
+      <div class="plans-head">
+        <div></div>
+        <div class="plan-col">
+          <div class="pname">Free</div>
+          <div class="pprice">€0/mo</div>
+          <button class="fillbtn" data-fill="0">✓ all</button>
+        </div>
+        <div class="plan-col">
+          <div class="pname">Starter</div>
+          <div class="pprice">€97/mo</div>
+          <button class="fillbtn" data-fill="1">✓ all</button>
+        </div>
+        <div class="plan-col popular">
+          <div class="pname">Growth</div>
+          <div class="pprice">€297/mo</div>
+          <button class="fillbtn" data-fill="2">✓ all</button>
+        </div>
+        <div class="plan-col">
+          <div class="pname">Agency</div>
+          <div class="pprice">€997/mo</div>
+          <button class="fillbtn" data-fill="3">✓ all</button>
+        </div>
+      </div>
+
+      <div id="grid"></div>
+    </div>
+
+    <div class="toolbar">
+      <span class="hint">Selecțiile se salvează automat în browser.</span>
+      <button class="btn ghost" id="resetBtn">Reset</button>
+      <button class="btn primary" id="exportBtn">Export JSON</button>
+    </div>
+
+    <div class="modal-bg" id="modalBg">
+      <div class="modal">
+        <h3>Export</h3>
+        <p>Copiază tot textul de mai jos și trimite-mi-l înapoi în chat.</p>
+        <textarea id="out" readonly></textarea>
+        <div class="modal-actions">
+          <button class="btn ghost" id="closeBtn">Close</button>
+          <button class="btn primary" id="copyBtn">Copy</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ── Pre-filled feature data (you can change values inline) ──────────
+      // Each cell: true (✓), false (—), or a string value.
+      const PLAN_KEYS = ["free", "starter", "growth", "agency"];
+      // Only REAL, implemented features. Values pre-filled with sensible
+      // plan gates you can change. NOTE: in code only "Clicks / month" is
+      // actually enforced per plan — everything else works the same for
+      // any plan, so the gates below are your pricing decision, not a
+      // technical limit. Edit freely.
+      const DATA = [
+        // ── 1. The headline numbers + the hook (what buyers compare first) ──
+        {
+          category: "Core",
+          rows: [
+            { label: "Automatic deep linking — opens the native app on mobile (100+ apps)", free: true, starter: true, growth: true, agency: true },
+            { label: "Clicks / month", free: "500", starter: "50,000", growth: "250,000", agency: "1,000,000" },
+            { label: "Links included", free: "25", starter: "500", growth: "5,000", agency: "Unlimited" },
+            { label: "Team members", free: "1", starter: "3", growth: "10", agency: "Unlimited" },
+          ],
+        },
+        // ── 2. Smart routing — the power feature ────────────────────
+        {
+          category: "Smart Routing & Links",
+          rows: [
+            { label: "Smart routing conditions", free: false, starter: "Geo + Device", growth: "All (geo·device·time·days)", agency: "All (geo·device·time·days)" },
+            { label: "Traffic rotator / split testing", free: false, starter: true, growth: true, agency: true },
+            { label: "Click goals + tracking per link", free: true, starter: true, growth: true, agency: true },
+          ],
+        },
+        // ── 3. AI + real-time intelligence (the wow) ────────────────
+        {
+          category: "AI & Real-Time Intelligence",
+          rows: [
+            { label: "AI Brain — chat about your stats", free: "10 chats / mo", starter: "Unlimited", growth: "Unlimited", agency: "Unlimited" },
+            { label: "Proactive anomaly alerts (broken links, traffic drops, click fraud)", free: "Basic", starter: "All 12 types", growth: "All 12 types", agency: "All 12 types" },
+            { label: "AI weekly intelligence report", free: false, starter: true, growth: true, agency: true },
+            { label: "Email alerts", free: false, starter: true, growth: true, agency: true },
+          ],
+        },
+        // ── 4. Analytics ────────────────────────────────────────────
+        {
+          category: "Analytics",
+          rows: [
+            { label: "Real-time analytics (geo · device · referrer)", free: true, starter: true, growth: true, agency: true },
+            { label: "Per-link analytics", free: true, starter: true, growth: true, agency: true },
+          ],
+        },
+        // ── 5. Team & organization ──────────────────────────────────
+        {
+          category: "Team & Organization",
+          rows: [
+            { label: "Role-based access (owner · editor · analyst · viewer)", free: false, starter: true, growth: true, agency: true },
+            { label: "Collections (folders · tree · canvas view)", free: "5", starter: "Unlimited", growth: "Unlimited", agency: "Unlimited" },
+            { label: "Dynamic QR codes", free: "3", starter: "25", growth: "250", agency: "Unlimited" },
+          ],
+        },
+        // ── 6. Branding, developer & support ────────────────────────
+        {
+          category: "Branding, Developer & Support",
+          rows: [
+            { label: "Remove Tappr branding", free: false, starter: false, growth: true, agency: true },
+            { label: "Custom domain", free: false, starter: false, growth: true, agency: true },
+            { label: "Instagram integration", free: false, starter: true, growth: true, agency: true },
+            { label: "Developer API + keys", free: false, starter: false, growth: true, agency: true },
+            { label: "Support", free: "Community", starter: "Email", growth: "Priority email", agency: "Priority · 4h response" },
+          ],
+        },
+      ];
+
+
+      const STORAGE_KEY = "tappr_plan_builder_v6";
+
+      function loadState() {
+        try {
+          const saved = localStorage.getItem(STORAGE_KEY);
+          if (saved) return JSON.parse(saved);
+        } catch (e) {}
+        return JSON.parse(JSON.stringify(DATA));
+      }
+
+      let state = loadState();
+
+      function save() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      }
+
+      function render() {
+        const grid = document.getElementById("grid");
+        grid.innerHTML = "";
+        state.forEach((group, gi) => {
+          const cat = document.createElement("div");
+          cat.className = "cat";
+          cat.textContent = group.category;
+          grid.appendChild(cat);
+
+          group.rows.forEach((row, ri) => {
+            const r = document.createElement("div");
+            r.className = "row";
+            const label = document.createElement("div");
+            label.className = "label";
+            label.textContent = row.label;
+            r.appendChild(label);
+
+            PLAN_KEYS.forEach((key, ci) => {
+              const cell = document.createElement("div");
+              cell.className = "cell" + (ci === 2 ? " popcol" : "");
+              const val = state[gi].rows[ri][key];
+              // String (incl. "") = value mode → show ONLY the input.
+              // Boolean = show ONLY the ✓/— toggle (clean, easy to read).
+              const isValueMode = typeof val === "string";
+
+              if (isValueMode) {
+                const inp = document.createElement("input");
+                inp.className = "valinput";
+                inp.placeholder = "value";
+                inp.value = val;
+                if (window.__focusCell === gi + ":" + ri + ":" + key) {
+                  setTimeout(() => inp.focus(), 0);
+                  window.__focusCell = null;
+                }
+                inp.oninput = () => {
+                  state[gi].rows[ri][key] = inp.value;
+                  save();
+                };
+                inp.onblur = () => {
+                  // Empty on blur → back to a plain — toggle.
+                  if (inp.value.trim() === "") {
+                    state[gi].rows[ri][key] = false;
+                    save();
+                    render();
+                  }
+                };
+                cell.appendChild(inp);
+              } else {
+                const tog = document.createElement("div");
+                tog.className = "toggle" + (val === true ? " on" : "");
+                tog.textContent = val === true ? "✓" : "—";
+                tog.title = "Click: include / exclude · Double-click: type a value";
+                tog.onclick = () => {
+                  state[gi].rows[ri][key] = val === true ? false : true;
+                  save();
+                  render();
+                };
+                tog.ondblclick = () => {
+                  // Switch this cell to value mode + focus the new input.
+                  state[gi].rows[ri][key] = "";
+                  window.__focusCell = gi + ":" + ri + ":" + key;
+                  save();
+                  render();
+                };
+                cell.appendChild(tog);
+              }
+              r.appendChild(cell);
+            });
+            grid.appendChild(r);
+          });
+        });
+      }
+
+      // fill a whole column with ✓
+      document.querySelectorAll(".fillbtn").forEach((b) => {
+        b.onclick = () => {
+          const ci = Number(b.dataset.fill);
+          const key = PLAN_KEYS[ci];
+          state.forEach((g) =>
+            g.rows.forEach((row) => {
+              if (typeof row[key] !== "string") row[key] = true;
+            }),
+          );
+          save();
+          render();
+        };
+      });
+
+      document.getElementById("resetBtn").onclick = () => {
+        if (confirm("Reset all selections to defaults?")) {
+          state = JSON.parse(JSON.stringify(DATA));
+          save();
+          render();
+        }
+      };
+
+      document.getElementById("exportBtn").onclick = () => {
+        document.getElementById("out").value = JSON.stringify(state, null, 2);
+        document.getElementById("modalBg").classList.add("open");
+      };
+      document.getElementById("closeBtn").onclick = () =>
+        document.getElementById("modalBg").classList.remove("open");
+      document.getElementById("copyBtn").onclick = () => {
+        const ta = document.getElementById("out");
+        ta.select();
+        navigator.clipboard.writeText(ta.value);
+        document.getElementById("copyBtn").textContent = "Copied!";
+        setTimeout(() => {
+          document.getElementById("copyBtn").textContent = "Copy";
+        }, 1500);
+      };
+
+      render();
+    </script>
+  </body>
+</html>

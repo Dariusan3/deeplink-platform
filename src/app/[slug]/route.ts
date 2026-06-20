@@ -2,6 +2,57 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import type { RedirectRule } from "@/types/links";
 import { finalizeABWinnerIfReady } from "@/lib/ab-testing";
+import { getAppDeepLink } from "@/lib/deeplink";
+
+// Interstitial that opens the native app on a phone, then falls back to
+// the web URL if the app isn't installed. A plain 302 to https does NOT
+// reliably trigger iOS Universal Links / Android App Links, so we render
+// a tiny page that tries the app scheme first and bounces to the web
+// after a short timeout.
+function deepLinkInterstitial(opts: {
+  iosUri: string;
+  androidUri: string;
+  webUrl: string;
+  appName: string;
+}): string {
+  const { iosUri, androidUri, webUrl, appName } = opts;
+  const j = (s: string) => JSON.stringify(s);
+  return `<!doctype html><html><head><meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Opening ${appName}…</title>
+<style>
+  html,body{height:100%;margin:0;background:#0a0a0a;color:#fff;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
+  .c{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:24px;}
+  .spin{width:34px;height:34px;border:3px solid rgba(0,210,106,.25);border-top-color:#00D26A;border-radius:50%;animation:s 1s linear infinite;}
+  @keyframes s{to{transform:rotate(360deg)}}
+  p{font-size:14px;color:#a3a3a3;margin:0;}
+  a{color:#00D26A;font-weight:700;text-decoration:none;font-size:13px;}
+</style></head>
+<body><div class="c">
+  <div class="spin"></div>
+  <p>Opening ${appName}…</p>
+  <a id="fallback" href=${j(webUrl)}>Continue in browser →</a>
+</div>
+<script>
+  (function(){
+    var ios = ${j(iosUri)}, android = ${j(androidUri)}, web = ${j(webUrl)};
+    var ua = navigator.userAgent || "";
+    var isAndroid = /android/i.test(ua);
+    var target = isAndroid ? android : ios;
+    var didHide = false;
+    // If the app opens, the page is backgrounded — cancel the web fallback.
+    document.addEventListener("visibilitychange", function(){
+      if (document.hidden) didHide = true;
+    });
+    // Try the app.
+    window.location.href = target;
+    // Fallback to the web URL if still here (app not installed).
+    setTimeout(function(){ if(!didHide) window.location.replace(web); }, 1500);
+  })();
+</script>
+</body></html>`;
+}
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
@@ -216,6 +267,27 @@ export async function GET(
       device_type: deviceType,
       matched_rule_index: matchedRuleIndex,
     }).then(() => {});
+  }
+
+  // Deep linking: on a phone, if the destination is a known app
+  // (YouTube, Instagram, TikTok, …) serve an interstitial that opens the
+  // native app and falls back to the web. Desktop or unknown hosts get a
+  // normal 302. `device=desktop` in dev skips this.
+  const isMobile = deviceType === "mobile" || deviceType === "tablet";
+  if (isMobile) {
+    const app = getAppDeepLink(finalDestination);
+    if (app) {
+      const html = deepLinkInterstitial({
+        iosUri: app.ios,
+        androidUri: app.android,
+        webUrl: finalDestination,
+        appName: app.app,
+      });
+      return new NextResponse(html, {
+        status: 200,
+        headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
+      });
+    }
   }
 
   return NextResponse.redirect(finalDestination, { status: 302 });

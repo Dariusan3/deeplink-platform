@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Check, ChevronDown, Gift, Building2, Link2, Image, BarChart3, Shuffle, QrCode, Globe, Smartphone, Languages, CalendarOff, Shield, Tag, ShoppingCart, Flame } from "lucide-react";
+import { Check, ChevronDown, Gift, Building2, Link2, Shuffle, QrCode, Globe, Smartphone, Shield, Flame, BarChart3, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UpgradeButton } from "@/components/billing/upgrade-button";
 import { PricingComparison } from "@/components/pricing/pricing-comparison";
@@ -21,14 +21,13 @@ const plans = [
     popular: false,
     cta: "Start with Starter",
     features: [
-      { text: "Unlimited links with full tracking", bold: true },
-      "Smart routing — 2 conditions per link (device, location)",
-      "Dynamic QR codes — up to 20",
-      "AI Brain — chat about your stats",
-      "Automated monthly report via email",
-      "3 users included",
-      "50,000 clicks / month",
-      "Instagram, TikTok, WhatsApp integrations",
+      { text: "50,000 clicks / month", bold: true },
+      "500 links · 3 team members",
+      "Smart routing — geo + device",
+      "Traffic rotator + click goals",
+      "Unlimited AI Brain + all anomaly alerts",
+      "Dynamic QR codes — 25",
+      "Instagram integration",
     ],
   },
   {
@@ -40,52 +39,42 @@ const plans = [
     cta: "Choose Growth",
     features: [
       { text: "Everything in Starter, plus:", bold: true },
-      { text: "Advanced smart routing — device + location + time + source combined", bold: true },
-      { text: "Automated A/B testing on links and QR codes", hot: true },
-      { text: "Proactive AI Brain — alerts you without asking", bold: true },
-      "Weekly reports instead of monthly",
-      "Links with expiration and auto-redirect",
-      "10 users included",
-      "250,000 clicks / month",
-      "Partial white-label + Stripe, Shopify, Calendly",
-      { text: "Competitor tracking — monitor 3 competitors", bold: true },
+      { text: "250,000 clicks / month", bold: true },
+      "5,000 links · 10 team members",
+      { text: "Advanced routing — geo · device · time · days", bold: true },
+      "Remove Tappr branding + custom domain",
+      { text: "Developer API + keys", bold: true },
+      "AI weekly intelligence report",
+      "Dynamic QR codes — 250",
     ],
   },
   {
     name: "AGENCY",
-    description: "For agencies and entrepreneurs with multiple brands or clients.",
+    description: "For agencies and entrepreneurs scaling to the max.",
     monthlyPrice: 997,
     yearlyPrice: 797,
     popular: false,
     cta: "Choose Agency",
     features: [
       { text: "Everything in Growth, plus:", bold: true },
-      { text: "Multi-brand — up to 10 separate brands in one account", bold: true },
-      { text: "Client access — clients only see their own dashboard", bold: true },
-      { text: "Full white-label — platform appears with your brand", hot: true },
-      { text: "Branded PDF reports auto-generated for clients", bold: true },
-      { text: "AI Brain trained per brand/client", bold: true },
-      "Unlimited users",
-      "1,000,000 clicks / month",
-      "Unlimited competitor tracking",
-      "Priority support — response within 4 hours",
+      { text: "Unlimited clicks / month", bold: true },
+      { text: "Unlimited links & team members", bold: true },
+      "Unlimited collections & QR codes",
+      "All routing conditions",
+      { text: "Priority support — 4h response", hot: true },
     ],
   },
 ];
 
 const allFeatures = [
   { icon: <Link2 className="w-5 h-5" />, label: "Automatic Deep Linking (100+ apps)" },
-  { icon: <Image className="w-5 h-5" />, label: "Custom Link Previews" },
-  { icon: <BarChart3 className="w-5 h-5" />, label: "Tracking Pixels (FB, Google, TikTok)" },
-  { icon: <Shuffle className="w-5 h-5" />, label: "A/B Testing & Traffic Rotator" },
-  { icon: <QrCode className="w-5 h-5" />, label: "QR Code Generator" },
+  { icon: <Shuffle className="w-5 h-5" />, label: "Traffic Rotator / Split" },
+  { icon: <QrCode className="w-5 h-5" />, label: "Dynamic QR Codes" },
   { icon: <Globe className="w-5 h-5" />, label: "Geo Targeting" },
   { icon: <Smartphone className="w-5 h-5" />, label: "Device Targeting" },
-  { icon: <Languages className="w-5 h-5" />, label: "Language Targeting" },
-  { icon: <CalendarOff className="w-5 h-5" />, label: "Link Expiration" },
-  { icon: <Shield className="w-5 h-5" />, label: "Click Limitation" },
-  { icon: <Tag className="w-5 h-5" />, label: "UTM Parameters" },
-  { icon: <ShoppingCart className="w-5 h-5" />, label: "Amazon Auto Affiliate Tag" },
+  { icon: <BarChart3 className="w-5 h-5" />, label: "Real-Time Analytics" },
+  { icon: <Sparkles className="w-5 h-5" />, label: "AI Brain" },
+  { icon: <Shield className="w-5 h-5" />, label: "Anomaly Alerts" },
 ];
 
 const faqs = [
