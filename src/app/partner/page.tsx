@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
+import { PartnerCalculator } from "@/components/partner/partner-calculator";
 import { usePartner } from "@/hooks/use-partner";
 import {
   TrendingUp, Users, Wallet, Target, Copy, Check, ArrowRight, Sparkles, Trophy,
@@ -195,6 +196,9 @@ export default function PartnerOverviewPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Earnings calculator — predictable projection of recurring income */}
+      <PartnerCalculator />
     </div>
   );
 }

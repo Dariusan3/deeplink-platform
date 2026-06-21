@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { usePartner } from "@/hooks/use-partner";
-import { Search, Users } from "lucide-react";
+import { Search, Users, Link2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Filter = "all" | "active" | "pending" | "churned";
@@ -20,6 +20,17 @@ export default function PartnerReferralsPage() {
   const { referrals, monthlyMrr, profile, loading } = usePartner();
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
+  // How many links each referred user has created — engagement signal.
+  const [linkCounts, setLinkCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/partner/referral-activity")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (!cancelled && j?.linkCounts) setLinkCounts(j.linkCounts); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   const filtered = referrals.filter((r) => {
     if (filter !== "all" && r.status !== filter) return false;
@@ -109,7 +120,8 @@ export default function PartnerReferralsPage() {
                   <tr className="border-b border-white/5">
                     <th className="text-left text-[9px] font-black uppercase tracking-widest text-neutral-500 py-2.5 px-2">Email</th>
                     <th className="text-left text-[9px] font-black uppercase tracking-widest text-neutral-500 py-2.5 px-2">Plan</th>
-                    <th className="text-right text-[9px] font-black uppercase tracking-widest text-neutral-500 py-2.5 px-2">$/mo</th>
+                    <th className="text-right text-[9px] font-black uppercase tracking-widest text-neutral-500 py-2.5 px-2">Links</th>
+                    <th className="text-right text-[9px] font-black uppercase tracking-widest text-neutral-500 py-2.5 px-2">€/mo</th>
                     <th className="text-right text-[9px] font-black uppercase tracking-widest text-neutral-500 py-2.5 px-2">Your Cut</th>
                     <th className="text-left text-[9px] font-black uppercase tracking-widest text-neutral-500 py-2.5 px-2">Joined</th>
                     <th className="text-right text-[9px] font-black uppercase tracking-widest text-neutral-500 py-2.5 px-2">Status</th>
@@ -128,6 +140,12 @@ export default function PartnerReferralsPage() {
                             {r.plan}
                           </span>
                         ) : <span className="text-[10px] text-neutral-600">—</span>}
+                      </td>
+                      <td className="py-3 px-2 text-xs text-right font-bold text-neutral-300">
+                        <span className="inline-flex items-center gap-1 justify-end">
+                          <Link2 className="w-2.5 h-2.5 text-neutral-500" />
+                          {linkCounts[r.referred_user_id] ?? 0}
+                        </span>
                       </td>
                       <td className="py-3 px-2 text-xs text-right font-bold text-white">
                         {r.monthly_value > 0 ? `€${Number(r.monthly_value).toFixed(0)}` : "—"}

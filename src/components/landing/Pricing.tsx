@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Reveal } from "./Reveal";
 import { PricingComparison } from "@/components/pricing/pricing-comparison";
+import { FreePlanButton } from "@/components/pricing/free-plan-button";
 
 const TIERS = [
   {
@@ -99,16 +100,24 @@ export function Pricing() {
                   ))}
                 </ul>
 
-                <Link
-                  href={t.href}
-                  className={`mt-8 inline-flex items-center justify-center w-full px-4 py-3 rounded-sm btn-lift ${
-                    t.accent
-                      ? "bg-[var(--tappr-green)] text-black font-medium hover:brightness-110"
-                      : "border border-[var(--line)] hover:border-[var(--line-2)] text-[var(--ink-2)] hover:text-[var(--ink)]"
-                  }`}
-                >
-                  {t.cta}
-                </Link>
+                {t.name === "Free" ? (
+                  <FreePlanButton
+                    className="mt-8 inline-flex items-center justify-center w-full px-4 py-3 rounded-sm btn-lift cursor-pointer border border-[var(--line)] hover:border-[var(--line-2)] text-[var(--ink-2)] hover:text-[var(--ink)]"
+                  >
+                    {t.cta}
+                  </FreePlanButton>
+                ) : (
+                  <Link
+                    href={t.href}
+                    className={`mt-8 inline-flex items-center justify-center w-full px-4 py-3 rounded-sm btn-lift ${
+                      t.accent
+                        ? "bg-[var(--tappr-green)] text-black font-medium hover:brightness-110"
+                        : "border border-[var(--line)] hover:border-[var(--line-2)] text-[var(--ink-2)] hover:text-[var(--ink)]"
+                    }`}
+                  >
+                    {t.cta}
+                  </Link>
+                )}
               </article>
             </Reveal>
           ))}
