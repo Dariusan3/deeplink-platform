@@ -45,9 +45,15 @@ export function UpgradeButton({
     if (ctxUser) return; // dashboard context wins
     let cancelled = false;
     (async () => {
-      const supabase = createClient();
-      const { data } = await supabase.auth.getUser();
-      if (!cancelled) setSupaUserId(data.user?.id ?? null);
+      try {
+        const supabase = createClient();
+        const { data } = await supabase.auth.getUser();
+        if (!cancelled) setSupaUserId(data.user?.id ?? null);
+      } catch {
+        // Network/auth hiccup (AuthRetryableFetchError) — treat as
+        // logged-out; the click handler falls back to /signup.
+        if (!cancelled) setSupaUserId(null);
+      }
     })();
     return () => { cancelled = true; };
   }, [ctxUser]);
