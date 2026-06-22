@@ -13,38 +13,81 @@ export type Collection = Database["public"]["Tables"]["collections"]["Row"] & {
 };
 type CollectionInsert = Database["public"]["Tables"]["collections"]["Insert"];
 
+// Per-team collections cache (stale-while-revalidate) so the collections
+// view renders instantly from localStorage on repeat visits / team switch,
+// then refreshes in the background. Mirrors the links/stats caches.
+const COLLECTIONS_CACHE_PREFIX = "tappr_collections_cache_";
+function readCollectionsCache(teamId: string): Collection[] | null {
+  try {
+    const raw = typeof window !== "undefined" ? localStorage.getItem(COLLECTIONS_CACHE_PREFIX + teamId) : null;
+    return raw ? (JSON.parse(raw) as Collection[]) : null;
+  } catch { return null; }
+}
+function writeCollectionsCache(teamId: string, collections: Collection[]) {
+  try { localStorage.setItem(COLLECTIONS_CACHE_PREFIX + teamId, JSON.stringify(collections)); } catch {}
+}
+
 export function useCollections() {
   const { user } = useUser();
   const { activeTeam } = useTeam();
+  // Deterministic initial state (empty) so the server + first client render
+  // match — no hydration mismatch. The cached snapshot is applied in the
+  // activeTeam effect below, post-mount.
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(false);
   const supabase = useMemo(() => createClient(), []);
+  // Tracks whether we have rows to display — lets fetchCollections decide
+  // whether to show a skeleton without a stale-closure dependency.
+  const hasDataRef = useRef(false);
 
   const fetchCollections = useCallback(async () => {
     const teamId = activeTeam?.id;
     if (!teamId) return;
 
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("collections")
-      .select("*, link_count:links(count)")
-      .eq("team_id", teamId)
-      .order("created_at", { ascending: false });
+    // Only show the skeleton when there's nothing cached to display.
+    if (!hasDataRef.current) setLoading(true);
 
+    // Two parallel queries: the collection rows + one GROUP BY for the
+    // per-collection link counts (RPC), instead of the old
+    // `link_count:links(count)` nested select which ran a correlated
+    // subquery per collection row.
+    const [collectionsRes, countsRes] = await Promise.all([
+      supabase
+        .from("collections")
+        .select("*")
+        .eq("team_id", teamId)
+        .order("created_at", { ascending: false }),
+      supabase.rpc("team_collection_link_counts", { p_team_id: teamId }),
+    ]);
+
+    const { data, error } = collectionsRes;
     if (error) {
       console.error("Error fetching collections:", error.message);
     } else {
+      const counts = new Map<string, number>();
+      for (const row of (countsRes.data ?? []) as { collection_id: string; count: number | string }[]) {
+        counts.set(row.collection_id, Number(row.count) || 0);
+      }
       const formatted = (data || []).map((c: any) => ({
         ...c,
-        link_count: c.link_count?.[0]?.count || 0,
+        link_count: counts.get(c.id) ?? 0,
       }));
       setCollections(formatted);
+      hasDataRef.current = formatted.length > 0;
+      writeCollectionsCache(teamId, formatted);
     }
     setLoading(false);
   }, [activeTeam, supabase]);
 
   useEffect(() => {
     if (activeTeam?.id) {
+      // Swap in cached collections for this team instantly (covers team
+      // switch), then revalidate from the server.
+      const cachedForTeam = readCollectionsCache(activeTeam.id);
+      if (cachedForTeam) {
+        setCollections(cachedForTeam);
+        hasDataRef.current = cachedForTeam.length > 0;
+      }
       fetchCollections();
     }
   }, [activeTeam?.id, fetchCollections]);

@@ -19,11 +19,48 @@ interface TeamContextType {
 
 export const TeamContext = createContext<TeamContextType | undefined>(undefined);
 
-export function TeamProvider({ children }: { children: ReactNode }) {
+// localStorage cache so the dashboard renders instantly on repeat visits
+// (stale-while-revalidate) instead of waiting on the teams round-trip.
+const TEAMS_CACHE_KEY = "tappr_teams_cache";
+function readTeamsCache(): Team[] | null {
+  try {
+    const raw = typeof window !== "undefined" ? localStorage.getItem(TEAMS_CACHE_KEY) : null;
+    return raw ? (JSON.parse(raw) as Team[]) : null;
+  } catch { return null; }
+}
+
+export function TeamProvider({
+  children,
+  initialTeams,
+  initialActiveTeam,
+}: {
+  children: ReactNode;
+  // Server-fetched seed data (from the dashboard layout RSC) so the first
+  // paint has real teams without a client round-trip. Falls back to the
+  // localStorage cache when not provided.
+  initialTeams?: Team[];
+  initialActiveTeam?: Team | null;
+}) {
   const { user, loading: userLoading } = useUserContext();
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [activeTeam, setActiveTeam] = useState<Team | null>(null);
-  const [loading, setLoading] = useState(true);
+  // When the dashboard layout (RSC) seeds `initialTeams`, that path is
+  // authoritative AND deterministic across SSR + client hydration — we must
+  // NOT consult localStorage in the initializer or a stale client cache
+  // could diverge from the server HTML and trigger a hydration mismatch.
+  const seeded = initialTeams !== undefined;
+  const cached = !seeded && typeof window !== "undefined" ? readTeamsCache() : null;
+  const [teams, setTeams] = useState<Team[]>(seeded ? (initialTeams as Team[]) : (cached ?? []));
+  const [activeTeam, setActiveTeam] = useState<Team | null>(() => {
+    if (seeded) return initialActiveTeam ?? null;
+    if (!cached || cached.length === 0) return null;
+    try {
+      const storedId = localStorage.getItem("active_team_id");
+      return cached.find((t) => t.id === storedId) ?? cached[0];
+    } catch { return cached[0]; }
+  });
+  // If we have server data or cache, we're not "loading" — the page can
+  // render now and the background revalidate will swap in fresh data.
+  const hasInitial = seeded || (cached && cached.length > 0);
+  const [loading, setLoading] = useState(!hasInitial);
   // Stable supabase instance — avoids re-creating on every render which would
   // cause fetchTeams to get a new reference and trigger duplicate team creation
   const supabase = useMemo(() => createClient(), []);
@@ -49,9 +86,15 @@ export function TeamProvider({ children }: { children: ReactNode }) {
 
       if (data && data.length > 0) {
         setTeams(data as Team[]);
+        try { localStorage.setItem(TEAMS_CACHE_KEY, JSON.stringify(data)); } catch {}
         const storedTeamId = localStorage.getItem("active_team_id");
         const foundTeam = data.find((t: Team) => t.id === storedTeamId);
-        setActiveTeam((foundTeam as Team) || (data[0] as Team));
+        // Keep current activeTeam if it's still valid (avoids a flicker when
+        // the cached active team matches), else pick stored/first.
+        setActiveTeam((prev) =>
+          (prev && data.some((t: Team) => t.id === prev.id) ? prev : null) ||
+          (foundTeam as Team) || (data[0] as Team)
+        );
       } else {
         const newTeamName = `${user.email?.split("@")[0]}'s Team`;
         const slug = nameToSlug(newTeamName);
@@ -70,6 +113,7 @@ export function TeamProvider({ children }: { children: ReactNode }) {
           });
           setTeams([newTeam]);
           setActiveTeam(newTeam);
+          try { localStorage.setItem(TEAMS_CACHE_KEY, JSON.stringify([newTeam])); } catch {}
         }
       }
     } finally {
@@ -136,6 +180,10 @@ export function TeamProvider({ children }: { children: ReactNode }) {
         setTeams([]);
         setActiveTeam(null);
         setLoading(false);
+        try {
+          localStorage.removeItem(TEAMS_CACHE_KEY);
+          document.cookie = "active_team_id=; path=/; max-age=0";
+        } catch {}
       }
     }
   }, [user, userLoading, fetchTeams]);
@@ -167,6 +215,12 @@ export function TeamProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (activeTeam) {
       localStorage.setItem("active_team_id", activeTeam.id);
+      // Mirror to a cookie so the server (dashboard layout RSC) can resolve
+      // the active team and seed links/stats for the correct team on first
+      // load — localStorage isn't readable server-side.
+      try {
+        document.cookie = `active_team_id=${activeTeam.id}; path=/; max-age=31536000; samesite=lax`;
+      } catch {}
     }
   }, [activeTeam]);
 

@@ -16,10 +16,21 @@ interface UserContextType {
 
 export const UserContext = createContext<UserContextType | undefined>(undefined);
 
-export function UserProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<DbUser | null>(null);
-  const [loading, setLoading] = useState(true);
+export function UserProvider({
+  children,
+  initialUser,
+  initialProfile,
+}: {
+  children: ReactNode;
+  // Server-fetched auth user + profile (from the dashboard layout RSC) so
+  // the provider waterfall (teams → links → stats) can start without first
+  // waiting on a client-side getSession round-trip.
+  initialUser?: User | null;
+  initialProfile?: DbUser | null;
+}) {
+  const [user, setUser] = useState<User | null>(initialUser ?? null);
+  const [profile, setProfile] = useState<DbUser | null>(initialProfile ?? null);
+  const [loading, setLoading] = useState(!initialUser);
   const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {

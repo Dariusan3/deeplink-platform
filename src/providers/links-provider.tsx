@@ -38,20 +38,53 @@ interface LinksContextType {
 
 const LinksContext = createContext<LinksContextType | undefined>(undefined);
 
-export function LinksProvider({ children }: { children: ReactNode }) {
+// Per-team link cache (stale-while-revalidate) so the links list and the
+// dashboard render instantly from localStorage, then refresh in the
+// background.
+const LINKS_CACHE_PREFIX = "tappr_links_cache_";
+function readLinksCache(teamId: string): Link[] | null {
+  try {
+    const raw = typeof window !== "undefined" ? localStorage.getItem(LINKS_CACHE_PREFIX + teamId) : null;
+    return raw ? (JSON.parse(raw) as Link[]) : null;
+  } catch { return null; }
+}
+function writeLinksCache(teamId: string, links: Link[]) {
+  try { localStorage.setItem(LINKS_CACHE_PREFIX + teamId, JSON.stringify(links)); } catch {}
+}
+
+export function LinksProvider({
+  children,
+  initialLinks,
+}: {
+  children: ReactNode;
+  // Server-fetched links for the active team (from the dashboard layout
+  // RSC) — seeds the first paint deterministically across SSR + hydration.
+  initialLinks?: Link[];
+}) {
   const { user } = useUser();
   const { activeTeam } = useTeam();
-  const [links, setLinks] = useState<Link[]>([]);
+  // Server initial data wins; localStorage cache is the client-only fallback.
+  const [links, setLinks] = useState<Link[]>(() => {
+    if (initialLinks) return initialLinks;
+    if (typeof window === "undefined") return [];
+    const tid = localStorage.getItem("active_team_id");
+    return tid ? (readLinksCache(tid) ?? []) : [];
+  });
   const [loading, setLoading] = useState(false);
   const supabase = useMemo(() => createClient(), []);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  // Tracks whether we currently have links to display — lets fetchLinks
+  // decide whether to show a skeleton without a stale-closure dependency.
+  const hasDataRef = useRef(links.length > 0);
 
   const fetchLinks = useCallback(async (explicitTeamId?: string) => {
     // Try explicit ID, then activeTeam, then localStorage as absolute last resort for speed
     const teamId = explicitTeamId || activeTeam?.id || (typeof window !== "undefined" ? localStorage.getItem("active_team_id") : null);
 
     if (!teamId) return;
-    setLoading(true);
+    // Only show the loading skeleton when there's nothing cached to show
+    // (hasDataRef tracks current links without a stale closure).
+    if (!hasDataRef.current) setLoading(true);
 
     // Two parallel queries: the link rows themselves and a single
     // aggregate-per-link click count via RPC. Previously we shoved both
@@ -79,12 +112,21 @@ export function LinksProvider({ children }: { children: ReactNode }) {
         click_count: counts.get(l.id) ?? 0,
       }));
       setLinks(formattedLinks);
+      hasDataRef.current = formattedLinks.length > 0;
+      writeLinksCache(teamId, formattedLinks);
     }
     setLoading(false);
   }, [activeTeam, supabase]);
 
   useEffect(() => {
     if (activeTeam?.id) {
+      // Swap in cached links for this team instantly (covers team switch),
+      // then revalidate from the server.
+      const cachedForTeam = readLinksCache(activeTeam.id);
+      if (cachedForTeam) {
+        setLinks(cachedForTeam);
+        hasDataRef.current = cachedForTeam.length > 0;
+      }
       fetchLinks();
     }
   }, [activeTeam?.id, fetchLinks]);

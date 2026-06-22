@@ -406,7 +406,15 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
               {inner}
             </div>
           ) : (
-            <Link key={item.name} href={item.href} className={baseClass}>
+            <Link
+              key={item.name}
+              href={item.href}
+              className={baseClass}
+              // Warm the route bundle on hover so the click navigation is
+              // instant — combined with the localStorage SWR caches in the
+              // providers, the target section paints immediately.
+              onMouseEnter={() => router.prefetch(item.href)}
+            >
               {inner}
             </Link>
           );

@@ -5,10 +5,13 @@ import { createClient } from "@/lib/supabase/client";
 import { useTeam } from "./use-team";
 import { useUser } from "./use-user";
 import { emit, subscribe } from "@/lib/refresh-bus";
+import { readSwrCache, writeSwrCache } from "@/lib/swr-cache";
 import { toast } from "sonner";
 import { Database } from "@/types/database";
 
 export type BrainEntry = Database["public"]["Tables"]["business_brain"]["Row"];
+
+const BRAIN_CACHE_PREFIX = "tappr_brain_cache_";
 
 export function useBusinessBrain() {
   const { user } = useUser();
@@ -21,7 +24,7 @@ export function useBusinessBrain() {
     const teamId = activeTeam?.id;
     if (!teamId) return;
 
-    setLoading(true);
+    if (!readSwrCache(BRAIN_CACHE_PREFIX, teamId)) setLoading(true);
     const { data, error } = await supabase
       .from("business_brain")
       .select("*")
@@ -32,12 +35,16 @@ export function useBusinessBrain() {
       console.error("Error fetching brain entries:", error.message);
     } else {
       setEntries(data || []);
+      writeSwrCache(BRAIN_CACHE_PREFIX, teamId, data || []);
     }
     setLoading(false);
   }, [activeTeam, supabase]);
 
   useEffect(() => {
     if (activeTeam?.id) {
+      // Swap in cached entries for this team instantly, then revalidate.
+      const cached = readSwrCache<BrainEntry[]>(BRAIN_CACHE_PREFIX, activeTeam.id);
+      if (cached) setEntries(cached);
       fetchEntries();
     }
   }, [activeTeam?.id, fetchEntries]);

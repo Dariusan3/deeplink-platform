@@ -4,10 +4,13 @@ import { useState, useCallback, useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Database } from "@/types/database";
 import { useTeam } from "./use-team";
+import { readSwrCache, writeSwrCache } from "@/lib/swr-cache";
 import { toast } from "sonner";
 
 type TeamSettings = Database["public"]["Tables"]["team_settings"]["Row"];
 type TeamSettingsUpdate = Database["public"]["Tables"]["team_settings"]["Update"];
+
+const SETTINGS_CACHE_PREFIX = "tappr_settings_cache_";
 
 export function useSettings() {
   const { activeTeam } = useTeam();
@@ -15,9 +18,17 @@ export function useSettings() {
   const [loading, setLoading] = useState(true);
   const supabase = useMemo(() => createClient(), []);
 
+  // Hydrate from cache post-mount so settings (e.g. timezone, consumed by
+  // analytics) are available instantly on repeat visits.
+  useEffect(() => {
+    if (!activeTeam?.id) return;
+    const cached = readSwrCache<TeamSettings>(SETTINGS_CACHE_PREFIX, activeTeam.id);
+    if (cached) { setSettings(cached); setLoading(false); }
+  }, [activeTeam?.id]);
+
   const fetchSettings = useCallback(async () => {
     if (!activeTeam?.id) return;
-    setLoading(true);
+    if (!readSwrCache(SETTINGS_CACHE_PREFIX, activeTeam.id)) setLoading(true);
 
     const { data, error } = await supabase
       .from("team_settings")
@@ -42,16 +53,19 @@ export function useSettings() {
           .single();
         if (retry) {
           setSettings(retry);
+          writeSwrCache(SETTINGS_CACHE_PREFIX, activeTeam.id, retry);
         } else {
           console.error("Error creating default settings:", insertError.message);
         }
       } else {
         setSettings(newSettings);
+        if (newSettings) writeSwrCache(SETTINGS_CACHE_PREFIX, activeTeam.id, newSettings);
       }
     } else if (error) {
       console.error("Error fetching settings:", error.message);
     } else {
       setSettings(data);
+      if (data) writeSwrCache(SETTINGS_CACHE_PREFIX, activeTeam.id, data);
     }
 
     setLoading(false);
@@ -79,10 +93,11 @@ export function useSettings() {
       }
 
       setSettings(data);
+      if (data && activeTeam?.id) writeSwrCache(SETTINGS_CACHE_PREFIX, activeTeam.id, data);
       toast.success("Settings saved");
       return data;
     },
-    [settings, supabase]
+    [settings, supabase, activeTeam?.id]
   );
 
   return { settings, loading, updateSettings, refetch: fetchSettings };

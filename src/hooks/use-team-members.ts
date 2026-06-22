@@ -4,7 +4,10 @@ import { useState, useCallback, useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTeam } from "./use-team";
 import { useUser } from "./use-user";
+import { readSwrCache, writeSwrCache } from "@/lib/swr-cache";
 import { toast } from "sonner";
+
+const TEAM_MEMBERS_CACHE_PREFIX = "tappr_team_members_cache_";
 
 export interface TeamMember {
   id: string;
@@ -47,7 +50,7 @@ export function useTeamMembers() {
     const teamId = activeTeam?.id;
     if (!teamId) return;
 
-    setLoading(true);
+    if (!readSwrCache(TEAM_MEMBERS_CACHE_PREFIX, teamId)) setLoading(true);
     const { data, error } = await supabase
       .from("team_members")
       .select("*, user:users(id, email, full_name, avatar_url)")
@@ -57,13 +60,18 @@ export function useTeamMembers() {
     if (error) {
       console.error("Error fetching team members:", error.message);
     } else {
-      setMembers((data || []) as TeamMember[]);
+      const rows = (data || []) as TeamMember[];
+      setMembers(rows);
+      writeSwrCache(TEAM_MEMBERS_CACHE_PREFIX, teamId, rows);
     }
     setLoading(false);
   }, [activeTeam, supabase]);
 
   useEffect(() => {
     if (activeTeam?.id) {
+      // Swap in cached members for this team instantly, then revalidate.
+      const cached = readSwrCache<TeamMember[]>(TEAM_MEMBERS_CACHE_PREFIX, activeTeam.id);
+      if (cached) setMembers(cached);
       fetchMembers();
     }
   }, [activeTeam?.id, fetchMembers]);

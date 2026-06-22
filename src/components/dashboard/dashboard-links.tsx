@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link as LinkType } from "@/types/links";
 import { List, Copy, Check, Globe, ExternalLink } from "lucide-react";
@@ -68,8 +68,15 @@ function LinkRow({ link }: { link: LinkType }) {
     hostname = new URL(link.destination_url).hostname.replace("www.", "");
   } catch {}
 
-  const shortUrl =
-    typeof window !== "undefined" ? buildShortUrl(link.slug) : link.slug;
+  // Now that links are server-rendered (initialLinks from the dashboard
+  // layout RSC), the displayed URL must be identical on the server and the
+  // first client render or React throws a hydration mismatch. We seed with
+  // the SSR-safe origin (https://tappr.me) and upgrade to the real origin
+  // after mount — in production these are the same, so no visible flash.
+  const [shortUrl, setShortUrl] = useState(`https://tappr.me/${link.slug}`);
+  useEffect(() => {
+    setShortUrl(buildShortUrl(link.slug));
+  }, [link.slug]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(shortUrl);

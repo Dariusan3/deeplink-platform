@@ -11,6 +11,9 @@ import { CreditCard, Calendar, ArrowUpRight, Crown, Zap, Sparkles, AlertCircle }
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { UpgradeButton } from "@/components/billing/upgrade-button";
+import { readSwrCache, writeSwrCache } from "@/lib/swr-cache";
+
+const BILLING_CACHE_PREFIX = "tappr_subscriptions_cache_";
 
 type Subscription = {
   id: string;
@@ -45,9 +48,14 @@ export default function BillingPage() {
   const [history, setHistory] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const applyRows = useCallback((rows: Subscription[]) => {
+    setCurrent(rows.find((r) => r.status === "active") ?? null);
+    setHistory(rows);
+  }, []);
+
   const fetchAll = useCallback(async () => {
     if (!activeTeam?.id) return;
-    setLoading(true);
+    if (!readSwrCache(BILLING_CACHE_PREFIX, activeTeam.id)) setLoading(true);
     const { data } = await supabase
       .from("subscriptions")
       .select("*")
@@ -55,11 +63,17 @@ export default function BillingPage() {
       .order("created_at", { ascending: false });
 
     const rows = (data || []) as Subscription[];
-    const active = rows.find((r) => r.status === "active") ?? null;
-    setCurrent(active);
-    setHistory(rows);
+    applyRows(rows);
+    writeSwrCache(BILLING_CACHE_PREFIX, activeTeam.id, rows);
     setLoading(false);
-  }, [activeTeam?.id, supabase]);
+  }, [activeTeam?.id, supabase, applyRows]);
+
+  // Hydrate from cache post-mount, then revalidate.
+  useEffect(() => {
+    if (!activeTeam?.id) return;
+    const cached = readSwrCache<Subscription[]>(BILLING_CACHE_PREFIX, activeTeam.id);
+    if (cached) { applyRows(cached); setLoading(false); }
+  }, [activeTeam?.id, applyRows]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 

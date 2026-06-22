@@ -6,9 +6,12 @@ import { Database } from "@/types/database";
 import { useUser } from "./use-user";
 import { useTeam } from "./use-team";
 import { emit, subscribe } from "@/lib/refresh-bus";
+import { readSwrCache, writeSwrCache } from "@/lib/swr-cache";
 import { toast } from "sonner";
 
 type ApiKey = Database["public"]["Tables"]["api_keys"]["Row"];
+
+const API_KEYS_CACHE_PREFIX = "tappr_api_keys_cache_";
 
 export function useApiKeys() {
   const { user } = useUser();
@@ -17,9 +20,16 @@ export function useApiKeys() {
   const [loading, setLoading] = useState(true);
   const supabase = useMemo(() => createClient(), []);
 
+  // Hydrate from cache post-mount.
+  useEffect(() => {
+    if (!activeTeam?.id) return;
+    const cached = readSwrCache<ApiKey[]>(API_KEYS_CACHE_PREFIX, activeTeam.id);
+    if (cached) { setApiKeys(cached); setLoading(false); }
+  }, [activeTeam?.id]);
+
   const fetchApiKeys = useCallback(async () => {
     if (!activeTeam?.id) return;
-    setLoading(true);
+    if (!readSwrCache(API_KEYS_CACHE_PREFIX, activeTeam.id)) setLoading(true);
 
     const { data, error } = await supabase
       .from("api_keys")
@@ -31,6 +41,7 @@ export function useApiKeys() {
       console.error("Error fetching API keys:", error.message);
     } else {
       setApiKeys(data || []);
+      writeSwrCache(API_KEYS_CACHE_PREFIX, activeTeam.id, data || []);
     }
     setLoading(false);
   }, [activeTeam?.id, supabase]);

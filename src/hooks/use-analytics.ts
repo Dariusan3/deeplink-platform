@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 import { useTeam } from "./use-team";
 import { useLinks } from "./use-links";
 import { useSettings } from "./use-settings";
-import { dateKeyInTimezone, getHourInTimezone } from "@/lib/format-date";
+import { readSwrCache, writeSwrCache } from "@/lib/swr-cache";
+import { dateKeyInTimezone } from "@/lib/format-date";
 
 export interface DailyClickData {
   date: string;
@@ -46,6 +47,23 @@ export interface HourlyData {
 
 type TimeRange = "7d" | "14d" | "30d" | "90d" | "all";
 
+// Cache the AGGREGATED analytics result (small — capped arrays + a daily
+// series), keyed per team + the exact filter combination, so switching back
+// to a previously-viewed window paints instantly while the heavy raw-clicks
+// query + JS aggregation re-runs in the background. The first-ever view of a
+// given window is still computed live.
+const ANALYTICS_CACHE_PREFIX = "tappr_analytics_cache_";
+interface AnalyticsSnapshot {
+  dailyClicks: DailyClickData[];
+  geoData: GeoData[];
+  deviceData: DeviceData[];
+  referrerData: ReferrerData[];
+  topLinks: TopLinkData[];
+  browserData: BrowserData[];
+  hourlyData: HourlyData[];
+  totalClicks: number;
+}
+
 // When `customRange` is provided (both from + to set to ISO YYYY-MM-DD),
 // it overrides `timeRange` — the query window becomes `[from, to+1d)`.
 // Callers using the preset ranges can keep passing just timeRange.
@@ -72,6 +90,31 @@ export function useAnalytics(
 
   const daysMap: Record<string, number> = { "7d": 7, "14d": 14, "30d": 30, "90d": 90 };
 
+  // Stable cache suffix for this exact view (team + filters). null until a
+  // team is known.
+  const cacheKey = useMemo(() => {
+    if (!activeTeam?.id) return null;
+    return `${activeTeam.id}_${timeRange}_${collectionId || "all"}_${linkId || "all"}_${customRange?.from || ""}_${customRange?.to || ""}`;
+  }, [activeTeam?.id, timeRange, collectionId, linkId, customRange?.from, customRange?.to]);
+
+  // Hydrate from cache post-mount / on filter change so the charts paint
+  // instantly from the last result for this exact window.
+  useEffect(() => {
+    if (!cacheKey) return;
+    const snap = readSwrCache<AnalyticsSnapshot>(ANALYTICS_CACHE_PREFIX, cacheKey);
+    if (snap) {
+      setDailyClicks(snap.dailyClicks);
+      setGeoData(snap.geoData);
+      setDeviceData(snap.deviceData);
+      setReferrerData(snap.referrerData);
+      setTopLinks(snap.topLinks);
+      setBrowserData(snap.browserData);
+      setHourlyData(snap.hourlyData);
+      setTotalClicks(snap.totalClicks);
+      setLoading(false);
+    }
+  }, [cacheKey]);
+
   const fetchAnalytics = useCallback(async () => {
     // A specific link (deep-linked from a link's "Analytics" action) takes
     // precedence over the collection filter; otherwise fall back to the
@@ -93,31 +136,42 @@ export function useAnalytics(
       return;
     }
 
-    setLoading(true);
-    let query = supabase
-      .from("link_clicks")
-      .select("clicked_at, country, device_type, referer, link_id, user_agent")
-      .in("link_id", linkIds);
+    if (!activeTeam?.id) { setLoading(false); return; }
 
+    // Only show the skeleton when there's no cached snapshot for this view.
+    if (!cacheKey || !readSwrCache(ANALYTICS_CACHE_PREFIX, cacheKey)) setLoading(true);
+
+    // Resolve the query window (same semantics as before) → pass as bounds
+    // to the RPC, which does ALL the aggregation server-side (one round trip,
+    // ~30 rows back instead of every raw click row).
     const hasCustomRange = customRange && customRange.from && customRange.to;
+    let pStart: string | null = null;
+    let pEnd: string | null = null;
     if (hasCustomRange) {
-      // Inclusive window: from 00:00:00 on `from` up to (but not including)
-      // 00:00:00 on the day AFTER `to`, so the full `to` day is covered.
+      // Inclusive window: 00:00 on `from` up to (but not including) 00:00 on
+      // the day AFTER `to`, so the full `to` day is covered.
       const startDate = new Date(customRange.from + "T00:00:00");
       const endDate = new Date(customRange.to + "T00:00:00");
       endDate.setDate(endDate.getDate() + 1);
-      query = query
-        .gte("clicked_at", startDate.toISOString())
-        .lt("clicked_at", endDate.toISOString());
+      pStart = startDate.toISOString();
+      pEnd = endDate.toISOString();
     } else if (timeRange !== "all") {
       const days = daysMap[timeRange];
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - (days - 1));
       startDate.setHours(0, 0, 0, 0);
-      query = query.gte("clicked_at", startDate.toISOString());
+      pStart = startDate.toISOString();
     }
 
-    const { data, error } = await query;
+    const { data, error } = await supabase.rpc("dashboard_analytics", {
+      p_team_id: activeTeam.id,
+      p_tz: tz,
+      p_start: pStart,
+      p_end: pEnd,
+      // linkId wins over collectionId — matches the server-side precedence.
+      p_collection_id: linkId ? null : (collectionId ?? null),
+      p_link_id: linkId ?? null,
+    });
 
     if (error) {
       console.error("Error fetching analytics:", error.message);
@@ -125,19 +179,26 @@ export function useAnalytics(
       return;
     }
 
-    const clicks = (data || []) as { clicked_at: string; country: string | null; device_type: string | null; referer: string | null; link_id: string; user_agent: string | null }[];
-    setTotalClicks(clicks.length);
+    const agg = (data ?? {}) as {
+      total_clicks?: number;
+      daily?: { date: string; count: number }[];
+      geo?: GeoData[];
+      device?: DeviceData[];
+      referrers?: ReferrerData[];
+      top_links?: TopLinkData[];
+      browsers?: BrowserData[];
+      hourly?: { hour: number; count: number }[];
+    };
 
-    // Daily clicks — bucket in the team's timezone so a click at 23:30
-    // in Bucharest belongs to that local day, not the UTC day.
+    const total = Number(agg.total_clicks ?? 0);
+    setTotalClicks(total);
+
+    // Daily — the RPC returns only days that have clicks; fill the gaps
+    // client-side so the chart spans the whole window (unchanged logic).
     const byDate: Record<string, number> = {};
-    clicks.forEach((c) => {
-      const d = dateKeyInTimezone(c.clicked_at, tz);
-      byDate[d] = (byDate[d] || 0) + 1;
-    });
+    for (const d of agg.daily ?? []) byDate[d.date] = Number(d.count);
     const dailyArr: DailyClickData[] = [];
     if (hasCustomRange) {
-      // Walk every day in the custom window (inclusive).
       const start = new Date(customRange.from + "T00:00:00");
       const end = new Date(customRange.to + "T00:00:00");
       const cursor = new Date(start);
@@ -146,10 +207,9 @@ export function useAnalytics(
         dailyArr.push({ date: ds, count: byDate[ds] || 0 });
         cursor.setDate(cursor.getDate() + 1);
       }
-    } else if (timeRange === "all" && clicks.length > 0) {
-      // For "all", build from earliest click to today — labels in user TZ.
+    } else if (timeRange === "all" && total > 0) {
       const allDates = Object.keys(byDate).sort();
-      const earliest = new Date(allDates[0] + "T00:00:00");
+      const earliest = new Date((allDates[0] || dateKeyInTimezone(new Date(), tz)) + "T00:00:00");
       const today = new Date();
       const diffDays = Math.ceil((today.getTime() - earliest.getTime()) / (1000 * 60 * 60 * 24));
       for (let i = diffDays; i >= 0; i--) {
@@ -169,101 +229,41 @@ export function useAnalytics(
     }
     setDailyClicks(dailyArr);
 
-    // Geo
-    const byCountry: Record<string, number> = {};
-    clicks.forEach((c) => {
-      const country = c.country || "Unknown";
-      byCountry[country] = (byCountry[country] || 0) + 1;
-    });
-    const geoArr = Object.entries(byCountry)
-      .map(([country, count]) => ({ country, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
+    const geoArr: GeoData[] = (agg.geo ?? []).map((g) => ({ country: g.country, count: Number(g.count) }));
     setGeoData(geoArr);
-
-    // Device
-    const byDevice: Record<string, number> = {};
-    clicks.forEach((c) => {
-      const dt = c.device_type || "unknown";
-      byDevice[dt] = (byDevice[dt] || 0) + 1;
-    });
-    const deviceArr = Object.entries(byDevice)
-      .map(([device_type, count]) => ({ device_type, count }))
-      .sort((a, b) => b.count - a.count);
+    const deviceArr: DeviceData[] = (agg.device ?? []).map((d) => ({ device_type: d.device_type, count: Number(d.count) }));
     setDeviceData(deviceArr);
-
-    // Referrers
-    const byRef: Record<string, number> = {};
-    clicks.forEach((c) => {
-      if (c.referer) {
-        try {
-          const domain = new URL(c.referer).hostname.replace("www.", "");
-          byRef[domain] = (byRef[domain] || 0) + 1;
-        } catch {
-          byRef[c.referer] = (byRef[c.referer] || 0) + 1;
-        }
-      } else {
-        byRef["Direct"] = (byRef["Direct"] || 0) + 1;
-      }
-    });
-    const refArr = Object.entries(byRef)
-      .map(([domain, count]) => ({ domain, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
+    const refArr: ReferrerData[] = (agg.referrers ?? []).map((r) => ({ domain: r.domain, count: Number(r.count) }));
     setReferrerData(refArr);
-
-    // Top links
-    const byLink: Record<string, number> = {};
-    clicks.forEach((c) => {
-      byLink[c.link_id] = (byLink[c.link_id] || 0) + 1;
-    });
-    const linkMap = new Map(links.map((l) => [l.id, l]));
-    const topArr = Object.entries(byLink)
-      .map(([linkId, count]) => {
-        const link = linkMap.get(linkId);
-        return { id: linkId, slug: link?.slug || "", title: link?.title || null, count };
-      })
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
+    const topArr: TopLinkData[] = (agg.top_links ?? []).map((t) => ({ id: t.id, slug: t.slug || "", title: t.title ?? null, count: Number(t.count) }));
     setTopLinks(topArr);
-
-    // Browsers
-    const byBrowser: Record<string, number> = {};
-    clicks.forEach((c) => {
-      const ua = c.user_agent || "";
-      let browser = "Other";
-      if (ua.includes("Instagram")) browser = "Instagram";
-      else if (ua.includes("Edg")) browser = "Edge";
-      else if (ua.includes("Chrome") && !ua.includes("Edg")) browser = "Chrome";
-      else if (ua.includes("Safari") && !ua.includes("Chrome")) browser = "Safari";
-      else if (ua.includes("Firefox")) browser = "Firefox";
-      else if (ua.includes("Opera") || ua.includes("OPR")) browser = "Opera";
-      else if (ua.includes("Google")) browser = "Google App";
-      else if (ua.includes("FBAN") || ua.includes("FBAV")) browser = "Facebook";
-      else if (ua.includes("Snapchat")) browser = "Snapchat";
-      else if (ua.includes("Twitter")) browser = "Twitter/X";
-      else if (ua.includes("TikTok")) browser = "TikTok";
-      byBrowser[browser] = (byBrowser[browser] || 0) + 1;
-    });
-    const browserArr = Object.entries(byBrowser)
-      .map(([browser, count]) => ({ browser, count }))
-      .sort((a, b) => b.count - a.count);
+    const browserArr: BrowserData[] = (agg.browsers ?? []).map((b) => ({ browser: b.browser, count: Number(b.count) }));
     setBrowserData(browserArr);
 
-    // Hourly distribution (peak traffic hours)
+    // Hourly — fill 0..23 from the sparse RPC result.
     const byHour: Record<number, number> = {};
     for (let h = 0; h < 24; h++) byHour[h] = 0;
-    clicks.forEach((c) => {
-      const hour = getHourInTimezone(c.clicked_at, tz);
-      byHour[hour] = (byHour[hour] || 0) + 1;
-    });
-    const hourlyArr = Object.entries(byHour)
-      .map(([h, count]) => ({ hour: Number(h), count }))
-      .sort((a, b) => a.hour - b.hour);
+    for (const h of agg.hourly ?? []) byHour[Number(h.hour)] = Number(h.count);
+    const hourlyArr: HourlyData[] = [];
+    for (let h = 0; h < 24; h++) hourlyArr.push({ hour: h, count: byHour[h] });
     setHourlyData(hourlyArr);
 
+    // Persist the aggregated snapshot for this view for an instant repaint.
+    if (cacheKey) {
+      writeSwrCache<AnalyticsSnapshot>(ANALYTICS_CACHE_PREFIX, cacheKey, {
+        dailyClicks: dailyArr,
+        geoData: geoArr,
+        deviceData: deviceArr,
+        referrerData: refArr,
+        topLinks: topArr,
+        browserData: browserArr,
+        hourlyData: hourlyArr,
+        totalClicks: total,
+      });
+    }
+
     setLoading(false);
-  }, [links, timeRange, collectionId, linkId, supabase, tz, customRange?.from, customRange?.to]);
+  }, [links, timeRange, collectionId, linkId, supabase, tz, customRange?.from, customRange?.to, cacheKey, activeTeam?.id]);
 
   useEffect(() => {
     fetchAnalytics();

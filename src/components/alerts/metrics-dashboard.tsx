@@ -26,19 +26,45 @@ import {
 // can see the numbers behind each alert type. Re-fetches on mount and on
 // `refreshKey` change (the page bumps this after "Check now").
 
+// Per-team metrics cache (stale-while-revalidate) — the /api/alerts/metrics
+// endpoint aggregates every detector server-side so it's the heavy part of
+// the alerts page. Cache the last result so the cards paint instantly on
+// repeat visits, then refresh in the background.
+const METRICS_CACHE_PREFIX = "tappr_alert_metrics_cache_";
+function readMetricsCache(teamId: string): AlertMetrics | null {
+  try {
+    const raw = typeof window !== "undefined" ? localStorage.getItem(METRICS_CACHE_PREFIX + teamId) : null;
+    return raw ? (JSON.parse(raw) as AlertMetrics) : null;
+  } catch { return null; }
+}
+function writeMetricsCache(teamId: string, metrics: AlertMetrics) {
+  try { localStorage.setItem(METRICS_CACHE_PREFIX + teamId, JSON.stringify(metrics)); } catch {}
+}
+
 export function MetricsDashboard({ refreshKey }: { refreshKey: number }) {
   const { activeTeam } = useTeam();
+  // Deterministic initial state (null/loading) so SSR + first client render
+  // match; the cached snapshot is applied in an effect after mount.
   const [metrics, setMetrics] = useState<AlertMetrics | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Hydrate from cache post-mount.
+  useEffect(() => {
+    if (!activeTeam?.id) return;
+    const cached = readMetricsCache(activeTeam.id);
+    if (cached) { setMetrics(cached); setLoading(false); }
+  }, [activeTeam?.id]);
+
   const fetchMetrics = useCallback(async () => {
     if (!activeTeam?.id) return;
-    setLoading(true);
+    // Only show the skeleton when there's nothing cached to display.
+    if (!readMetricsCache(activeTeam.id)) setLoading(true);
     try {
       const res = await fetch(`/api/alerts/metrics?team_id=${activeTeam.id}`);
       if (res.ok) {
         const data = await res.json();
         setMetrics(data);
+        writeMetricsCache(activeTeam.id, data);
       }
     } finally {
       setLoading(false);

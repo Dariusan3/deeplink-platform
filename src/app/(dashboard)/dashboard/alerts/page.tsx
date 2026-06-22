@@ -108,9 +108,24 @@ function maxSeverity(list: { severity: string }[]): Sev {
 
 const TIER_ORDER: AlertTier[] = [1, 2, 3, 4];
 
+// Per-team alerts cache (stale-while-revalidate) so the list paints
+// instantly on repeat visits instead of waiting on the query.
+const ALERTS_CACHE_PREFIX = "tappr_alerts_cache_";
+function readAlertsCache(teamId: string): AlertRow[] | null {
+  try {
+    const raw = typeof window !== "undefined" ? localStorage.getItem(ALERTS_CACHE_PREFIX + teamId) : null;
+    return raw ? (JSON.parse(raw) as AlertRow[]) : null;
+  } catch { return null; }
+}
+function writeAlertsCache(teamId: string, alerts: AlertRow[]) {
+  try { localStorage.setItem(ALERTS_CACHE_PREFIX + teamId, JSON.stringify(alerts)); } catch {}
+}
+
 export default function AlertsPage() {
   const { activeTeam } = useTeam();
   const supabase = useMemo(() => createClient(), []);
+  // Deterministic initial state so SSR + first client render match; the
+  // cached snapshot is applied in an effect after mount.
   const [alerts, setAlerts] = useState<AlertRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
@@ -120,11 +135,11 @@ export default function AlertsPage() {
 
   const fetchAlerts = useCallback(async (showLoading = false) => {
     if (!activeTeam?.id) return;
-    // Only show the skeleton on the initial load. Realtime-triggered
-    // refetches (ack, dismiss, cron insert) used to flip loading=true
-    // and flash the skeleton over the existing list — a visible flicker
-    // every time the user ticked a checkbox.
-    if (showLoading) setLoading(true);
+    // Only show the skeleton on the initial load AND only when there's
+    // nothing cached to display. Realtime-triggered refetches (ack,
+    // dismiss, cron insert) pass `false` so they update the list in place
+    // without flashing the skeleton.
+    if (showLoading && !readAlertsCache(activeTeam.id)) setLoading(true);
     const { data, error } = await supabase
       .from("anomaly_alerts")
       .select("*")
@@ -134,9 +149,20 @@ export default function AlertsPage() {
       .order("severity", { ascending: false })
       .order("created_at", { ascending: false });
 
-    if (!error) setAlerts((data || []) as AlertRow[]);
-    if (showLoading) setLoading(false);
+    if (!error) {
+      const rows = (data || []) as AlertRow[];
+      setAlerts(rows);
+      writeAlertsCache(activeTeam.id, rows);
+    }
+    setLoading(false);
   }, [activeTeam?.id, supabase]);
+
+  // Hydrate from cache post-mount, then revalidate.
+  useEffect(() => {
+    if (!activeTeam?.id) return;
+    const cached = readAlertsCache(activeTeam.id);
+    if (cached) { setAlerts(cached); setLoading(false); }
+  }, [activeTeam?.id]);
 
   useEffect(() => { fetchAlerts(true); }, [fetchAlerts]);
 

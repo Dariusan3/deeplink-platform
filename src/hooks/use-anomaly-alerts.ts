@@ -3,9 +3,15 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTeam } from "./use-team";
+import { readSwrCache, writeSwrCache } from "@/lib/swr-cache";
 import { Database } from "@/types/database";
 
 export type AnomalyAlert = Database["public"]["Tables"]["anomaly_alerts"]["Row"];
+
+// This hook powers the NotificationBell in the global header, so it mounts on
+// EVERY dashboard page — cache the 50 most-recent alerts so the bell badge
+// paints instantly instead of refetching on each navigation.
+const ANOMALY_ALERTS_CACHE_PREFIX = "tappr_anomaly_alerts_cache_";
 
 export function useAnomalyAlerts() {
   const { activeTeam } = useTeam();
@@ -13,6 +19,13 @@ export function useAnomalyAlerts() {
   const [loading, setLoading] = useState(true);
   const supabase = useMemo(() => createClient(), []);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  // Hydrate from cache post-mount.
+  useEffect(() => {
+    if (!activeTeam?.id) return;
+    const cached = readSwrCache<AnomalyAlert[]>(ANOMALY_ALERTS_CACHE_PREFIX, activeTeam.id);
+    if (cached) { setAlerts(cached); setLoading(false); }
+  }, [activeTeam?.id]);
 
   const fetchAlerts = useCallback(async () => {
     if (!activeTeam?.id) return;
@@ -25,7 +38,11 @@ export function useAnomalyAlerts() {
       .order("created_at", { ascending: false })
       .limit(50);
 
-    if (!error) setAlerts(data || []);
+    if (!error) {
+      const rows = data || [];
+      setAlerts(rows);
+      writeSwrCache(ANOMALY_ALERTS_CACHE_PREFIX, activeTeam.id, rows);
+    }
     setLoading(false);
   }, [activeTeam?.id, supabase]);
 
