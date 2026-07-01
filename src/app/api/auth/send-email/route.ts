@@ -98,7 +98,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const type = ed.email_action_type;
 
   try {
@@ -106,15 +105,19 @@ export async function POST(request: NextRequest) {
       // OTP flow — no link, just the 6-digit code.
       await sendAuthEmail({ to, type, code: ed.token });
     } else {
-      // Rebuild the same verification URL Supabase's default templates use
-      // ({{ .ConfirmationURL }}): the hosted verify endpoint, which redirects
-      // to `redirect_to` after consuming the token.
+      // Point the link at our own /auth/confirm route (verifyOtp with the
+      // token_hash), which routes deterministically — recovery/invite land on
+      // /reset-password, everything else on /dashboard. This avoids the
+      // Supabase redirect-URL allowlist fallback that dumped recovery users on
+      // the dashboard instead of the password form.
+      const base = process.env.NEXT_PUBLIC_APP_URL || ed.site_url || "https://tappr.me";
       const tokenHash = ed.token_hash_new || ed.token_hash;
+      const next = type === "recovery" || type === "invite" ? "/reset-password" : "/dashboard";
       const actionUrl =
-        `${supabaseUrl}/auth/v1/verify` +
-        `?token=${encodeURIComponent(tokenHash)}` +
+        `${base}/auth/confirm` +
+        `?token_hash=${encodeURIComponent(tokenHash)}` +
         `&type=${encodeURIComponent(type)}` +
-        `&redirect_to=${encodeURIComponent(ed.redirect_to)}`;
+        `&next=${encodeURIComponent(next)}`;
       await sendAuthEmail({ to, type, actionUrl });
     }
   } catch (err) {

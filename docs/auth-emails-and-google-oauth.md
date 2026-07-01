@@ -15,6 +15,30 @@
 Once the hook is enabled (below), Supabase stops sending its plain default
 emails and calls this endpoint instead.
 
+## Email-link routing — `/auth/confirm` (recovery fix)
+
+**Problem:** the password-reset (and confirm) links were landing on the
+**dashboard** instead of the reset-password form. Cause: they went through
+`/auth/callback` + Supabase's hosted verify, and when the `redirect_to`
+didn't match Supabase's redirect-URL allowlist, Supabase silently fell back
+to the **Site URL** → the dashboard.
+
+**Fix (in code):** the branded emails now link to our own
+**`/auth/confirm?token_hash=…&type=…&next=…`** route. It calls
+`verifyOtp(token_hash)` server-side (sets the session) and redirects
+deterministically:
+- `recovery` / `invite` → **`/reset-password`** (set a new password)
+- `signup` / `magiclink` / `email_change` → **`/dashboard`**
+
+`/auth/callback` now handles only the OAuth (Google) `code` flow. Because
+`/auth/confirm` does its own redirect, it no longer depends on the Supabase
+allowlist.
+
+> If you keep Supabase's DEFAULT emails (hook disabled), the old allowlist
+> issue still applies — so also add `https://tappr.me/**` under Auth → URL
+> Configuration → Redirect URLs. With the hook enabled, the branded emails
+> use `/auth/confirm` and are allowlist-independent.
+
 ## 1) Env vars to add (Vercel + local `.env.local`)
 
 ```
