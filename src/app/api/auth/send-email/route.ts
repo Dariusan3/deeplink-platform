@@ -58,6 +58,27 @@ interface HookPayload {
   };
 }
 
+// The email link MUST point at our own app domain. NEVER build it against the
+// Supabase API host (`*.supabase.co`) — the Supabase gateway would reject the
+// unknown /auth/confirm path with "No API key found in request" — and never
+// against localhost (the hook only ever runs from Supabase in prod). Prefer an
+// explicit env, else the hook payload's site_url, else the known prod domain,
+// rejecting any candidate that is a Supabase host or localhost.
+function appBaseUrl(siteUrl: string | undefined): string {
+  const candidates = [process.env.NEXT_PUBLIC_APP_URL, siteUrl];
+  for (const c of candidates) {
+    if (
+      c &&
+      /^https?:\/\//i.test(c) &&
+      !/supabase\.(co|in)/i.test(c) &&
+      !/localhost|127\.0\.0\.1/i.test(c)
+    ) {
+      return c.replace(/\/+$/, "");
+    }
+  }
+  return "https://tappr.me";
+}
+
 export async function POST(request: NextRequest) {
   const raw = await request.text();
 
@@ -110,7 +131,7 @@ export async function POST(request: NextRequest) {
       // /reset-password, everything else on /dashboard. This avoids the
       // Supabase redirect-URL allowlist fallback that dumped recovery users on
       // the dashboard instead of the password form.
-      const base = process.env.NEXT_PUBLIC_APP_URL || ed.site_url || "https://tappr.me";
+      const base = appBaseUrl(ed.site_url);
       const tokenHash = ed.token_hash_new || ed.token_hash;
       const next = type === "recovery" || type === "invite" ? "/reset-password" : "/dashboard";
       const actionUrl =
