@@ -39,6 +39,32 @@ allowlist.
 > Configuration → Redirect URLs. With the hook enabled, the branded emails
 > use `/auth/confirm` and are allowlist-independent.
 
+## "No API key found in request" when opening a link
+
+Cause: `NEXT_PUBLIC_APP_URL` was not set on Vercel prod, so the hook built the
+email link against `email_data.site_url` — which resolved to the
+`*.supabase.co` host. The link became `https://…supabase.co/auth/confirm?…`;
+the Supabase gateway rejects that unknown path with
+`{"message":"No API key found in request"}`.
+
+Fixed in [`send-email/route.ts`](../src/app/api/auth/send-email/route.ts): the
+link base now goes through `appBaseUrl()`, which **rejects any supabase.co /
+localhost candidate** and hard-defaults to `https://tappr.me`. The link is
+always correct now, regardless of env. Still recommended: set
+`NEXT_PUBLIC_APP_URL=https://tappr.me` on Vercel and Supabase Site URL =
+`https://tappr.me`.
+
+## Email confirmation — enforce "verify before login"
+
+- Enable **Supabase → Authentication → Sign In / Providers → Email →
+  "Confirm email"**. With it on, a password account whose email isn't
+  confirmed gets `Email not confirmed` on login and is blocked natively.
+- **Google/OAuth users are always verified** (Google confirms the email), so
+  `email_confirmed_at` is set at signup — that's correct, not a bug.
+- The login page now detects the "Email not confirmed" error and shows a
+  **"Resend confirmation email"** button (`supabase.auth.resend`), so blocked
+  users have a way forward instead of a dead end.
+
 ## 1) Env vars to add (Vercel + local `.env.local`)
 
 ```

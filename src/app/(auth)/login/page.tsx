@@ -17,6 +17,11 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Set when Supabase rejects a login because the email isn't verified —
+  // drives the "resend confirmation" affordance instead of a dead-end error.
+  const [needsConfirm, setNeedsConfirm] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resent, setResent] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -24,15 +29,40 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setNeedsConfirm(false);
+    setResent(false);
 
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      setError(error.message);
+      // Supabase blocks unverified accounts with "Email not confirmed" when
+      // "Confirm email" is enabled. Surface a friendly path to re-send it.
+      if (/not confirmed|not verified/i.test(error.message)) {
+        setNeedsConfirm(true);
+        setError("Please confirm your email before signing in.");
+      } else {
+        setError(error.message);
+      }
       setLoading(false);
     } else {
       router.push("/dashboard");
       router.refresh();
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!email) return;
+    setResending(true);
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+    });
+    setResending(false);
+    if (error) {
+      setError(error.message);
+    } else {
+      setResent(true);
     }
   };
 
@@ -164,9 +194,31 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {error && (
+            {error && !needsConfirm && (
               <div className="text-[12px] font-medium text-red-400 bg-red-400/5 border border-red-400/20 rounded-sm px-3 py-2.5">
                 {error}
+              </div>
+            )}
+
+            {needsConfirm && (
+              <div className="text-[12px] font-medium rounded-sm px-3 py-2.5 border border-[var(--tappr-green)]/25 bg-[var(--tappr-green)]/5 text-[var(--ink-2)]">
+                {resent ? (
+                  <span className="text-[var(--tappr-green)]">
+                    Confirmation email sent to {email} — check your inbox.
+                  </span>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <span>Please confirm your email before signing in.</span>
+                    <button
+                      type="button"
+                      onClick={handleResendConfirmation}
+                      disabled={resending}
+                      className="self-start font-mono text-[10px] tracking-[0.14em] uppercase text-[var(--tappr-green)] hover:underline underline-offset-4 disabled:opacity-50"
+                    >
+                      {resending ? "Sending…" : "Resend confirmation email →"}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
