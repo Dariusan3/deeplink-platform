@@ -76,26 +76,37 @@ delivers to the account owner's own address (`darius.osadici@yahoo.ro`) and
 rejects everything else. **This also means the existing product emails
 (alerts, A/B, contact) currently fail to real users too.**
 
-### Steps
-1. Resend dashboard → **Domains → Add Domain** → enter `tappr.me`.
-2. Resend shows a set of DNS records — add them at your DNS provider (the one
-   managing tappr.me). They are **account/region-specific**, so copy the exact
-   values from Resend's screen. They look like:
+### The EXACT records (fetched from the Resend API for this account)
 
-| Type | Name / Host | Value | Notes |
-| --- | --- | --- | --- |
-| TXT | `send.tappr.me` (or `@`) | `v=spf1 include:amazonses.com ~all` | SPF |
-| MX  | `send.tappr.me` | `feedback-smtp.<region>.amazonses.com` (priority 10) | bounce handling |
-| TXT | `resend._domainkey.tappr.me` | (long DKIM public key from Resend) | DKIM |
-| TXT | `_dmarc.tappr.me` | `v=DMARC1; p=none;` | DMARC (recommended) |
+The domain `tappr.me` was already added in Resend (id
+`47a44a01-10b2-4a3d-9bc0-3c129ab124ff`, region eu-west-1) but its DNS records
+were never created — status `not_started`. DNS is hosted at **Hostinger**
+(`ns1/ns2.dns-parking.com`). Add these 3 records in Hostinger → hPanel →
+Domains → tappr.me → **DNS / Zone Editor**:
 
-3. Back in Resend, click **Verify**. Propagation is usually minutes (can take
-   up to a few hours).
-4. Once green/verified, `accounts@tappr.me` (and `alerts@tappr.me`) send to
-   anyone. Re-run the local test to a Gmail address to confirm.
+| # | Type | Name (host) | Value | Priority | TTL |
+| - | --- | --- | --- | --- | --- |
+| 1 | TXT | `resend._domainkey` | `p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCj46RRyd2AhAPZwYDRu55ZLPht3FuLan03RNUsh8B9mFxGOgN+Ir+q5Cs7Dc6DaK7ynLS3hGsEfRwNESbF4AGiOMaeHS0hNfkf7Qi1Kth9MNBzHyCjgH1Yv5k3qqbIPL5rj7qCchHgMSGeuAbPC6gtVS2EYpSWbBVX97zILz50oQIDAQAB` | — | default |
+| 2 | MX | `send` | `feedback-smtp.eu-west-1.amazonses.com` | **10** | default |
+| 3 | TXT | `send` | `v=spf1 include:amazonses.com ~all` | — | default |
 
-> Send me a screenshot of Resend's records screen and I'll map each one to the
-> exact entry to create at your DNS provider.
+Optional (deliverability): TXT `_dmarc` = `v=DMARC1; p=none;`
+
+Hostinger appends `.tappr.me` to the Name automatically — enter the names
+exactly as above (`resend._domainkey`, `send`, `_dmarc`).
+
+3. After adding, run `node scripts/verify-resend-domain.mjs` — it triggers
+   verification via the Resend API and polls until verified. Propagation is
+   usually minutes (can take up to a few hours).
+4. Once verified, `accounts@tappr.me` (and `alerts@tappr.me`) send to anyone.
+
+### Interim unblock (IMPORTANT while DNS is pending)
+With the Send Email hook **enabled** and the domain unverified, the hook
+returns 500 and **nobody receives any auth email** — worse than default.
+Until the domain verifies, **disable the hook** (Supabase → Authentication →
+Hooks → Send Email → toggle off): Supabase then sends its default (unbranded)
+emails again, so signups/resets keep working. Re-enable the hook the moment
+the domain shows **verified**.
 
 ### Testing before the domain is verified
 Resend's sandbox lets you send **only to your own Resend account email**
