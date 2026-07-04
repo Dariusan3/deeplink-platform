@@ -31,6 +31,7 @@ export type AuditEventType =
   | "admin.partner_activated"
   | "admin.granted_plan"
   | "admin.canceled_plan"
+  | "admin.reset_password"
   | "team.created"
   | "team.member_added"
   | "team.member_removed";

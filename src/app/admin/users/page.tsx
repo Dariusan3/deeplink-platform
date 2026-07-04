@@ -23,6 +23,9 @@ import {
   X,
   Check,
   Calendar,
+  KeyRound,
+  Copy,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -61,6 +64,8 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState("");
   const [grantForm, setGrantForm] = useState<GrantSubForm | null>(null);
   const [granting, setGranting] = useState(false);
+  const [pwForm, setPwForm] = useState<{ userId: string; email: string; password: string } | null>(null);
+  const [settingPw, setSettingPw] = useState(false);
   const supabase = useMemo(() => createClient(), []);
 
   const fetchUsers = useCallback(async () => {
@@ -167,6 +172,42 @@ export default function AdminUsersPage() {
     fetchUsers();
   };
 
+  // Generate a strong random password (crypto, not Math.random) so the admin
+  // can hand a user a fresh secure credential without inventing one.
+  const generatePassword = () => {
+    const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789!@#$%&*";
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes, (b) => chars[b % chars.length]).join("");
+  };
+
+  const handleSetPassword = async () => {
+    if (!pwForm) return;
+    if (pwForm.password.length < 8) {
+      toast.error("Password must be at least 8 characters.");
+      return;
+    }
+    setSettingPw(true);
+    try {
+      const res = await fetch("/api/admin/users/set-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: pwForm.userId, newPassword: pwForm.password }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(json.error || "Failed to set password");
+      } else {
+        toast.success(`Password updated for ${pwForm.email}`);
+        setPwForm(null);
+      }
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setSettingPw(false);
+    }
+  };
+
   const handleCancelSubscription = async (teamId: string) => {
     const { error } = await supabase
       .from("subscriptions")
@@ -255,6 +296,13 @@ export default function AdminUsersPage() {
                         )}
                       >
                         {user.is_partner ? "Deactivate Partner" : "Activate Partner"}
+                      </button>
+                      <button
+                        onClick={() => setPwForm({ userId: user.id, email: user.email, password: "" })}
+                        className="text-[8px] font-black px-1.5 py-0.5 rounded-full border transition-all bg-white/5 text-neutral-500 border-white/10 hover:text-amber-400 hover:border-amber-500/20 inline-flex items-center gap-1"
+                      >
+                        <KeyRound className="w-2.5 h-2.5" />
+                        Set Password
                       </button>
                     </div>
                     <p className="text-[11px] text-neutral-500 truncate">{user.email}</p>
@@ -451,6 +499,78 @@ export default function AdminUsersPage() {
               className="bg-red-500 hover:bg-red-600 text-white font-black"
             >
               {granting ? "Granting..." : "Grant Subscription"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Set Password Dialog */}
+      <Dialog open={!!pwForm} onOpenChange={(open) => !open && !settingPw && setPwForm(null)}>
+        <DialogContent className="glass-card bg-black/95 border-white/5 text-white sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black flex items-center gap-2">
+              <KeyRound className="w-5 h-5 text-amber-400" />
+              Set Password
+            </DialogTitle>
+          </DialogHeader>
+
+          {pwForm && (
+            <div className="space-y-4 py-4">
+              <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5">
+                <p className="text-xs text-neutral-500">Setting a new password for</p>
+                <p className="text-sm font-bold text-white">{pwForm.email}</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">
+                  New password
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={pwForm.password}
+                    onChange={(e) => setPwForm({ ...pwForm, password: e.target.value })}
+                    placeholder="At least 8 characters"
+                    className="h-10 bg-white/[0.02] border-white/10 text-sm font-mono flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setPwForm({ ...pwForm, password: generatePassword() })}
+                    className="h-10 px-3 text-[10px] font-black uppercase tracking-widest border border-white/10 hover:border-amber-500/30 hover:text-amber-400"
+                    title="Generate a strong password"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      if (!pwForm.password) return;
+                      navigator.clipboard?.writeText(pwForm.password);
+                      toast.success("Password copied");
+                    }}
+                    className="h-10 px-3 border border-white/10 hover:border-amber-500/30 hover:text-amber-400"
+                    title="Copy to clipboard"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+                <p className="text-[10px] text-neutral-600">
+                  The user isn&apos;t notified — copy this and share it with them securely.
+                  This action is recorded in the audit log.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setPwForm(null)} disabled={settingPw}>Cancel</Button>
+            <Button
+              onClick={handleSetPassword}
+              disabled={settingPw || !pwForm || pwForm.password.length < 8}
+              className="bg-amber-500 hover:bg-amber-600 text-black font-black disabled:opacity-40"
+            >
+              {settingPw ? "Saving..." : "Set Password"}
             </Button>
           </DialogFooter>
         </DialogContent>
