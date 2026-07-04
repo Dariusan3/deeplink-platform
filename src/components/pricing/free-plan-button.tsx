@@ -76,7 +76,7 @@ export function FreePlanButton({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-2xl border border-[var(--line2)] bg-[var(--panel)] p-6"
+            className="w-full max-w-md rounded-2xl border border-[var(--line-2)] bg-[var(--surface)] p-6"
           >
             <h3 className="text-lg font-semibold text-[var(--ink)]">Free is invite-only</h3>
             <p className="text-sm text-[var(--ink-2)] mt-2 leading-relaxed">

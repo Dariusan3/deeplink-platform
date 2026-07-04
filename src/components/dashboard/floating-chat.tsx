@@ -354,6 +354,9 @@ export function FloatingChat() {
               <Send className="w-3.5 h-3.5 text-black" />
             </Button>
           </div>
+          <p className="px-3 pb-2 text-center text-[9px] text-neutral-600 shrink-0">
+            Responses are AI-generated and may be inaccurate.
+          </p>
         </div>
       )}
     </>

@@ -741,7 +741,7 @@ export default function BrainPage() {
                 </Button>
               </div>
               <p className="text-center text-[10px] text-neutral-600 mt-2 max-w-3xl mx-auto">
-                Press Enter to send · Shift+Enter for new line · AI uses your analytics + business knowledge
+                Press Enter to send · Shift+Enter for new line · Responses are AI-generated (Groq) and may be inaccurate
               </p>
             </div>
           </div>

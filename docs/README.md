@@ -60,7 +60,10 @@ Need Node ≥ 20 and a Supabase project with all 14 migrations applied.
 - `GROQ_API_KEY`
 - `RESEND_API_KEY`
 - `CRON_SECRET` (bearer token for the cron endpoint)
-- `NEXT_PUBLIC_ADMIN_PIN` (3rd gate on the admin panel)
+
+> Note: `NEXT_PUBLIC_ADMIN_PIN` was **removed** in the 2026-07-04 compliance fixes —
+> the admin panel is now gated server-side via `users.is_admin`. Safe to delete from
+> your env. See `docs/compliance-fixes.md`.
 
 **Optional:**
 
@@ -154,7 +157,7 @@ Open Supabase SQL Editor, paste each file from `supabase/migrations/` in order (
 
 - **RLS everywhere** — team-scoped tables filter by `is_team_member(team_id, auth.uid())`.
 - **Self-shortening guard** (3 layers) — client, API, and DB trigger reject destinations pointing to the platform's own hosts. Manage hosts via `platform_blocked_hosts` table.
-- **Admin panel** — triple-gated: middleware auth + `users.is_admin` + PIN code.
+- **Admin panel** — gated **server-side** in `src/app/admin/layout.tsx`: session auth + `users.is_admin` (redirects non-admins before render). Admin API routes also enforce `is_admin` with a 403. (The old client-side PIN was removed in the 2026-07-04 compliance fixes.)
 - **API keys** — SHA-256 hashed, shown once, expiry + last-used tracked.
 - **Rate limits** (in-memory, per-process):
   - `/api/v1/ab-tests` conversion: 30/min per IP
@@ -198,7 +201,7 @@ The `step-N-changelog.md` files (1–13) are the original build log — archival
 1. Clone the repo, run `npm install`, copy `.env.local` keys from the previous owner.
 2. Run `npm run dev`, confirm `/login` works end-to-end.
 3. Verify the cron by hitting `/api/cron/anomaly-check` with the bearer secret — should return JSON.
-4. Rotate secrets (`CRON_SECRET`, `NEXT_PUBLIC_ADMIN_PIN`, optionally Supabase service key).
+4. Rotate secrets (`CRON_SECRET`, optionally Supabase service key). `NEXT_PUBLIC_ADMIN_PIN` is no longer used — delete it.
 5. Check the Vercel project, confirm auto-deploy from `main` is wired.
 6. Look at the latest migrations in `supabase/migrations/` to understand recent schema changes.
 

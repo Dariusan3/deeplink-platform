@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import Groq from "groq-sdk";
 import { sendAnomalyEmail, sendPartnerMonthlyReportEmail } from "@/lib/email";
 import { finalizeABWinnerIfReady } from "@/lib/ab-testing";
+import { pruneClickLogs } from "@/lib/prune-click-logs";
 
 // Uses the service-role key — this route is hit by a cron scheduler, not a
 // browser. Created lazily on first request rather than at module scope:
@@ -490,11 +491,23 @@ Reply with only the JSON, no other text.`;
     }
   }
 
+  // Data retention (GDPR Art. 5(1)(e)) — piggybacked here because Vercel Hobby
+  // caps scheduled jobs to one/day. Anonymises IP + user-agent on click/A/B
+  // events older than the retention window. Non-fatal if it errors.
+  let retention: Record<string, string> = {};
+  try {
+    ({ results: retention } = await pruneClickLogs(supabase));
+  } catch (err) {
+    console.error("Click-log pruning failed:", err);
+    retention = { error: "prune failed" };
+  }
+
   return NextResponse.json({
     checked: teams.length,
     detected: allAnomalies.length,
     saved: insertAnomalies.length,
     ab_winners_finalized: abWinners,
     partner_reports_sent: partnerReports,
+    retention,
   });
 }

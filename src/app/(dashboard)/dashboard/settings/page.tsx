@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import { Link2, Monitor, Save, Loader2 } from "lucide-react";
+import { Link2, Monitor, Save, Loader2, Trash2, ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TIMEZONES = [
@@ -106,6 +106,11 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>("link-settings");
   const [saving, setSaving] = useState(false);
 
+  // Account deletion (GDPR right to erasure)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
   // Local form state
   const [fullName, setFullName] = useState("");
   const [showConfirmation, setShowConfirmation] = useState(true);
@@ -163,6 +168,24 @@ export default function SettingsPage() {
       await updateSettings({ default_domain: "tappr.me" });
     } catch {}
     setSaving(false);
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirm !== "DELETE") return;
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/account/delete", { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to delete account");
+      }
+      // Account and all data are gone — bounce to a clean signed-out state.
+      toast.success("Your account and data have been deleted.");
+      window.location.href = "/login";
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete account");
+      setDeleting(false);
+    }
   };
 
 
@@ -337,11 +360,91 @@ export default function SettingsPage() {
                   </>
                 )}
 
+                {/* Danger Zone — account deletion (GDPR right to erasure).
+                    Always visible, regardless of the active tab. */}
+                <Card className="glass-card bg-red-500/[0.02] border-red-500/20 relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-red-500/30 to-transparent" />
+                  <CardHeader className="pt-8 px-8">
+                    <CardTitle className="text-xl font-black tracking-tight text-white flex items-center gap-2">
+                      <ShieldAlert className="w-5 h-5 text-red-400" />
+                      Danger Zone
+                    </CardTitle>
+                    <CardDescription className="text-neutral-500">
+                      Permanently delete your account and all associated data.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="px-8 pb-8">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 rounded-xl bg-red-500/[0.03] border border-red-500/10">
+                      <div className="space-y-1">
+                        <p className="font-bold text-white text-sm">Delete account</p>
+                        <p className="text-xs text-neutral-500 font-medium max-w-md">
+                          This removes your profile, links, click analytics, AI history
+                          and connected integrations. This cannot be undone.
+                        </p>
+                      </div>
+                      <Button
+                        onClick={() => { setDeleteConfirm(""); setShowDeleteDialog(true); }}
+                        className="h-10 px-5 rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold text-xs gap-2 shrink-0"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Delete Account
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
               </>
             )}
           </div>
         </div>
       </div>
+
+      {/* Delete-account confirmation */}
+      <Dialog open={showDeleteDialog} onOpenChange={(open) => !deleting && setShowDeleteDialog(open)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldAlert className="w-5 h-5 text-red-400" />
+              Delete your account?
+            </DialogTitle>
+            <DialogDescription>
+              This permanently deletes your account, links, click analytics, AI Brain
+              history and any connected integrations. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-1">
+            <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">
+              Type <span className="text-red-400">DELETE</span> to confirm
+            </Label>
+            <Input
+              value={deleteConfirm}
+              onChange={(e) => setDeleteConfirm(e.target.value)}
+              placeholder="DELETE"
+              autoFocus
+              disabled={deleting}
+              className="h-10 bg-white/[0.02] border-white/10 rounded-xl focus:border-red-500 focus:ring-red-500/20 text-sm font-medium"
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowDeleteDialog(false)}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleDeleteAccount}
+              disabled={deleteConfirm !== "DELETE" || deleting}
+              className="bg-red-500 hover:bg-red-600 text-white font-black disabled:opacity-40"
+            >
+              {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Delete Forever"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </>
   );
