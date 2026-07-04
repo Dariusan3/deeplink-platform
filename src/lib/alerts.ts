@@ -87,25 +87,26 @@ export const ALERT_TIERS: Record<AlertType, AlertTier> = {
   subscription_expiring: 4,
 };
 
-// Display metadata. Keep in sync with the CATEGORY_STYLES map on the page.
-export const ALERT_LABELS: Record<AlertType, { label: string; emoji: string; tone: AlertSeverity }> = {
-  destination_broken:    { label: "Destination broken",     emoji: "🔗",  tone: "high"   },
-  click_drop:            { label: "Traffic dropped",        emoji: "📉",  tone: "medium" },
-  click_spam:            { label: "Suspicious clicks",      emoji: "🛡️",  tone: "high"   },
-  plan_limit:            { label: "Plan limit",             emoji: "📊",  tone: "medium" },
-  ab_winner:             { label: "A/B winner",             emoji: "🏆",  tone: "low"    },
-  goal_hit:              { label: "Goal reached",           emoji: "🎯",  tone: "low"    },
-  traffic_spike:         { label: "Traffic spike",          emoji: "🚀",  tone: "low"    },
-  peak_hour_shift:       { label: "New peak hour",          emoji: "⏰",  tone: "low"    },
-  country_shift:         { label: "Country shift",          emoji: "🌍",  tone: "medium" },
-  device_shift:          { label: "Device shift",           emoji: "📱",  tone: "medium" },
-  stale_links:           { label: "Stale links",            emoji: "🧹",  tone: "low"    },
-  subscription_expiring: { label: "Subscription expiring",  emoji: "💳",  tone: "high"   },
+// Display metadata. Icons live in src/lib/alert-icons.ts (lucide SVGs).
+// Keep in sync with the CATEGORY_STYLES map on the page.
+export const ALERT_LABELS: Record<AlertType, { label: string; tone: AlertSeverity }> = {
+  destination_broken:    { label: "Destination broken",     tone: "high"   },
+  click_drop:            { label: "Traffic dropped",        tone: "medium" },
+  click_spam:            { label: "Suspicious clicks",      tone: "high"   },
+  plan_limit:            { label: "Plan limit",             tone: "medium" },
+  ab_winner:             { label: "A/B winner",             tone: "low"    },
+  goal_hit:              { label: "Goal reached",           tone: "low"    },
+  traffic_spike:         { label: "Traffic spike",          tone: "low"    },
+  peak_hour_shift:       { label: "New peak hour",          tone: "low"    },
+  country_shift:         { label: "Country shift",          tone: "medium" },
+  device_shift:          { label: "Device shift",           tone: "medium" },
+  stale_links:           { label: "Stale links",            tone: "low"    },
+  subscription_expiring: { label: "Subscription expiring",  tone: "high"   },
 };
 
 export const TIER_META: Record<AlertTier, { title: string; subtitle: string; accent: string }> = {
   1: { title: "Critical",     subtitle: "You might be losing money right now", accent: "text-red-400" },
-  2: { title: "Opportunities", subtitle: "You're winning — double down",        accent: "text-[#00D26A]" },
+  2: { title: "Opportunities", subtitle: "You're winning, double down",         accent: "text-[#00D26A]" },
   3: { title: "Strategic",     subtitle: "Trends worth a closer look",         accent: "text-amber-400" },
   4: { title: "Operational",   subtitle: "Account-level housekeeping",         accent: "text-neutral-300" },
 };

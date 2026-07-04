@@ -42,6 +42,8 @@ import {
   Save,
   MessageSquare,
   PenSquare,
+  Check,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -931,7 +933,7 @@ function ActionCard({ action }: { action: { name: string; args: unknown; result:
             ok ? "bg-[#00D26A]/10 text-[#00D26A]" : "bg-red-500/10 text-red-400"
           }`}
         >
-          {ok ? "✓ Action" : "✗ Failed"}
+          {ok ? <><Check className="w-3 h-3" /> Action</> : <><X className="w-3 h-3" /> Failed</>}
         </span>
         <span className="text-neutral-300 font-bold">{label}</span>
       </div>

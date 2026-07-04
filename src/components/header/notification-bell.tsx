@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Bell, BellRing, Check, ChevronRight, X } from "lucide-react";
+import { Bell, BellRing, Check, ChevronRight, ShieldAlert, X } from "lucide-react";
 import { useAnomalyAlerts } from "@/hooks/use-anomaly-alerts";
+import { ALERT_ICONS } from "@/lib/alert-icons";
+import type { AlertType } from "@/lib/alerts";
 import { cn } from "@/lib/utils";
 
 // Notification bell mounted in the dashboard header. Shows a badge with
@@ -111,7 +113,10 @@ export function NotificationBell() {
               </div>
             ) : (
               <ul>
-                {visibleAlerts.map((a) => (
+                {visibleAlerts.map((a) => {
+                  const Icon =
+                    (a.alert_type && ALERT_ICONS[a.alert_type as AlertType]) || ShieldAlert;
+                  return (
                   <li
                     key={a.id}
                     className={cn(
@@ -122,14 +127,16 @@ export function NotificationBell() {
                     <div className="flex items-start gap-3">
                       <span
                         className={cn(
-                          "w-2 h-2 rounded-full shrink-0 mt-1.5",
+                          "flex items-center justify-center w-7 h-7 rounded-lg shrink-0 mt-0.5",
                           a.severity === "high"
-                            ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"
+                            ? "bg-red-500/10 text-red-400"
                             : a.severity === "medium"
-                              ? "bg-amber-400"
-                              : "bg-blue-400"
+                              ? "bg-amber-400/10 text-amber-400"
+                              : "bg-blue-400/10 text-blue-400"
                         )}
-                      />
+                      >
+                        <Icon className="w-3.5 h-3.5" />
+                      </span>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-white leading-snug">{a.title}</p>
                         <p className="text-xs text-neutral-400 mt-0.5 leading-relaxed line-clamp-2">
@@ -157,7 +164,8 @@ export function NotificationBell() {
                       </div>
                     </div>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             )}
           </div>

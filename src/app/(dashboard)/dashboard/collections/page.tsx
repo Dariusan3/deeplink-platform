@@ -511,7 +511,7 @@ export default function CollectionsPage() {
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="text-[#00D26A] font-black">2.</span>
-                      <span>Hover any folder to <span className="font-bold text-white">📁 sub-folder</span> or <span className="font-bold text-white">🔗 add link</span> directly.</span>
+                      <span>Hover any folder to <span className="inline-flex items-center gap-1 font-bold text-white"><FolderPlus className="w-3 h-3" /> sub-folder</span> or <span className="inline-flex items-center gap-1 font-bold text-white"><LinkIcon className="w-3 h-3" /> add link</span> directly.</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="text-[#00D26A] font-black">3.</span>

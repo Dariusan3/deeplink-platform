@@ -1,3 +1,4 @@
+import { Star } from "lucide-react";
 import { Reveal } from "./Reveal";
 
 export function ProductBento() {
@@ -159,8 +160,8 @@ function AbTesting() {
         </div>
       </div>
 
-      <p className="mt-6 font-mono text-[11px] tracking-[0.14em] uppercase text-[var(--tappr-green)]">
-        ★ winner: A/landing-v1 — auto-routed to 100%
+      <p className="mt-6 inline-flex items-center gap-1.5 font-mono text-[11px] tracking-[0.14em] uppercase text-[var(--tappr-green)]">
+        <Star className="w-3 h-3 fill-current" /> winner: A/landing-v1 — auto-routed to 100%
       </p>
     </Reveal>
   );

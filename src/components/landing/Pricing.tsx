@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Star } from "lucide-react";
 import { Reveal } from "./Reveal";
 import { PricingComparison } from "@/components/pricing/pricing-comparison";
 import { FreePlanButton } from "@/components/pricing/free-plan-button";
@@ -77,8 +78,8 @@ export function Pricing() {
                 }`}
               >
                 {t.accent && (
-                  <span className="absolute top-6 right-6 font-mono text-[10px] tracking-[0.14em] uppercase bg-[var(--green-soft)] text-[var(--tappr-green)] border border-[var(--tappr-green)]/40 rounded-sm px-2 py-0.5">
-                    ★ Most Popular
+                  <span className="absolute top-6 right-6 inline-flex items-center gap-1 font-mono text-[10px] tracking-[0.14em] uppercase bg-[var(--green-soft)] text-[var(--tappr-green)] border border-[var(--tappr-green)]/40 rounded-sm px-2 py-0.5">
+                    <Star className="w-3 h-3 fill-current" /> Most Popular
                   </span>
                 )}
                 <h3 className="text-[18px] font-semibold text-[var(--ink)]">{t.name}</h3>

@@ -89,7 +89,7 @@ export function MetricsDashboard({ refreshKey }: { refreshKey: number }) {
       <div className="flex items-center justify-between pl-1">
         <div>
           <h2 className="text-xs font-black uppercase tracking-[0.3em] text-neutral-400">Live metrics</h2>
-          <p className="text-[10px] text-neutral-600 font-medium mt-0.5">The numbers driving each detector — updated each time you load the page</p>
+          <p className="text-[10px] text-neutral-600 font-medium mt-0.5">The numbers driving each detector, updated each time you load the page</p>
         </div>
       </div>
 
@@ -133,7 +133,7 @@ function SectionLabel({ tone, title, subtitle }: { tone: "red" | "green" | "ambe
                        "text-neutral-300";
   return (
     <div className="pl-1">
-      <h3 className={cn("text-sm font-black uppercase italic tracking-tight", accent)}>{title}</h3>
+      <h3 className={cn("text-sm font-black uppercase tracking-tight", accent)}>{title}</h3>
       <p className="text-[10px] text-neutral-500 font-medium">{subtitle}</p>
     </div>
   );
@@ -285,7 +285,7 @@ function ABTestCard({ m }: { m: AlertMetrics }) {
           ? `${m.abRecentWinners} winner${m.abRecentWinners === 1 ? "" : "s"} confirmed in last 24h`
           : m.abRunning === 0
             ? "Start your first test to find conversion lifts"
-            : "Tests collecting data — winner needs enough conversions"
+            : "Tests collecting data, winner needs enough conversions"
       }
       tone={tone}
       highlight={m.abRecentWinners > 0}

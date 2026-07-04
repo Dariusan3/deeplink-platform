@@ -24,26 +24,22 @@ import {
 } from "@/lib/alerts";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { motion, AnimatePresence } from "framer-motion";
 import { MetricsDashboard } from "@/components/alerts/metrics-dashboard";
 import {
   ShieldCheck,
   ShieldAlert,
-  Link2,
-  TrendingDown,
-  Gauge,
-  Trophy,
-  Target,
-  Rocket,
-  Clock,
-  Globe,
-  Smartphone,
   Trash2,
-  CreditCard,
   ChevronRight,
+  ChevronDown,
   Check,
   Sparkles,
   RefreshCw,
+  X,
+  Search,
+  BarChart3,
 } from "lucide-react";
+import { ALERT_ICONS as CATEGORY_ICONS } from "@/lib/alert-icons";
 
 // Rows we render — anomaly_alerts row enriched with the typed alert_type
 // fields the migration added.
@@ -68,25 +64,8 @@ type AlertRow = {
 // Each alert type maps ONLY to an icon — colour comes from severity (see
 // SEVERITY_STYLES) so the whole page sticks to three signal colours:
 // red (high), amber (medium), green (low). Keeping the icon per type
-// still tells you what KIND of alert it is at a glance.
-const CATEGORY_ICONS: Record<AlertType, typeof ShieldAlert> = {
-  // Tier 1
-  destination_broken:    Link2,
-  click_drop:            TrendingDown,
-  click_spam:            ShieldAlert,
-  plan_limit:            Gauge,
-  // Tier 2
-  ab_winner:             Trophy,
-  goal_hit:              Target,
-  traffic_spike:         Rocket,
-  peak_hour_shift:       Clock,
-  // Tier 3
-  country_shift:         Globe,
-  device_shift:          Smartphone,
-  stale_links:           Trash2,
-  // Tier 4
-  subscription_expiring: CreditCard,
-};
+// still tells you what KIND of alert it is at a glance. The icon map is
+// shared with the header notification bell — see src/lib/alert-icons.ts.
 
 // The only three colours on the page. high = red, medium = amber,
 // low = green. Everything that shows colour reads from here.
@@ -121,6 +100,35 @@ function writeAlertsCache(teamId: string, alerts: AlertRow[]) {
   try { localStorage.setItem(ALERTS_CACHE_PREFIX + teamId, JSON.stringify(alerts)); } catch {}
 }
 
+// Small segmented control used in the filter bar.
+function Seg<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: { v: T; label: string }[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="inline-flex items-center rounded-lg border border-white/10 bg-white/[0.02] p-0.5">
+      {options.map((o) => (
+        <button
+          key={o.v}
+          onClick={() => onChange(o.v)}
+          aria-pressed={value === o.v}
+          className={cn(
+            "px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest transition-colors",
+            value === o.v ? "bg-white/10 text-white" : "text-neutral-500 hover:text-neutral-300"
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function AlertsPage() {
   const { activeTeam } = useTeam();
   const supabase = useMemo(() => createClient(), []);
@@ -132,6 +140,12 @@ export default function AlertsPage() {
   // Bumped after a successful manual re-check — drives the metrics
   // dashboard to refetch so the visible numbers match the new alerts.
   const [metricsRefreshKey, setMetricsRefreshKey] = useState(0);
+
+  // ── Filters + view state ──────────────────────────────────────────
+  const [tierFilter, setTierFilter] = useState<AlertTier | "all">("all");
+  const [sevFilter, setSevFilter] = useState<Sev | "all">("all");
+  const [search, setSearch] = useState("");
+  const [metricsOpen, setMetricsOpen] = useState(false); // secondary info, collapsed by default
 
   const fetchAlerts = useCallback(async (showLoading = false) => {
     if (!activeTeam?.id) return;
@@ -182,34 +196,52 @@ export default function AlertsPage() {
     return () => { supabase.removeChannel(channel); };
   }, [activeTeam?.id, supabase, fetchAlerts]);
 
-  // Group alerts by tier → by alert_type.
+  // Apply the active filters (tier / severity / search) before grouping.
+  // Chips + counts stay on the full `alerts` set; only the rendered list narrows.
+  //
+  // Search is forgiving: it strips quotes/smart-quotes and matches each typed
+  // word anywhere across the title, description AND affected link — so you can
+  // type a bare link name (the title wraps it in quotes) and still find it,
+  // in any word order.
+  const filtered = useMemo(() => {
+    const norm = (s: string) => s.toLowerCase().replace(/["'`“”‘’]/g, "");
+    const words = norm(search).split(/\s+/).filter(Boolean);
+    return alerts.filter((a) => {
+      if (!a.alert_type) return false;
+      if (tierFilter !== "all" && ALERT_TIERS[a.alert_type] !== tierFilter) return false;
+      if (sevFilter !== "all" && a.severity !== sevFilter) return false;
+      if (words.length) {
+        const hay = norm(`${a.title} ${a.description} ${a.affected_link ?? ""}`);
+        if (!words.every((w) => hay.includes(w))) return false;
+      }
+      return true;
+    });
+  }, [alerts, tierFilter, sevFilter, search]);
+
+  const hasActiveFilters =
+    tierFilter !== "all" || sevFilter !== "all" || search.trim() !== "";
+  const clearFilters = useCallback(() => {
+    setTierFilter("all"); setSevFilter("all"); setSearch("");
+  }, []);
+
+  // Group the FILTERED alerts by tier → by alert_type.
   const groupedByTier = useMemo(() => {
     const tiers: Record<AlertTier, Partial<Record<AlertType, AlertRow[]>>> = { 1: {}, 2: {}, 3: {}, 4: {} };
-    for (const a of alerts) {
+    for (const a of filtered) {
       if (!a.alert_type) continue;
       const tier = ALERT_TIERS[a.alert_type];
       (tiers[tier][a.alert_type] ||= []).push(a);
     }
     return tiers;
-  }, [alerts]);
+  }, [filtered]);
 
   const totals = useMemo(() => {
-    const ackable = alerts.filter((a) => !a.acknowledged_at).length;
     const byTier: Record<AlertTier, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
     for (const a of alerts) {
       if (a.alert_type) byTier[ALERT_TIERS[a.alert_type]]++;
     }
-    return { all: alerts.length, ackable, byTier };
+    return { all: alerts.length, byTier };
   }, [alerts]);
-
-  const setAcked = async (id: string, acked: boolean) => {
-    setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, acknowledged_at: acked ? new Date().toISOString() : null } : a)));
-    const { error } = await supabase
-      .from("anomaly_alerts")
-      .update({ acknowledged_at: acked ? new Date().toISOString() : null, re_verified_after_ack: false })
-      .eq("id", id);
-    if (error) toast.error(error.message);
-  };
 
   // Soft-delete via is_dismissed=true so the cron lifecycle can still
   // re-create the alert if the underlying issue recurs. Hard DELETE
@@ -236,6 +268,57 @@ export default function AlertsPage() {
     setDeleting(false);
   };
 
+  // ── Multi-select bulk dismiss ─────────────────────────────────────
+  // A checkbox sits on every card; the action bar appears once something is
+  // picked. No separate "select mode" — the checkbox is always right there.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkConfirm, setBulkConfirm] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+  const clearSelection = useCallback(() => setSelected(new Set()), []);
+  const selectAllVisible = useCallback(
+    () => setSelected(new Set(filtered.map((a) => a.id))),
+    [filtered]
+  );
+
+  // Prune ids that leave the list (realtime refetch / dismiss) so the count stays honest.
+  useEffect(() => {
+    setSelected((prev) => {
+      if (prev.size === 0) return prev;
+      const ids = new Set(alerts.map((a) => a.id));
+      const next = new Set<string>();
+      for (const id of prev) if (ids.has(id)) next.add(id);
+      return next.size === prev.size ? prev : next;
+    });
+  }, [alerts]);
+
+  const bulkDelete = async () => {
+    const ids = [...selected];
+    if (ids.length === 0) return;
+    setBulkDeleting(true);
+    setAlerts((prev) => prev.filter((a) => !selected.has(a.id))); // optimistic
+    const { error } = await supabase
+      .from("anomaly_alerts")
+      .update({ is_dismissed: true })
+      .in("id", ids);
+    if (error) {
+      toast.error(error.message);
+      fetchAlerts(false);
+    } else {
+      toast.success(`${ids.length} alert${ids.length === 1 ? "" : "s"} dismissed`);
+    }
+    clearSelection();
+    setBulkConfirm(false);
+    setBulkDeleting(false);
+  };
+
   // Manual re-check — calls /api/alerts/check which runs the same detectors
   // as the cron but scoped to the active team. Available any time.
   const runChecksNow = async () => {
@@ -258,7 +341,7 @@ export default function AlertsPage() {
       if (json.inserted > 0) {
         toast.success(`${json.inserted} new alert${json.inserted === 1 ? "" : "s"}`);
       } else {
-        toast.success("Re-checked — nothing new");
+        toast.success("Re-checked, nothing new");
       }
       fetchAlerts(false);
       setMetricsRefreshKey((n) => n + 1);
@@ -286,22 +369,22 @@ export default function AlertsPage() {
                 "w-14 h-14 rounded-2xl flex items-center justify-center border",
                 totals.byTier[1] > 0
                   ? "bg-red-500/10 border-red-500/30 text-red-400 shadow-[0_0_30px_rgba(239,68,68,0.15)]"
-                  : totals.ackable > 0
+                  : totals.all > 0
                     ? "bg-amber-500/10 border-amber-500/30 text-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.15)]"
                     : "bg-[#00D26A]/10 border-[#00D26A]/30 text-[#00D26A] shadow-[0_0_30px_rgba(0,210,106,0.15)]"
               )}>
-                {totals.ackable > 0 ? <ShieldAlert className="w-7 h-7" /> : <ShieldCheck className="w-7 h-7" />}
+                {totals.all > 0 ? <ShieldAlert className="w-7 h-7" /> : <ShieldCheck className="w-7 h-7" />}
               </div>
               <div>
-                <h2 className="text-2xl font-black tracking-tight text-white uppercase italic">
+                <h2 className="text-2xl font-black tracking-tight text-white capitalize">
                   {totals.byTier[1] > 0
                     ? `${totals.byTier[1]} critical alert${totals.byTier[1] !== 1 ? "s" : ""}`
-                    : totals.ackable > 0
-                      ? `${totals.ackable} alert${totals.ackable !== 1 ? "s" : ""} to review`
+                    : totals.all > 0
+                      ? `${totals.all} open alert${totals.all !== 1 ? "s" : ""}`
                       : "All clear"}
                 </h2>
                 <p className="text-sm text-neutral-400 mt-1 max-w-xl">
-                  Tappr auto-checks every 3 hours. Use <span className="text-white font-bold">Check now</span> any time to refresh manually. Tick alerts as you investigate — they re-verify on the next run and clear themselves when resolved.
+                  Tappr auto-checks every 3 hours. Use <span className="text-white font-bold">Check now</span> any time to refresh manually. Dismiss an alert once you&apos;ve handled it.
                 </p>
               </div>
             </div>
@@ -316,21 +399,25 @@ export default function AlertsPage() {
           </CardContent>
         </Card>
 
-        {/* Live metrics dashboard — visible always, not just behind "Check now" */}
-        <MetricsDashboard refreshKey={metricsRefreshKey} />
-
-        {/* Category breakdown chips */}
+        {/* Tier filter chips — click a tier to filter the list; click again to reset. */}
         {alerts.length > 0 && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {TIER_ORDER.map((tier) => {
               const meta = TIER_META[tier];
               const count = totals.byTier[tier];
+              const active = tierFilter === tier;
               return (
-                <div
+                <button
                   key={tier}
+                  onClick={() => setTierFilter((t) => (t === tier ? "all" : tier))}
+                  aria-pressed={active}
                   className={cn(
-                    "rounded-2xl border bg-white/[0.01] p-4",
-                    count > 0 ? "border-white/10" : "border-white/5 opacity-50"
+                    "text-left rounded-2xl border p-4 transition-all cursor-pointer",
+                    active
+                      ? "border-white/25 ring-1 ring-white/20 bg-white/[0.04]"
+                      : count > 0
+                        ? "border-white/10 bg-white/[0.01] hover:border-white/20 hover:bg-white/[0.02]"
+                        : "border-white/5 bg-white/[0.01] opacity-50 hover:opacity-75"
                   )}
                 >
                   <p className={cn("text-[10px] font-black uppercase tracking-widest", count > 0 ? meta.accent : "text-neutral-500")}>{meta.title}</p>
@@ -338,9 +425,66 @@ export default function AlertsPage() {
                     {count}
                   </p>
                   <p className="text-[10px] text-neutral-500 mt-1 font-medium leading-tight">{meta.subtitle}</p>
-                </div>
+                </button>
               );
             })}
+          </div>
+        )}
+
+        {/* Filter bar — search + severity + status. */}
+        {alerts.length > 0 && (
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search alerts…"
+                className="w-full h-9 pl-9 pr-3 rounded-lg bg-white/[0.02] border border-white/10 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/25"
+              />
+            </div>
+            <Seg
+              options={[
+                { v: "all", label: "All" },
+                { v: "high", label: "High" },
+                { v: "medium", label: "Med" },
+                { v: "low", label: "Low" },
+              ]}
+              value={sevFilter}
+              onChange={setSevFilter}
+            />
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-[10px] font-bold uppercase tracking-widest text-neutral-400 hover:text-white hover:bg-white/5 transition-colors"
+              >
+                <X className="w-3.5 h-3.5" /> Clear
+              </button>
+            )}
+            <span className="text-[10px] text-neutral-500 font-bold whitespace-nowrap ml-auto">
+              {filtered.length} of {alerts.length}
+            </span>
+          </div>
+        )}
+
+        {/* Detector metrics — secondary, collapsed by default. */}
+        {alerts.length > 0 && (
+          <div className="rounded-2xl border border-white/5 overflow-hidden">
+            <button
+              onClick={() => setMetricsOpen((o) => !o)}
+              className="w-full flex items-center justify-between px-5 py-3 text-left hover:bg-white/[0.02] transition-colors"
+            >
+              <span className="text-xs font-black uppercase tracking-widest text-neutral-400 inline-flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-neutral-500" />
+                Detector metrics
+              </span>
+              <ChevronDown className={cn("w-4 h-4 text-neutral-500 transition-transform", metricsOpen && "rotate-180")} />
+            </button>
+            {metricsOpen && (
+              <div className="p-1">
+                <MetricsDashboard refreshKey={metricsRefreshKey} />
+              </div>
+            )}
           </div>
         )}
 
@@ -355,6 +499,25 @@ export default function AlertsPage() {
               <p className="text-sm text-neutral-400 mt-2 max-w-md mx-auto leading-relaxed">
                 All your destinations respond fine, traffic looks normal, no spam patterns, and you&apos;re comfortably under your plan limit. Hit <span className="text-white font-bold">Check now</span> any time to re-scan.
               </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* No-results state — alerts exist but the active filters hide them all. */}
+        {!loading && alerts.length > 0 && filtered.length === 0 && (
+          <Card className="glass-card border-white/10">
+            <CardContent className="p-10 text-center">
+              <div className="mx-auto w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-4">
+                <Search className="w-7 h-7 text-neutral-500" />
+              </div>
+              <h3 className="text-lg font-black text-white tracking-tight">No alerts match your filters</h3>
+              <p className="text-sm text-neutral-400 mt-2">Try widening the filters or clearing them.</p>
+              <button
+                onClick={clearFilters}
+                className="mt-4 inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-black uppercase tracking-widest text-white transition-colors"
+              >
+                <X className="w-3.5 h-3.5" /> Clear filters
+              </button>
             </CardContent>
           </Card>
         )}
@@ -377,7 +540,7 @@ export default function AlertsPage() {
           return (
             <section key={tier} className="space-y-4">
               <div className="pl-1">
-                <h2 className={cn("text-base font-black tracking-tight uppercase italic", tMeta.accent)}>{tMeta.title}</h2>
+                <h2 className={cn("text-base font-black tracking-tight uppercase", tMeta.accent)}>{tMeta.title}</h2>
                 <p className="text-[11px] text-neutral-500 font-medium">{tMeta.subtitle}</p>
               </div>
 
@@ -386,31 +549,42 @@ export default function AlertsPage() {
                   const list = tierMap[cat] || [];
                   if (list.length === 0) return null;
                   const meta = ALERT_LABELS[cat];
+                  const CatIcon = CATEGORY_ICONS[cat] ?? ShieldAlert;
                   // Badge colour = highest severity in this group, so a
                   // category with a critical alert reads red even if it
                   // also holds lower ones.
                   const style = sevStyle(maxSeverity(list));
-                  const ackedCount = list.filter((a) => a.acknowledged_at).length;
                   return (
                     <div key={cat} className="space-y-2">
                       <div className="flex items-center gap-3 pl-1">
-                        <span className={cn("inline-flex items-center gap-2 px-2.5 py-1 rounded-md border text-[10px] font-black uppercase tracking-widest", style.tint, style.text, style.border)}>
-                          <span className="text-sm leading-none">{meta.emoji}</span>
+                        <span className={cn("inline-flex items-center gap-2 px-2.5 py-1 rounded-md border text-[10px] font-semibold uppercase tracking-widest", style.tint, style.text, style.border)}>
+                          <CatIcon className="w-3.5 h-3.5" />
                           {meta.label}
                         </span>
                         <span className="text-[10px] text-neutral-500 font-bold">
-                          {list.length} open · {ackedCount} verified
+                          {list.length} open
                         </span>
                       </div>
 
-                      {list.map((a) => (
-                        <AlertCard
-                          key={a.id}
-                          alert={a}
-                          onToggleAck={setAcked}
-                          onRequestDelete={setDeleteCandidate}
-                        />
-                      ))}
+                      <AnimatePresence initial={false}>
+                        {list.map((a, i) => (
+                          <motion.div
+                            key={a.id}
+                            layout
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.96 }}
+                            transition={{ duration: 0.18, ease: "easeOut", delay: Math.min(i * 0.03, 0.18) }}
+                          >
+                            <AlertCard
+                              alert={a}
+                              selected={selected.has(a.id)}
+                              onToggleSelect={toggleSelect}
+                              onRequestDelete={setDeleteCandidate}
+                            />
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
                     </div>
                   );
                 })}
@@ -419,31 +593,69 @@ export default function AlertsPage() {
           );
         })}
 
-        {/* How it works */}
-        <Card className="glass-card border-white/5">
-          <CardContent className="p-5 space-y-3">
-            <h4 className="text-xs font-black uppercase tracking-widest text-neutral-500">How alerts work</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-neutral-400 leading-relaxed">
-              <div className="flex items-start gap-2">
-                <Check className="w-4 h-4 text-[#00D26A] shrink-0 mt-0.5" />
-                <p><span className="font-bold text-white">Auto-check every 3 hours.</span> Manual re-check is always available — hit the button.</p>
-              </div>
-              <div className="flex items-start gap-2">
-                <Check className="w-4 h-4 text-[#00D26A] shrink-0 mt-0.5" />
-                <p><span className="font-bold text-white">Tick = verified.</span> The alert stays visible and re-checks on the next run.</p>
-              </div>
-              <div className="flex items-start gap-2">
-                <Check className="w-4 h-4 text-[#00D26A] shrink-0 mt-0.5" />
-                <p><span className="font-bold text-white">Auto-clear.</span> When the underlying issue is gone on the next check, the alert dismisses itself.</p>
-              </div>
-              <div className="flex items-start gap-2">
-                <Check className="w-4 h-4 text-[#00D26A] shrink-0 mt-0.5" />
-                <p><span className="font-bold text-white">No duplicates.</span> The same problem never spawns two alerts — they merge into one row.</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
+
+      {/* Bulk action bar — appears once one or more alerts are selected. */}
+      {selected.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-4 py-2.5 rounded-2xl glass-card bg-black/90 border border-white/10 shadow-2xl">
+          <span className="text-xs font-black text-white whitespace-nowrap">
+            {selected.size} selected
+          </span>
+          <button
+            onClick={selectAllVisible}
+            className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 hover:text-white transition-colors"
+          >
+            Select all
+          </button>
+          <button
+            onClick={clearSelection}
+            className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 hover:text-white transition-colors"
+          >
+            Clear
+          </button>
+          <button
+            onClick={() => setBulkConfirm(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white text-[10px] font-black uppercase tracking-widest transition-colors"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Delete {selected.size}
+          </button>
+        </div>
+      )}
+
+      {/* Bulk delete confirmation */}
+      <Dialog
+        open={bulkConfirm}
+        onOpenChange={(o) => { if (!o && !bulkDeleting) setBulkConfirm(false); }}
+      >
+        <DialogContent className="glass-card bg-black/95 border-red-500/30 text-white sm:max-w-100">
+          <DialogTitle className="text-xl font-black tracking-tight text-red-400 uppercase flex items-center gap-2">
+            <Trash2 className="w-5 h-5" />
+            Dismiss {selected.size} alert{selected.size === 1 ? "" : "s"}?
+          </DialogTitle>
+          <DialogDescription className="text-neutral-400 font-medium leading-relaxed">
+            They&apos;ll be removed from your list. If any of the underlying issues
+            happen again, Tappr will re-create the alert automatically.
+          </DialogDescription>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="ghost"
+              onClick={() => setBulkConfirm(false)}
+              disabled={bulkDeleting}
+              className="text-white hover:bg-white/5 font-bold uppercase text-[10px] tracking-widest"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={bulkDelete}
+              disabled={bulkDeleting}
+              className="bg-red-500 hover:bg-red-600 text-white font-black uppercase text-[10px] tracking-widest rounded-lg disabled:opacity-50"
+            >
+              {bulkDeleting ? "Dismissing…" : `Dismiss ${selected.size}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete confirmation dialog */}
       <Dialog
@@ -451,7 +663,7 @@ export default function AlertsPage() {
         onOpenChange={(o) => { if (!o && !deleting) setDeleteCandidate(null); }}
       >
         <DialogContent className="glass-card bg-black/95 border-red-500/30 text-white sm:max-w-100">
-          <DialogTitle className="text-xl font-black tracking-tight text-red-400 uppercase italic flex items-center gap-2">
+          <DialogTitle className="text-xl font-black tracking-tight text-red-400 uppercase flex items-center gap-2">
             <Trash2 className="w-5 h-5" />
             Dismiss this alert?
           </DialogTitle>
@@ -482,6 +694,7 @@ export default function AlertsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </div>
   );
 }
@@ -490,37 +703,36 @@ export default function AlertsPage() {
 
 function AlertCard({
   alert,
-  onToggleAck,
+  selected,
+  onToggleSelect,
   onRequestDelete,
 }: {
   alert: AlertRow;
-  onToggleAck: (id: string, acked: boolean) => void;
+  selected: boolean;
+  onToggleSelect: (id: string) => void;
   onRequestDelete: (alert: AlertRow) => void;
 }) {
   const cat = alert.alert_type as AlertType;
   const Icon = CATEGORY_ICONS[cat] ?? ShieldAlert;
   const style = sevStyle(alert.severity);
-  const acked = !!alert.acknowledged_at;
 
   return (
     <Card className={cn(
       "glass-card transition-all group",
-      acked ? "border-white/5 opacity-70" : style.border + " ring-1 " + style.ring
+      selected ? "border-red-500/40 ring-1 ring-red-500/40" : `${style.border} ring-1 ${style.ring}`
     )}>
       <CardContent className="p-4 flex items-start gap-3">
-        {/* Ack checkbox */}
+        {/* Select checkbox — always visible, drives bulk delete. */}
         <button
-          onClick={() => onToggleAck(alert.id, !acked)}
+          onClick={() => onToggleSelect(alert.id)}
           className={cn(
-            "w-6 h-6 mt-0.5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all",
-            acked
-              ? "bg-[#00D26A] border-[#00D26A] shadow-[0_0_15px_rgba(0,210,106,0.4)]"
-              : "border-white/20 hover:border-white/40 hover:bg-white/5"
+            "w-5 h-5 mt-0.5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all",
+            selected ? "bg-red-500 border-red-500" : "border-white/20 hover:border-red-400/60 hover:bg-red-500/5"
           )}
-          aria-label={acked ? "Mark as unverified" : "Mark as verified"}
-          title={acked ? "I haven't checked this yet" : "I've investigated this"}
+          aria-label={selected ? "Deselect alert" : "Select alert"}
+          title="Select"
         >
-          {acked && <Check className="w-4 h-4 text-black" strokeWidth={3} />}
+          {selected && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
         </button>
 
         {/* Icon */}
@@ -531,7 +743,7 @@ function AlertCard({
         {/* Body */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className={cn("text-sm font-black", acked ? "text-neutral-400 line-through" : "text-white")}>
+            <h3 className="text-sm font-black text-white">
               {alert.title}
             </h3>
             <span className={cn(
@@ -540,11 +752,6 @@ function AlertCard({
             )}>
               {alert.severity}
             </span>
-            {acked && (
-              <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-[#00D26A]/10 text-[#00D26A]">
-                Verified · re-checking
-              </span>
-            )}
           </div>
           <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
             {alert.description}
