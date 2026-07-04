@@ -35,8 +35,18 @@ export function planClickCap(plan: string | null | undefined): number {
   return PLAN_CLICK_CAPS[plan || "free"] ?? PLAN_CLICK_CAPS.free;
 }
 
+// Monday (UTC) of the week containing `dateStr` (or now), as YYYY-MM-DD.
+// Used to bucket low-urgency housekeeping alerts to at most one per week.
+function isoWeekStart(dateStr?: string): string {
+  const base = dateStr ? new Date(`${dateStr}T00:00:00Z`) : new Date();
+  const dow = (base.getUTCDay() + 6) % 7; // days since Monday
+  base.setUTCDate(base.getUTCDate() - dow);
+  return base.toISOString().slice(0, 10);
+}
+
 // Build the dedup key for an alert. Same team + same key = same alert.
-// Time-windowed alerts include the date so we get at most one per day.
+// Most time-windowed alerts include the date so we get at most one per day;
+// low-urgency housekeeping (stale_links) buckets by week instead.
 export function dedupKey(
   type: AlertType,
   args: { id?: string; threshold?: number; date?: string } = {}
@@ -53,7 +63,9 @@ export function dedupKey(
     case "peak_hour_shift":    return `peak_hour_shift:${today}`;
     case "country_shift":      return `country_shift:${today}`;
     case "device_shift":       return `device_shift:${today}`;
-    case "stale_links":        return `stale_links:${today}`;
+    // Weekly bucket — "you have N stale links" is the same message every day,
+    // so surface it at most once per week.
+    case "stale_links":        return `stale_links:${isoWeekStart(args.date)}`;
     case "subscription_expiring": return `subscription_expiring:${args.id}`;
   }
 }

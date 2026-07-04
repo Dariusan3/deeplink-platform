@@ -605,10 +605,14 @@ export async function runAllDetectors(
 // Re-alert the same condition at most this often. The cron runs every 3
 // hours, so without a guard every detector that keeps firing (stale links,
 // an ongoing click drop, a shifted peak hour) re-inserted an identical row
-// 8× a day — the main reason the alert list flooded. dedup_key already
-// encodes the calendar day for windowed alerts; this window collapses the
-// intra-day repeats and gives stable-key alerts a sane re-alert cadence.
-const SUPPRESS_WINDOW_MS = 48 * 60 * 60 * 1000;
+// 8× a day — the main reason the alert list flooded.
+//
+// Suppression is by EXACT dedup_key, which already encodes the time bucket
+// (day for most alerts, week for stale_links). A 7-day lookback therefore
+// dedupes precisely per bucket: daily-keyed alerts still fire once/day
+// (yesterday's key differs), weekly-keyed stale_links fires once/week, and
+// stable-key alerts (e.g. destination_broken) get a weekly re-alert cadence.
+const SUPPRESS_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 // Common write path: re-verify acked alerts, then insert only alerts that
 // aren't already open or cooling down. Returns the count of inserted rows.
