@@ -584,7 +584,10 @@ export async function runAllDetectors(
     detectABWinner(supabase, team.id),
     detectGoalHit(supabase, team.id),
     detectTrafficSpike(supabase, team.id),
-    detectPeakHourShift(supabase, team.id),
+    // detectPeakHourShift — disabled: peak-hour naturally flaps day to day,
+    // so this fired constantly with almost no actionable value. It was the
+    // 2nd-noisiest alert in production. Kept the function in case we want a
+    // much stricter version later.
     detectCountryShift(supabase, team.id),
     detectDeviceShift(supabase, team.id),
     detectStaleLinks(supabase, team.id),
@@ -599,8 +602,16 @@ export async function runAllDetectors(
   return out;
 }
 
-// Common write path: re-verify acked alerts then insert new ones. Returns
-// the count of inserted rows.
+// Re-alert the same condition at most this often. The cron runs every 3
+// hours, so without a guard every detector that keeps firing (stale links,
+// an ongoing click drop, a shifted peak hour) re-inserted an identical row
+// 8× a day — the main reason the alert list flooded. dedup_key already
+// encodes the calendar day for windowed alerts; this window collapses the
+// intra-day repeats and gives stable-key alerts a sane re-alert cadence.
+const SUPPRESS_WINDOW_MS = 48 * 60 * 60 * 1000;
+
+// Common write path: re-verify acked alerts, then insert only alerts that
+// aren't already open or cooling down. Returns the count of inserted rows.
 export async function persistDetections(
   supabase: SupabaseClient,
   teamIds: string[],
@@ -608,6 +619,7 @@ export async function persistDetections(
 ): Promise<number> {
   const detectedKeys = new Set(detected.map((a) => `${a.team_id}:${a.dedup_key}`));
 
+  // Re-verify: close previously-acknowledged alerts whose condition cleared.
   const { data: openAcked } = await supabase
     .from("anomaly_alerts")
     .select("id, team_id, dedup_key")
@@ -627,8 +639,32 @@ export async function persistDetections(
     }
   }
 
+  // Suppression set: an alert that is still open (undismissed) OR fired
+  // within the cooldown window blocks a duplicate insert for the same
+  // team+dedup_key. This is the fix for the flooded list — previously every
+  // run re-inserted the same rows because nothing checked for existing ones.
+  const cutoff = new Date(Date.now() - SUPPRESS_WINDOW_MS).toISOString();
+  const [openRes, recentRes] = await Promise.all([
+    supabase
+      .from("anomaly_alerts")
+      .select("team_id, dedup_key")
+      .in("team_id", teamIds)
+      .eq("is_dismissed", false),
+    supabase
+      .from("anomaly_alerts")
+      .select("team_id, dedup_key")
+      .in("team_id", teamIds)
+      .gte("created_at", cutoff),
+  ]);
+  const suppressed = new Set<string>();
+  for (const r of [...(openRes.data ?? []), ...(recentRes.data ?? [])]) {
+    if (r.dedup_key) suppressed.add(`${r.team_id}:${r.dedup_key}`);
+  }
+
   let inserted = 0;
   for (const a of detected) {
+    const key = `${a.team_id}:${a.dedup_key}`;
+    if (suppressed.has(key)) continue; // already open or cooling down
     const { error } = await supabase.from("anomaly_alerts").insert({
       team_id: a.team_id,
       severity: a.severity,
@@ -639,7 +675,9 @@ export async function persistDetections(
       dedup_key: a.dedup_key,
       metadata: a.metadata,
     });
-    if (!error) inserted++;
+    // Add to the set on success so two detectors (or a retry) can't double-
+    // insert the same key within a single run.
+    if (!error) { inserted++; suppressed.add(key); }
   }
   return inserted;
 }
