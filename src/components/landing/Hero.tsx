@@ -54,6 +54,14 @@ export function Hero() {
               >
                 Start free — no card
               </Link>
+              {/* Existing users — a clear CTA button right beside "Start free",
+                  green-accented so it reads as an action, not a nav link. */}
+              <Link
+                href="/login"
+                className="btn-lift inline-flex items-center gap-2 px-5 py-3 border border-[var(--tappr-green)]/50 bg-[var(--tappr-green)]/10 text-[var(--tappr-green)] font-medium hover:bg-[var(--tappr-green)]/20 hover:border-[var(--tappr-green)] rounded-sm"
+              >
+                Log in →
+              </Link>
               <a
                 href="#how"
                 className="btn-lift inline-flex items-center gap-2 px-5 py-3 border border-[var(--line)] hover:border-[var(--line-2)] text-[var(--ink-2)] hover:text-[var(--ink)] rounded-sm"

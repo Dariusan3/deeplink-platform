@@ -33,7 +33,10 @@ export function Nav() {
 
         {/* Right */}
         <div className="ml-auto flex items-center gap-3">
-          <Link href="/login" className="hidden sm:inline-block text-[var(--ink-2)] hover:text-[var(--ink)] transition-colors">
+          <Link
+            href="/login"
+            className="btn-lift inline-block px-3 py-1.5 border border-[var(--line)] hover:border-[var(--line-2)] rounded-sm text-[var(--ink-2)] hover:text-[var(--ink)] transition-colors"
+          >
             Sign in
           </Link>
           <a
