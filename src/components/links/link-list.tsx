@@ -18,7 +18,8 @@ export function LinkList() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [sortBy, setSortBy] = useState<SortBy>("newest");
   const [collectionFilter, setCollectionFilter] = useState<string | null>(null);
-  const [dateFilter, setDateFilter] = useState("");
+  // Date range the link was created within (inclusive). Empty strings = no bound.
+  const [dateRange, setDateRange] = useState<{ from: string; to: string }>({ from: "", to: "" });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
@@ -48,10 +49,14 @@ export function LinkList() {
       result = result.filter((l) => l.collection_id === collectionFilter);
     }
 
-    // Date filter (older than)
-    if (dateFilter) {
-      const cutoff = new Date(dateFilter);
-      result = result.filter((l) => new Date(l.created_at) < cutoff);
+    // Date range filter — links created within [from, to] inclusive.
+    if (dateRange.from) {
+      const start = new Date(dateRange.from + "T00:00:00").getTime();
+      result = result.filter((l) => new Date(l.created_at).getTime() >= start);
+    }
+    if (dateRange.to) {
+      const end = new Date(dateRange.to + "T23:59:59.999").getTime();
+      result = result.filter((l) => new Date(l.created_at).getTime() <= end);
     }
 
     // Search filter — strip a leading "/" so searching "/my-slug" (the form
@@ -84,13 +89,13 @@ export function LinkList() {
     });
 
     return result;
-  }, [links, searchQuery, statusFilter, sortBy, collectionFilter, dateFilter]);
+  }, [links, searchQuery, statusFilter, sortBy, collectionFilter, dateRange]);
 
   // Reset to first page whenever the filter set or page size changes —
   // otherwise users land on an empty page after narrowing results.
   useEffect(() => {
     setPage(1);
-  }, [searchQuery, statusFilter, sortBy, collectionFilter, dateFilter, pageSize]);
+  }, [searchQuery, statusFilter, sortBy, collectionFilter, dateRange, pageSize]);
 
   const pagedLinks = useMemo(() => {
     const start = (page - 1) * pageSize;
@@ -193,8 +198,8 @@ export function LinkList() {
         onSortByChange={setSortBy}
         collectionFilter={collectionFilter}
         onCollectionFilterChange={setCollectionFilter}
-        dateFilter={dateFilter}
-        onDateFilterChange={setDateFilter}
+        dateRange={dateRange}
+        onDateRangeChange={setDateRange}
         selectedCount={selectedIds.size}
         allSelected={allSelected}
         onSelectAll={handleSelectAll}

@@ -17,8 +17,8 @@ export function TopLinks({ data }: TopLinksProps) {
     <Card className="glass-card bg-white/[0.01] border-white/5 relative overflow-hidden">
       <div className="absolute top-0 left-0 w-1 h-full bg-[#00D26A]/20" />
       <CardHeader className="pt-6 px-6 pb-3">
-        <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500 flex items-center gap-2">
-          <LinkIcon className="w-3.5 h-3.5" />
+        <CardTitle className="text-sm font-black flex items-center gap-2">
+          <LinkIcon className="w-4 h-4 text-[#00D26A]" />
           Top Links
         </CardTitle>
       </CardHeader>

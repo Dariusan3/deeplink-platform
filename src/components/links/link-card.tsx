@@ -35,7 +35,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { buildShortUrl } from "@/lib/url-normalize";
+import { useShortUrl } from "@/hooks/use-short-url";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -74,7 +74,7 @@ export function LinkCard({
     hostname = new URL(link.destination_url).hostname.replace("www.", "");
   } catch {}
 
-  const shortUrl = buildShortUrl(link.slug);
+  const shortUrl = useShortUrl(link.slug);
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(shortUrl);

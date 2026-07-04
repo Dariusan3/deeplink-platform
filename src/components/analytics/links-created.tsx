@@ -41,7 +41,7 @@ export function LinksCreated({ links }: { links: Link[] }) {
           {dailyCreated.map((d) => {
             const pct = (d.count / maxCount) * 100;
             return (
-              <div key={d.date} className="flex-1 flex flex-col items-center gap-1 group relative">
+              <div key={d.date} className="flex-1 flex flex-col items-center justify-end h-full gap-1 group relative">
                 <div
                   className="w-full rounded-t bg-[#00D26A]/30 group-hover:bg-[#00D26A]/60 transition-all"
                   style={{ height: `${d.count > 0 ? Math.max(pct, 8) : 3}%` }}

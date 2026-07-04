@@ -70,6 +70,16 @@ function AnalyticsContent() {
     { value: "custom", label: "Custom" },
   ];
 
+  // Human-readable descriptor of the active window, used as the scoping
+  // subtitle on the Clicks stat so the big number reads as "X in <period>"
+  // instead of repeating itself.
+  const rangeLabel =
+    timeRange === "all"
+      ? "all time"
+      : timeRange === "custom"
+      ? "selected range"
+      : { "7d": "last 7 days", "14d": "last 14 days", "30d": "last 30 days", "90d": "last 90 days" }[timeRange];
+
   // Compute extra stats from the data
   const extraStats = useMemo(() => {
     const activeLinks = links.filter((l) => l.is_active).length;
@@ -273,7 +283,7 @@ function AnalyticsContent() {
                     <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Clicks</span>
                   </div>
                   <p className="text-3xl font-black text-white">{totalClicks.toLocaleString()}</p>
-                  <p className="text-[10px] text-neutral-500 mt-1">{totalClicks.toLocaleString()} total</p>
+                  <p className="text-[10px] text-neutral-500 mt-1">in {rangeLabel}</p>
                 </CardContent>
               </Card>
 
@@ -328,6 +338,17 @@ function AnalyticsContent() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* AI Weekly Intelligence Report — surfaced near the top so the
+                headline insights are visible without scrolling to the bottom. */}
+            <WeeklyReport analyticsData={{
+              totalClicks,
+              topLinks: topLinks.slice(0, 5),
+              topCountries: geoData.slice(0, 5),
+              deviceSplit: deviceData,
+              topReferrers: referrerData.slice(0, 5),
+              dailyTrend: dailyClicks.slice(-7),
+            }} />
 
             {/* Link Performance + Traffic Trends — like competitor */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -467,16 +488,6 @@ function AnalyticsContent() {
               <PeakHours data={hourlyData} />
               <LinksCreated links={links} />
             </div>
-
-            {/* AI Weekly Intelligence Report */}
-            <WeeklyReport analyticsData={{
-              totalClicks,
-              topLinks: topLinks.slice(0, 5),
-              topCountries: geoData.slice(0, 5),
-              deviceSplit: deviceData,
-              topReferrers: referrerData.slice(0, 5),
-              dailyTrend: dailyClicks.slice(-7),
-            }} />
           </>
         )}
       </div>

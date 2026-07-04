@@ -51,7 +51,7 @@ export function PeakHours({ data }: { data: HourlyData[] }) {
                 const pct = (d.count / maxCount) * 100;
                 const isPeak = d.hour === peakHour.hour;
                 return (
-                  <div key={d.hour} className="flex-1 flex flex-col items-center gap-1 group relative">
+                  <div key={d.hour} className="flex-1 flex flex-col items-center justify-end h-full gap-1 group relative">
                     <div
                       className={cn(
                         "w-full rounded-t transition-all",

@@ -16,7 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { DatePicker } from "@/components/ui/date-picker";
+import { DateRangePicker } from "@/components/ui/date-picker";
 import {
   Dialog,
   DialogContent,
@@ -43,8 +43,8 @@ interface LinkToolbarProps {
   onSortByChange: (sort: SortBy) => void;
   collectionFilter: string | null;
   onCollectionFilterChange: (id: string | null) => void;
-  dateFilter: string;
-  onDateFilterChange: (date: string) => void;
+  dateRange: { from: string; to: string };
+  onDateRangeChange: (range: { from: string; to: string }) => void;
   selectedCount: number;
   allSelected: boolean;
   onSelectAll: () => void;
@@ -69,8 +69,8 @@ export function LinkToolbar({
   onSortByChange,
   collectionFilter,
   onCollectionFilterChange,
-  dateFilter,
-  onDateFilterChange,
+  dateRange,
+  onDateRangeChange,
   selectedCount,
   allSelected,
   onSelectAll,
@@ -91,7 +91,8 @@ export function LinkToolbar({
   const hasActiveFilters =
     statusFilter !== "all" ||
     collectionFilter !== null ||
-    dateFilter !== "" ||
+    dateRange.from !== "" ||
+    dateRange.to !== "" ||
     sortBy !== "newest" ||
     searchQuery.trim() !== "";
 
@@ -99,7 +100,7 @@ export function LinkToolbar({
     onStatusFilterChange("all");
     onSortByChange("newest");
     onCollectionFilterChange(null);
-    onDateFilterChange("");
+    onDateRangeChange({ from: "", to: "" });
     onSearchChange("");
   };
 
@@ -263,15 +264,16 @@ export function LinkToolbar({
           </select>
         </div>
 
-        {/* Older than */}
-        <div className="space-y-1.5 min-w-[140px]">
+        {/* Created between — date range */}
+        <div className="space-y-1.5 min-w-[220px]">
           <Label className="text-[9px] font-black uppercase tracking-widest text-neutral-500 flex items-center gap-1">
-            <Calendar className="w-3 h-3" /> Older than
+            <Calendar className="w-3 h-3" /> Created between
           </Label>
-          <DatePicker
-            value={dateFilter}
-            onChange={onDateFilterChange}
-            placeholder="Pick a date"
+          <DateRangePicker
+            from={dateRange.from}
+            to={dateRange.to}
+            onChange={onDateRangeChange}
+            placeholder="Pick a date range"
           />
         </div>
 
