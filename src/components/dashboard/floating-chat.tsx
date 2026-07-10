@@ -314,12 +314,26 @@ export function FloatingChat() {
                     )}
                   >
                     {msg.role === "assistant" ? (
-                      <div className="brain-prose" style={{ fontSize: "12.5px", lineHeight: 1.6 }}>
-                        <span dangerouslySetInnerHTML={{ __html: renderContent(msg.content) }} />
-                        {streaming && i === messages.length - 1 && (
-                          <span className="brain-cursor" style={{ width: 6, height: "0.95em" }} />
-                        )}
-                      </div>
+                      // Empty assistant bubble while the model is still thinking
+                      // — pulsing lines instead of a lone blinking caret.
+                      streaming && i === messages.length - 1 && !msg.content ? (
+                        <div className="space-y-1.5 py-0.5" role="status" aria-label="Assistant is thinking">
+                          {["w-[90%]", "w-[70%]", "w-[40%]"].map((w, li) => (
+                            <div
+                              key={w}
+                              className={cn("h-2 rounded bg-white/10 animate-pulse", w)}
+                              style={{ animationDelay: `${li * 140}ms` }}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="brain-prose" style={{ fontSize: "12.5px", lineHeight: 1.6 }}>
+                          <span dangerouslySetInnerHTML={{ __html: renderContent(msg.content) }} />
+                          {streaming && i === messages.length - 1 && (
+                            <span className="brain-cursor" style={{ width: 6, height: "0.95em" }} />
+                          )}
+                        </div>
+                      )
                     ) : (
                       msg.content
                     )}
