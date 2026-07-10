@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalShell } from "@/components/legal/legal-shell";
 
+// Title omits the brand — the root layout's title template appends "| Tappr".
 export const metadata: Metadata = {
-  title: "Terms of Service — Tappr",
+  title: "Terms of Service",
   description: "The terms that govern your use of the Tappr link-management platform.",
+  alternates: { canonical: "/terms" },
 };
 
 // OPERATOR: replace the 【bracketed】 placeholders (legal entity, governing law)

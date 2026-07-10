@@ -9,11 +9,11 @@ export function Hero() {
 
       <div className="max-w-[1280px] mx-auto grid grid-cols-1 lg:grid-cols-2 relative z-10">
         {/* Left — copy */}
-        <div className="px-6 lg:px-10 py-20 lg:py-28 lg:border-r border-[var(--line)]">
+        <div className="px-6 lg:px-10 py-14 lg:py-20 lg:border-r border-[var(--line)]">
           <Reveal>
             <a
               href="#ai-brain"
-              className="inline-flex items-center gap-2 text-[12px] font-mono tracking-[0.06em] text-[var(--ink-2)] border border-[var(--line)] hover:border-[var(--line-2)] rounded-full px-3 py-1 mb-10"
+              className="inline-flex items-center gap-2 text-[12px] font-mono tracking-[0.06em] text-[var(--ink-2)] border border-[var(--line)] hover:border-[var(--line-2)] rounded-full px-3 py-1 mb-7"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-[var(--tappr-green)]" />
               NEW · AI Brain explains your traffic in plain English →
@@ -21,33 +21,37 @@ export function Hero() {
           </Reveal>
 
           <Reveal delay={60}>
+            {/* The left column is half the 1280px grid — roughly 560px of text
+                width at lg. The old clamp topped out at 116px, which fits about
+                three words per line and pushed the CTAs below the fold. Scale
+                to the column, not the viewport. */}
             <h1
-              className="font-semibold text-[var(--ink)] tracking-[-0.05em]"
+              className="font-semibold text-[var(--ink)] tracking-[-0.04em]"
               style={{
-                fontSize: "clamp(48px, 8vw, 116px)",
-                lineHeight: 0.92,
+                fontSize: "clamp(40px, 5.2vw, 76px)",
+                lineHeight: 0.98,
               }}
             >
-              Bitly says{" "}
-              <span className="line-through decoration-[var(--ink-2)] text-[var(--ink-2)]">
-                2,400 clicks
-              </span>
-              .{" "}
-              <span className="text-[var(--ink-2)] font-light">It doesn&apos;t say</span>{" "}
-              <span className="text-[var(--tappr-green)]">1,800 were bots.</span>
+              {/* Names no competitor and asserts nothing about anyone else's
+                  product. The number illustrates the reader's own traffic; the
+                  only claim made is about what Tappr does. */}
+              You got{" "}
+              <span className="text-[var(--ink-2)]">2,400 clicks</span>.{" "}
+              <span className="text-[var(--ink-2)] font-light">Tappr tells you</span>{" "}
+              <span className="text-[var(--tappr-green)]">how many were real.</span>
             </h1>
           </Reveal>
 
           <Reveal delay={120}>
-            <p className="mt-8 text-[var(--ink-2)] text-[18px] leading-[1.55] max-w-[540px]">
-              Tappr does. Smart routing, real-time anomaly alerts, and an AI that
-              explains your traffic — for creators &amp; marketers who can&apos;t afford
+            <p className="mt-6 text-[var(--ink-2)] text-[18px] leading-[1.55] max-w-[540px]">
+              Smart routing, real-time anomaly alerts, and an AI that explains
+              your traffic — for creators &amp; marketers who can&apos;t afford
               guessing.
             </p>
           </Reveal>
 
           <Reveal delay={180}>
-            <div className="mt-10 flex flex-wrap items-center gap-3">
+            <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link
                 href="/signup"
                 className="btn-lift inline-flex items-center gap-2 bg-white text-black font-medium px-5 py-3 rounded-sm hover:bg-[var(--ink)]"
@@ -72,7 +76,7 @@ export function Hero() {
           </Reveal>
 
           <Reveal delay={240}>
-            <ul className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 text-[12px] text-[var(--muted)] font-mono">
+            <ul className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-2 text-[12px] text-[var(--muted)] font-mono">
               {[
                 "No credit card",
                 "500 clicks/mo, free forever",

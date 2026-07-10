@@ -49,8 +49,11 @@ export function FinalCta() {
         </Reveal>
 
         <Reveal delay={180}>
+          {/* "SOC 2 Type II in progress" was removed — it is a compliance
+              claim, and nothing in this repo evidences an audit being under
+              way. Put it back only once the audit has actually started. */}
           <p className="mt-8 font-mono text-[11px] tracking-[0.14em] uppercase text-[var(--muted)]">
-            Cancel anytime · Your data is yours · SOC 2 Type II in progress
+            Cancel anytime · Export your data anytime · No credit card required
           </p>
         </Reveal>
       </div>

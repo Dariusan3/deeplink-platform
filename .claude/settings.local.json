@@ -41,5 +41,16 @@
       "Bash(vercel env:*)",
       "Read(//Users/osadicidarius/Documents/projects/deeplink-platform/**)"
     ]
+  },
+  "extraKnownMarketplaces": {
+    "caveman": {
+      "source": {
+        "source": "github",
+        "repo": "juliusbrussee/caveman"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "caveman@caveman": true
   }
 }

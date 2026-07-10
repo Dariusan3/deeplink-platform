@@ -1,30 +1,36 @@
 import Link from "next/link";
+import { TapprMark } from "@/components/brand/logo";
 
+/**
+ * Every href here must resolve. Removed because they 404'd or were gated:
+ *   /changelog, /docs, /security, /compare/bitly, /compare/linktree  -> no route
+ *   https://status.tappr.me                                          -> no DNS
+ *   /dashboard/contact  -> 307s to /login; a public "Contact" link must not
+ *                          force a signup, so it is now a mailto.
+ * Re-add each one as a real link the day its page ships.
+ */
 const COLUMNS = [
   {
     title: "Product",
     links: [
       { label: "Pricing", href: "/pricing" },
+      { label: "How it works", href: "/#how" },
       { label: "Affiliate", href: "/partner" },
-      { label: "Changelog", href: "/changelog" },
     ],
   },
   {
     title: "Company",
     links: [
-      { label: "Contact", href: "/dashboard/contact" },
+      { label: "Contact", href: "mailto:hello@tappr.me" },
       { label: "Terms", href: "/terms" },
       { label: "Privacy", href: "/privacy" },
-      { label: "Security", href: "/security" },
     ],
   },
   {
     title: "Resources",
     links: [
-      { label: "Docs", href: "/docs" },
-      { label: "Status", href: "https://status.tappr.me" },
-      { label: "Compare → Bitly", href: "/compare/bitly" },
-      { label: "Compare → Linktree", href: "/compare/linktree" },
+      { label: "FAQ", href: "/#faq" },
+      { label: "API", href: "/#api" },
     ],
   },
 ];
@@ -35,12 +41,14 @@ export function Footer() {
       <div className="max-w-[1280px] mx-auto px-6 py-16 grid grid-cols-1 md:grid-cols-[1.6fr_1fr_1fr_1fr] gap-10">
         <div>
           <Link href="/" className="flex items-center gap-2 font-semibold text-[var(--ink)]">
-            <span className="inline-block w-5 h-5 rounded-sm bg-[var(--tappr-green)]" aria-hidden />
+            <TapprMark className="w-6 h-6 text-[var(--tappr-green)] shrink-0" />
             <span>Tappr</span>
           </Link>
+          {/* "Built at the edge, in 38 cities" was the same unbacked claim as
+              the old ProofStrip "38 edge nodes". Removed. */}
           <p className="mt-4 max-w-[320px] text-[14px] text-[var(--ink-2)] leading-[1.55]">
-            Smart links for people who can&apos;t afford guessing. Built at the edge,
-            in 38 cities.
+            Smart links for people who can&apos;t afford guessing. Routing, bot
+            detection, and an AI that explains your traffic.
           </p>
         </div>
 

@@ -1,6 +1,14 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AdminShell } from "@/components/admin/admin-shell";
+
+// Private surface — never index, never follow. Defense in depth on top of the
+// Disallow rules in src/app/robots.ts.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false, nocache: true },
+};
+
 
 // Server-side admin gate. Verifies the session and the `is_admin` flag
 // BEFORE any admin page renders — a non-admin (or logged-out) visitor is

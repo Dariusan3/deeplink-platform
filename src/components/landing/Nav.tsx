@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TapprMark } from "@/components/brand/logo";
 
 export function Nav() {
   return (
@@ -6,7 +7,7 @@ export function Nav() {
       <div className="max-w-[1280px] mx-auto h-full px-6 flex items-center gap-6 text-sm">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 font-semibold text-[var(--ink)]">
-          <span className="inline-block w-5 h-5 rounded-sm bg-[var(--tappr-green)]" aria-hidden />
+          <TapprMark className="w-6 h-6 text-[var(--tappr-green)] shrink-0" />
           <span>Tappr</span>
         </Link>
 
@@ -18,12 +19,15 @@ export function Nav() {
 
         {/* Center links */}
         <div className="hidden lg:flex items-center gap-5 ml-4 text-[var(--ink-2)]">
+          {/* Anchors only — every href here must resolve. "Changelog" and
+              "Docs" used to point at /changelog and /docs, neither of which
+              exists; both 404'd. Re-add them once the routes ship. */}
           {[
             { label: "Product", href: "#product" },
+            { label: "How it works", href: "#how" },
             { label: "Pricing", href: "#pricing" },
             { label: "API", href: "#api" },
-            { label: "Changelog", href: "/changelog" },
-            { label: "Docs", href: "/docs" },
+            { label: "FAQ", href: "#faq" },
           ].map((l) => (
             <a key={l.href} href={l.href} className="hover:text-[var(--ink)] transition-colors">
               {l.label}

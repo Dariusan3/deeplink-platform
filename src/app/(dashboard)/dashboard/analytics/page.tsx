@@ -24,13 +24,9 @@ import {
   Users,
   Globe,
   Link2,
-  TrendingUp,
-  TrendingDown,
   Activity,
-  Heart,
   Download,
   RefreshCw,
-  ArrowRight,
   X,
 } from "lucide-react";
 import { DateRangePicker } from "@/components/ui/date-picker";
@@ -86,34 +82,22 @@ function AnalyticsContent() {
     const topReferrer = referrerData.length > 0 ? referrerData[0].domain : "—";
     const topLocation = geoData.length > 0 ? geoData[0].country : "—";
 
-    // Unique clicks estimate (by unique days with clicks as proxy)
-    const daysWithClicks = dailyClicks.filter((d) => d.count > 0).length;
     const totalDays = dailyClicks.length || 1;
     const avgClicksPerDay = totalClicks / totalDays;
 
-    // Trend: compare last half vs first half of period
+    // Trend: the recent half of the selected window vs the earlier half.
     const halfPoint = Math.floor(dailyClicks.length / 2);
     const firstHalf = dailyClicks.slice(0, halfPoint).reduce((s, d) => s + d.count, 0);
     const secondHalf = dailyClicks.slice(halfPoint).reduce((s, d) => s + d.count, 0);
     const trendPercent = firstHalf > 0 ? ((secondHalf - firstHalf) / firstHalf) * 100 : 0;
     const isGrowing = trendPercent > 0;
 
-    // Growing/declining links
-    // Links with more recent clicks are "growing"
-    const growingLinks = topLinks.filter((l) => l.count > avgClicksPerDay).length;
-    const decliningLinks = topLinks.filter((l) => l.count > 0 && l.count < avgClicksPerDay).length;
-
-    // Health score (0-100)
-    const healthFactors = [
-      activeLinks > 0 ? 30 : 0,
-      totalClicks > 0 ? 25 : 0,
-      trendPercent >= 0 ? 20 : 10,
-      referrerData.length > 1 ? 15 : referrerData.length > 0 ? 8 : 0,
-      geoData.length > 1 ? 10 : geoData.length > 0 ? 5 : 0,
-    ];
-    const healthScore = healthFactors.reduce((s, v) => s + v, 0);
-    const healthLabel = healthScore >= 80 ? "Excellent" : healthScore >= 60 ? "Good" : healthScore >= 40 ? "Fair" : "Needs Work";
-    const healthColor = healthScore >= 80 ? "text-[#00D26A]" : healthScore >= 60 ? "text-blue-400" : healthScore >= 40 ? "text-amber-400" : "text-red-400";
+    // NOT growth: `topLinks` carries no time dimension — the RPC returns one
+    // total per link for the window. These are simply links above or below the
+    // mean. They were previously labelled "Growing" and "Declining", which made
+    // a perfectly flat link read as declining purely for being below average.
+    const aboveAvgLinks = topLinks.filter((l) => l.count > avgClicksPerDay).length;
+    const belowAvgLinks = topLinks.filter((l) => l.count > 0 && l.count < avgClicksPerDay).length;
 
     return {
       activeLinks,
@@ -122,25 +106,24 @@ function AnalyticsContent() {
       avgClicksPerDay,
       trendPercent,
       isGrowing,
-      growingLinks,
-      decliningLinks,
-      healthScore,
-      healthLabel,
-      healthColor,
+      aboveAvgLinks,
+      belowAvgLinks,
       clicksPerLink: activeLinks > 0 ? totalClicks / activeLinks : 0,
       totalLinks: links.length,
     };
   }, [links, dailyClicks, geoData, referrerData, topLinks, totalClicks]);
 
-  // Previous period comparison
-  const previousPeriodClicks = useMemo(() => {
+  // The two halves of the SELECTED window — not this window versus the one
+  // before it. Labelled with their real day counts so "Prior 15 days" cannot be
+  // misread as the 30 days preceding a 30-day selection.
+  const halves = useMemo(() => {
     const halfPoint = Math.floor(dailyClicks.length / 2);
-    return dailyClicks.slice(0, halfPoint).reduce((s, d) => s + d.count, 0);
-  }, [dailyClicks]);
-
-  const currentPeriodClicks = useMemo(() => {
-    const halfPoint = Math.floor(dailyClicks.length / 2);
-    return dailyClicks.slice(halfPoint).reduce((s, d) => s + d.count, 0);
+    return {
+      earlierDays: halfPoint,
+      recentDays: dailyClicks.length - halfPoint,
+      earlierClicks: dailyClicks.slice(0, halfPoint).reduce((s, d) => s + d.count, 0),
+      recentClicks: dailyClicks.slice(halfPoint).reduce((s, d) => s + d.count, 0),
+    };
   }, [dailyClicks]);
 
   // Export handler
@@ -350,75 +333,47 @@ function AnalyticsContent() {
               dailyTrend: dailyClicks.slice(-7),
             }} />
 
-            {/* Link Performance + Traffic Trends — like competitor */}
+            {/* The main time series comes before the derived metrics below it —
+                it is what the page exists to show. */}
+            <ClicksChart data={dailyClicks} totalClicks={totalClicks} />
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Link Performance */}
+              {/* Link Performance. The Health Score ring that used to lead this
+                  card was dropped: it scored 30 for having an active link, 25
+                  for having any clicks, 20 for a non-negative trend, 15 for more
+                  than one referrer and 10 for more than one country — so every
+                  account with real traffic read 90 or 100 and it never moved. */}
               <Card className="glass-card border-white/5">
                 <CardContent className="p-6">
                   <h3 className="text-sm font-black text-white flex items-center gap-2 mb-5">
-                    <Heart className="w-4 h-4 text-[#00D26A]" />
+                    <Link2 className="w-4 h-4 text-[#00D26A]" />
                     Link Performance
                   </h3>
-                  <div className="grid grid-cols-3 gap-4">
-                    {/* Health Score */}
-                    <div className="flex flex-col items-center text-center p-4 rounded-xl bg-white/[0.02] border border-white/5">
-                      <div className="relative w-16 h-16 mb-2">
-                        <svg viewBox="0 0 36 36" className="w-16 h-16 -rotate-90">
-                          <path
-                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                            fill="none"
-                            stroke="rgba(255,255,255,0.05)"
-                            strokeWidth="3"
-                          />
-                          <path
-                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                            fill="none"
-                            stroke={extraStats.healthScore >= 80 ? "#00D26A" : extraStats.healthScore >= 60 ? "#3b82f6" : extraStats.healthScore >= 40 ? "#f59e0b" : "#ef4444"}
-                            strokeWidth="3"
-                            strokeDasharray={`${extraStats.healthScore}, 100`}
-                            strokeLinecap="round"
-                          />
-                        </svg>
-                        <span className="absolute inset-0 flex items-center justify-center text-lg font-black text-white">
-                          {extraStats.healthScore}
-                        </span>
-                      </div>
-                      <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-500">Health</span>
-                      <span className={cn("text-[10px] font-black", extraStats.healthColor)}>{extraStats.healthLabel}</span>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 text-center">
+                      <p className="text-2xl font-black text-white">{extraStats.activeLinks}</p>
+                      <p className="text-[9px] font-bold uppercase tracking-widest text-neutral-500">Active Links</p>
                     </div>
-
-                    {/* Active / Growing / Declining / Trend */}
-                    <div className="space-y-3">
-                      <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 text-center">
-                        <p className="text-xl font-black text-white">{extraStats.activeLinks}</p>
-                        <p className="text-[9px] font-bold uppercase tracking-widest text-neutral-500">Active Links</p>
-                      </div>
-                      <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 text-center">
-                        <p className="text-xl font-black text-[#00D26A]">{extraStats.growingLinks}</p>
-                        <p className="text-[9px] font-bold uppercase tracking-widest text-neutral-500">Growing</p>
-                      </div>
+                    <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 text-center">
+                      <p className="text-2xl font-black text-white">{extraStats.totalLinks}</p>
+                      <p className="text-[9px] font-bold uppercase tracking-widest text-neutral-500">Total Links</p>
                     </div>
-
-                    <div className="space-y-3">
-                      <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 text-center">
-                        <p className="text-xl font-black text-red-400">{extraStats.decliningLinks}</p>
-                        <p className="text-[9px] font-bold uppercase tracking-widest text-neutral-500">Declining</p>
-                      </div>
-                      <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          {extraStats.isGrowing ? (
-                            <TrendingUp className="w-4 h-4 text-[#00D26A]" />
-                          ) : (
-                            <TrendingDown className="w-4 h-4 text-red-400" />
-                          )}
-                          <p className={cn("text-lg font-black", extraStats.isGrowing ? "text-[#00D26A]" : "text-red-400")}>
-                            {extraStats.trendPercent >= 0 ? "+" : ""}{extraStats.trendPercent.toFixed(0)}%
-                          </p>
-                        </div>
-                        <p className="text-[9px] font-bold uppercase tracking-widest text-neutral-500">Overall Trend</p>
-                      </div>
+                    {/* Named for what they measure. These were "Growing" and
+                        "Declining", but topLinks has no time dimension — a link
+                        with flat traffic was counted as declining purely for
+                        sitting below the mean. */}
+                    <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 text-center">
+                      <p className="text-2xl font-black text-[#00D26A]">{extraStats.aboveAvgLinks}</p>
+                      <p className="text-[9px] font-bold uppercase tracking-widest text-neutral-500">Above Average</p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 text-center">
+                      <p className="text-2xl font-black text-neutral-400">{extraStats.belowAvgLinks}</p>
+                      <p className="text-[9px] font-bold uppercase tracking-widest text-neutral-500">Below Average</p>
                     </div>
                   </div>
+                  <p className="mt-4 text-[10px] text-neutral-600">
+                    Above / below the {extraStats.avgClicksPerDay.toFixed(1)} clicks-per-day average, across your top links.
+                  </p>
                 </CardContent>
               </Card>
 
@@ -429,46 +384,33 @@ function AnalyticsContent() {
                     <Activity className="w-4 h-4 text-blue-400" />
                     Traffic Trends
                   </h3>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
+                    {/* These two are the halves of the SELECTED window, so they
+                        say so. They used to read "Current Period" / "Previous
+                        Period", which implied the window before this one. */}
                     <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 text-center">
-                      <p className="text-2xl font-black text-white">{currentPeriodClicks.toLocaleString()}</p>
-                      <p className="text-[9px] font-bold uppercase tracking-widest text-neutral-500">Current Period</p>
+                      <p className="text-2xl font-black text-white">{halves.recentClicks.toLocaleString()}</p>
+                      <p className="text-[9px] font-bold uppercase tracking-widest text-neutral-500">
+                        Last {halves.recentDays}d
+                      </p>
                     </div>
                     <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 text-center">
-                      <p className="text-2xl font-black text-neutral-400">{previousPeriodClicks.toLocaleString()}</p>
-                      <p className="text-[9px] font-bold uppercase tracking-widest text-neutral-500">Previous Period</p>
+                      <p className="text-2xl font-black text-neutral-400">{halves.earlierClicks.toLocaleString()}</p>
+                      <p className="text-[9px] font-bold uppercase tracking-widest text-neutral-500">
+                        Prior {halves.earlierDays}d
+                      </p>
                     </div>
                     <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 text-center">
                       <p className="text-2xl font-black text-white">{extraStats.clicksPerLink.toFixed(1)}</p>
                       <p className="text-[9px] font-bold uppercase tracking-widest text-neutral-500">Clicks / Link</p>
                     </div>
-                    <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 text-center">
-                      <p className="text-2xl font-black text-white">{extraStats.totalLinks}</p>
-                      <p className="text-[9px] font-bold uppercase tracking-widest text-neutral-500">Total Links</p>
-                    </div>
                   </div>
-
-                  {/* Daily average with trend */}
-                  <div className="mt-4 p-4 rounded-xl bg-white/[0.02] border border-white/5 flex items-center gap-4">
-                    <ArrowRight className="w-5 h-5 text-neutral-500 shrink-0" />
-                    <div>
-                      <p className="text-2xl font-black text-white">
-                        {extraStats.avgClicksPerDay.toFixed(1)} <span className="text-sm text-neutral-500 font-bold">clicks/day</span>
-                      </p>
-                      <p className={cn(
-                        "text-[10px] font-bold",
-                        extraStats.trendPercent > 0 ? "text-[#00D26A]" : extraStats.trendPercent < 0 ? "text-red-400" : "text-neutral-500"
-                      )}>
-                        {extraStats.trendPercent >= 0 ? "+" : ""}{extraStats.trendPercent.toFixed(0)}% {extraStats.trendPercent >= 0 ? "Growing" : "Declining"}
-                      </p>
-                    </div>
-                  </div>
+                  <p className="mt-4 text-[10px] text-neutral-600">
+                    Both halves of the selected range — not this range versus the one before it.
+                  </p>
                 </CardContent>
               </Card>
             </div>
-
-            {/* Clicks over time chart */}
-            <ClicksChart data={dailyClicks} totalClicks={totalClicks} />
 
             {/* 3-column grid: Top Links, Geo, Device */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -36,7 +36,9 @@ export function Problem() {
             className="mt-5 font-semibold text-[var(--ink)] tracking-[-0.04em] max-w-[860px]"
             style={{ fontSize: "clamp(36px, 5vw, 64px)", lineHeight: 0.98 }}
           >
-            Three things Bitly doesn&apos;t tell you about{" "}
+            {/* Targets the category, not a trademark. Naming a competitor in an
+                accusatory headline asserts a fact about their product. */}
+            Three things your link shortener won&apos;t tell you about{" "}
             <span className="text-[var(--ink-2)] font-light">your traffic.</span>
           </h2>
         </Reveal>
@@ -44,8 +46,10 @@ export function Problem() {
         <div className="mt-16 grid grid-cols-1 md:grid-cols-3 border-t border-[var(--line)]">
           {CELLS.map((c, i) => (
             <Reveal key={i} delay={i * 60}>
+              {/* flex-1 on the body keeps the dashed rule and the green fix
+                  line level across cells whose copy wraps to different heights. */}
               <article
-                className={`p-8 lg:p-10 border-b md:border-b-0 md:border-r last:border-r-0 border-[var(--line)] h-full`}
+                className={`flex flex-col p-8 lg:p-10 border-b md:border-b-0 md:border-r last:border-r-0 border-[var(--line)] h-full`}
               >
                 <span className="font-mono text-[11px] tracking-[0.14em] uppercase text-[var(--muted)]">
                   {c.n}
@@ -53,7 +57,7 @@ export function Problem() {
                 <h3 className="mt-5 text-[20px] lg:text-[22px] font-semibold text-[var(--ink)] tracking-[-0.02em] leading-[1.2]">
                   {c.title}
                 </h3>
-                <p className="mt-4 text-[14px] leading-[1.6] text-[var(--ink-2)]">{c.body}</p>
+                <p className="mt-4 flex-1 text-[14px] leading-[1.6] text-[var(--ink-2)]">{c.body}</p>
                 <p className="mt-6 pt-4 border-t border-dashed border-[var(--line-2)] font-mono text-[12px] text-[var(--tappr-green)] flex items-center gap-2">
                   <span>→</span>
                   <span>{c.fix}</span>

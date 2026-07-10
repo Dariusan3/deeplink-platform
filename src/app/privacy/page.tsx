@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalShell } from "@/components/legal/legal-shell";
 
+// Title omits the brand — the root layout's title template appends "| Tappr".
 export const metadata: Metadata = {
-  title: "Privacy Policy — Tappr",
+  title: "Privacy Policy",
   description:
     "How Tappr collects, uses, shares and protects your personal data under GDPR and UK GDPR.",
+  alternates: { canonical: "/privacy" },
 };
 
 // Generated from the compliance audit (docs/compliance-audit.md) to match

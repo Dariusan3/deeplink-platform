@@ -22,7 +22,9 @@ const TEMPLATES = (link: string) => [
   {
     icon: MessageCircle,
     label: "DM / WhatsApp",
-    body: `hey — i've been using this link platform called Tappr, kinda like Bitly on steroids. Smart routing + AI analytics. Thought you might dig it: ${link}`,
+    // Describes Tappr on its own terms. Partners paste this verbatim, so a
+    // competitor's trademark must not ride along in material we author.
+    body: `hey — i've been using this link platform called Tappr. it routes each click by country/device and flags bot traffic, plus AI analytics. thought you might dig it: ${link}`,
   },
   {
     icon: Mail,

@@ -78,7 +78,12 @@ function SmartRouting() {
             <code className="text-[var(--muted)] truncate">{r.dest}</code>
           </div>
         ))}
-        <div className="flex items-center justify-center px-4 py-3 border border-dashed border-[var(--line-2)] rounded-sm font-mono text-[11px] tracking-[0.1em] uppercase text-[var(--muted)] hover:text-[var(--ink-2)] hover:border-[var(--ink-2)] transition-colors cursor-pointer">
+        {/* Decoration inside a static mock — no onClick exists. Dropped the
+            cursor-pointer and hover states so it does not read as clickable. */}
+        <div
+          aria-hidden
+          className="flex items-center justify-center px-4 py-3 border border-dashed border-[var(--line-2)] rounded-sm font-mono text-[11px] tracking-[0.1em] uppercase text-[var(--muted)]"
+        >
           + add rule
         </div>
       </div>
@@ -108,23 +113,34 @@ function AiBrain() {
   );
 }
 
+/**
+ * Shows a DIFFERENT anomaly than the AI Brain cell above it. Both used to
+ * render the same −67% drop, same deleted Instagram post, same "DM the
+ * account" action — and disagreed on the window ("12h" vs "90 minutes").
+ * The Problem section tells that drop story a third time.
+ *
+ * This renders a `traffic_spike`, one of the real detectors in
+ * src/lib/alert-detectors.ts, with copy modeled on the message it emits.
+ */
 function RealtimeAlert() {
   return (
     <Reveal delay={120} className="lg:col-span-2 bg-[var(--bg)] p-8">
       <CellLabel n="/03" label="Real-Time Alerts" />
-      <div className="border border-red-500/30 bg-red-500/5 rounded-sm p-4">
+      {/* Blue, not green — the AI Brain box directly above is green, and two
+          identical boxes stacked read as one repeated idea. */}
+      <div className="border border-blue-500/30 bg-blue-500/5 rounded-sm p-4">
         <div className="flex items-center justify-between mb-3">
-          <span className="font-mono text-[10px] tracking-[0.14em] uppercase text-red-400 border border-red-500/40 rounded-full px-2 py-0.5">
-            DROP
+          <span className="font-mono text-[10px] tracking-[0.14em] uppercase text-blue-400 border border-blue-500/40 rounded-full px-2 py-0.5">
+            SPIKE
           </span>
-          <code className="font-mono text-[11px] text-[var(--muted)]">/promo</code>
+          <code className="font-mono text-[11px] text-[var(--muted)]">/launch</code>
         </div>
-        <p className="text-[36px] font-semibold text-red-400 leading-none tracking-[-0.04em]">
-          −67%
+        <p className="text-[36px] font-semibold text-blue-400 leading-none tracking-[-0.04em]">
+          6× normal
         </p>
         <p className="mt-3 text-[12px] text-[var(--ink-2)] leading-[1.5]">
-          in the last 90 minutes — likely a deleted Instagram post. Action: DM
-          @username to repost or pivot the campaign.
+          412 clicks in the last 60 minutes vs an average of 68/hour.
+          Something&apos;s working — push budget while it&apos;s hot.
         </p>
       </div>
     </Reveal>
@@ -185,6 +201,9 @@ function DeveloperApi() {
           </code>
         </div>
         <pre className="p-4 font-mono text-[11px] leading-[1.7] text-[var(--ink-2)] overflow-x-auto">
+{/* Must stay byte-for-byte valid against POST /api/v1/links. The rule
+    shape mirrors `RedirectRule` in src/types/links.ts — a developer
+    copy-pasting this has to get a working link with routing. */}
 {`curl -X `}<span className="text-[#a855f7]">POST</span>{` https://tappr.me/api/v1/links \\
   -H `}<span className="text-[#84cc16]">{`"Authorization: Bearer dl_xxx"`}</span>{` \\
   -H `}<span className="text-[#84cc16]">{`"Content-Type: application/json"`}</span>{` \\
@@ -192,8 +211,17 @@ function DeveloperApi() {
     "destination_url": "https://shop.io",
     "slug": "promo",
     "redirect_rules": [
-      { "country": "US", "destination": "apps.apple.com/x" },
-      { "country": "RO", "destination": "ro.ourshop.com" }
+      {
+        "conditions": {
+          "geo": { "countries": ["US"] },
+          "device": { "types": ["mobile"] }
+        },
+        "destination_url": "https://apps.apple.com/x"
+      },
+      {
+        "conditions": { "geo": { "countries": ["RO"] } },
+        "destination_url": "https://ro.ourshop.com"
+      }
     ]
   }'`}</span>
         </pre>

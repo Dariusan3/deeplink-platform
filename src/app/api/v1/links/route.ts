@@ -1,7 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { authenticateApiKey } from "@/lib/api-auth";
 import { normalizeDestinationUrl } from "@/lib/url-normalize";
+import { parseRedirectRules } from "@/lib/redirect-rules";
 import { NextRequest } from "next/server";
+import type { RedirectRule } from "@/types/links";
+import type { Json } from "@/types/database";
 
 // GET /api/v1/links — List all links for the team
 export async function GET(request: NextRequest) {
@@ -41,7 +44,12 @@ export async function POST(request: NextRequest) {
   const auth = await authenticateApiKey(request);
   if (auth instanceof Response) return auth;
 
-  let body: { destination_url?: string; slug?: string; title?: string };
+  let body: {
+    destination_url?: string;
+    slug?: string;
+    title?: string;
+    redirect_rules?: unknown;
+  };
   try {
     body = await request.json();
   } catch {
@@ -77,6 +85,18 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Smart-routing rules are optional. Previously this endpoint silently
+  // dropped them: the field was not read, so a request carrying rules returned
+  // 201 and created a link with none.
+  let redirectRules: RedirectRule[] | null = null;
+  if (body.redirect_rules !== undefined && body.redirect_rules !== null) {
+    const parsed = parseRedirectRules(body.redirect_rules, request.nextUrl.hostname);
+    if ("error" in parsed) {
+      return Response.json({ error: parsed.error }, { status: 400 });
+    }
+    redirectRules = parsed.rules;
+  }
+
   const slug =
     body.slug || Math.random().toString(36).substring(2, 8);
 
@@ -88,10 +108,11 @@ export async function POST(request: NextRequest) {
       destination_url,
       slug,
       title: body.title || null,
+      redirect_rules: redirectRules as unknown as Json,
       team_id: auth.teamId,
       created_by: auth.userId,
     })
-    .select("id, slug, destination_url, title, is_active, created_at")
+    .select("id, slug, destination_url, title, redirect_rules, is_active, created_at")
     .single();
 
   if (error) {

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { UserProvider, type DbUser } from "@/providers/user-provider";
@@ -5,6 +6,13 @@ import { TeamProvider, type Team } from "@/providers/team-provider";
 import { LinksProvider } from "@/providers/links-provider";
 import { createClient } from "@/lib/supabase/server";
 import type { Link } from "@/types/links";
+
+// Private surface — never index, never follow. Defense in depth on top of the
+// Disallow rules in src/app/robots.ts.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false, nocache: true },
+};
+
 
 export const dynamic = "force-dynamic";
 

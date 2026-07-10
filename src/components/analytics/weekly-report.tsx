@@ -41,8 +41,28 @@ export function WeeklyReport({ analyticsData }: WeeklyReportProps) {
     }
   };
 
-  const renderMarkdown = (text: string) =>
+  /**
+   * The report text is a language-model completion, and the prompt it was
+   * generated from embeds user-controlled strings — link titles and referrer
+   * domains are JSON-stringified straight into it (see
+   * src/app/api/ai/weekly-report/route.ts). The model can therefore be made to
+   * echo attacker markup back out. Since the result is written with
+   * dangerouslySetInnerHTML, a link titled `<img src=x onerror=...>` would
+   * execute in every teammate's browser.
+   *
+   * Escape first, then apply the markdown rules. After this the only tags in
+   * the string are the ones added below.
+   */
+  const escapeHtml = (text: string) =>
     text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
+  const renderMarkdown = (text: string) =>
+    escapeHtml(text)
       .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')
       .replace(/^### (.*)/gm, '<h3 class="text-sm font-black text-[#00D26A] uppercase tracking-widest mt-4 mb-1">$1</h3>')
       .replace(/^## (.*)/gm, '<h2 class="text-base font-black text-white mt-5 mb-2">$1</h2>')
