@@ -66,6 +66,34 @@ looked at. Render the mark to PNG and view it after any geometry change.
 - `/icon.svg` 200 `image/svg+xml`; `/opengraph-image` 200 `image/png`
 - `npx tsc --noEmit` clean
 
+## Consistency sweep
+
+Before the sweep the app had **four** different brand marks. All now use
+`TapprMark`:
+
+| Was | Where | Now |
+|---|---|---|
+| Green rounded square placeholder | `login`, `signup` (×2), `reset-password` | `TapprMark` |
+| Heroicons "link" glyph in a tinted box | `forgot-password`, `sidebar` (expanded) | `TapprMark` |
+| Green box + rotated black diamond | `paused`, `not-found` | `TapprMark` |
+| `TapprMark` | `Nav`, `Footer` | unchanged |
+
+Also fixed on the way: `paused` said **Tappr.co**; the domain is `tappr.me`.
+
+Left as-is on purpose:
+- The **"Links" nav item** in `sidebar.tsx` uses the Heroicons link glyph (the
+  `M13.19 8.688…` path). Same icon family as the old logo, but it is a menu
+  icon, not a brand mark — correct to keep.
+- The collapsed sidebar shows only the expand toggle, no mark. Adding a logo
+  there is a layout decision, not a consistency fix.
+- `tiktok-open` renders "Powered by **Tappr**" as text with no mark — fine.
+- Wordmark treatments still vary slightly (`Tappr` vs the sidebar's two-tone
+  `Ta`+green`ppr`). All read as "Tappr"; normalizing the *wordmark* is a
+  separate call from unifying the *mark*.
+
+Verified the bare mark (no background, as it renders in the sidebar and auth
+pages) is legible as a "T" at ~24px.
+
 ## Open
 
 `src/app/favicon.ico` is the old asset and still ships as the legacy fallback

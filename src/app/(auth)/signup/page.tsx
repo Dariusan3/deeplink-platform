@@ -1,5 +1,6 @@
 "use client";
 
+import { TapprMark } from "@/components/brand/logo";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
@@ -79,7 +80,7 @@ export default function SignupPage() {
         <nav className="relative z-10 h-[60px] border-b border-[var(--line)]">
           <div className="max-w-[1280px] mx-auto h-full px-6 flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2 font-semibold text-[var(--ink)]">
-              <span className="inline-block w-5 h-5 rounded-sm bg-[var(--tappr-green)]" aria-hidden />
+              <TapprMark className="w-6 h-6 text-[var(--tappr-green)] shrink-0" />
               <span>Tappr</span>
             </Link>
           </div>
@@ -124,7 +125,7 @@ export default function SignupPage() {
       <nav className="relative z-10 h-[60px] border-b border-[var(--line)]">
         <div className="max-w-[1280px] mx-auto h-full px-6 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 font-semibold text-[var(--ink)]">
-            <span className="inline-block w-5 h-5 rounded-sm bg-[var(--tappr-green)]" aria-hidden />
+            <TapprMark className="w-6 h-6 text-[var(--tappr-green)] shrink-0" />
             <span>Tappr</span>
           </Link>
           <Link

@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { ShieldAlert, ArrowLeft, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { TapprMark } from "@/components/brand/logo";
 import Link from "next/link";
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
@@ -54,10 +55,8 @@ function PausedContent() {
       {/* Footer Branding — hidden when team_settings.show_branding is off (premium) */}
       {showBranding && (
         <div className="mt-12 relative z-10 flex items-center gap-2 opacity-30 hover:opacity-100 transition-opacity duration-500">
-          <div className="w-6 h-6 rounded-lg bg-[#00D26A] flex items-center justify-center">
-            <div className="w-3 h-3 bg-black rounded-sm rotate-45" />
-          </div>
-          <span className="text-white font-black uppercase text-[10px] tracking-widest italic">Tappr.co</span>
+          <TapprMark className="w-6 h-6 text-[#00D26A] shrink-0" />
+          <span className="text-white font-black uppercase text-[10px] tracking-widest italic">Tappr.me</span>
         </div>
       )}
     </div>

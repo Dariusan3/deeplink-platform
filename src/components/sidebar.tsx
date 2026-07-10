@@ -7,6 +7,7 @@ import { Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { TapprMark } from "@/components/brand/logo";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -209,11 +210,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
       )}>
         {!collapsed && (
           <div className="flex items-center gap-3 overflow-hidden animate-in fade-in slide-in-from-left-2 duration-300">
-            <div className="w-9 h-9 rounded-xl bg-[#00D26A]/10 border border-[#00D26A]/20 flex items-center justify-center shrink-0 shadow-[0_0_20px_rgba(0,210,106,0.1)]">
-              <svg className="w-5 h-5 text-[#00D26A]" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
-              </svg>
-            </div>
+            <TapprMark className="w-8 h-8 text-[#00D26A] shrink-0" />
             <span className="font-black text-xl text-white tracking-tighter">
               Ta<span className="text-[#00D26A]">ppr</span>
             </span>

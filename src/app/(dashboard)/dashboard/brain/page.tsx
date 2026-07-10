@@ -11,12 +11,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useAnalytics } from "@/hooks/use-analytics";
 import { useTeam } from "@/hooks/use-team";
 import { useLinks } from "@/hooks/use-links";
@@ -468,8 +462,7 @@ export default function BrainPage() {
   const showLimitBadge = chatLimit !== Infinity && chats.length >= chatLimit * 0.8;
 
   return (
-    <TooltipProvider>
-      <>
+    <>
         <Header title="AI Brain" />
         <div className="flex h-[calc(100vh-65px)]">
 
@@ -481,20 +474,18 @@ export default function BrainPage() {
                 <MessageSquare className="w-3.5 h-3.5 text-[#00D26A]" />
                 <span className="text-[10px] font-black text-white uppercase tracking-widest">Chats</span>
               </div>
-              <Tooltip>
-                <TooltipTrigger
-                  onClick={handleNewChat}
-                  disabled={!canCreateChat}
-                  className="w-6 h-6 rounded-lg flex items-center justify-center bg-white/5 border border-white/10 text-neutral-400 hover:text-white hover:bg-[#00D26A]/10 hover:border-[#00D26A]/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  <PenSquare className="w-3 h-3" />
-                </TooltipTrigger>
-                {!canCreateChat && (
-                  <TooltipContent side="right" className="text-[10px]">
-                    Limit reached ({chats.length}/{chatLimit}). Upgrade to save more.
-                  </TooltipContent>
-                )}
-              </Tooltip>
+              {/* Native title instead of a base-ui Tooltip. The base-ui
+                  tooltip generated a useId-based id that did not match between
+                  the SSR and client renders, throwing a hydration error; this
+                  was the only place on the page using it. */}
+              <button
+                onClick={handleNewChat}
+                disabled={!canCreateChat}
+                title={canCreateChat ? "New chat" : `Limit reached (${chats.length}/${chatLimit}). Upgrade to save more.`}
+                className="w-6 h-6 rounded-lg flex items-center justify-center bg-white/5 border border-white/10 text-neutral-400 hover:text-white hover:bg-[#00D26A]/10 hover:border-[#00D26A]/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <PenSquare className="w-3 h-3" />
+              </button>
             </div>
 
             {/* Chat list */}
@@ -607,27 +598,26 @@ export default function BrainPage() {
                   <BookOpen className="w-4 h-4" />
                 </button>
 
-                <Tooltip>
-                  <TooltipTrigger
-                    onClick={handleNewChat}
-                    disabled={!canCreateChat}
-                    className="h-8 px-3 inline-flex items-center gap-2 rounded-md text-[10px] font-black uppercase tracking-widest text-neutral-500 hover:text-white hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    New Chat
-                  </TooltipTrigger>
-                  {!canCreateChat && (
-                    <TooltipContent side="bottom" className="text-[10px]">
-                      Limit reached ({chats.length}/{chatLimit}). Upgrade to save more.
-                    </TooltipContent>
-                  )}
-                </Tooltip>
+                <button
+                  onClick={handleNewChat}
+                  disabled={!canCreateChat}
+                  title={canCreateChat ? "New chat" : `Limit reached (${chats.length}/${chatLimit}). Upgrade to save more.`}
+                  className="h-8 px-3 inline-flex items-center gap-2 rounded-md text-[10px] font-black uppercase tracking-widest text-neutral-500 hover:text-white hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  New Chat
+                </button>
               </div>
             </div>
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto scrollbar-none px-6 py-6 space-y-6">
-              {messages.length === 0 ? (
+              {/* A chat id was restored but its messages live inside `chats`,
+                  which is still loading. Without this branch the welcome screen
+                  paints first and is then swapped for the conversation. */}
+              {chatsLoading && activeChatId && messages.length === 0 ? (
+                <MessagesSkeleton />
+              ) : messages.length === 0 ? (
                 <div className="max-w-2xl mx-auto space-y-8 pt-8">
                   <div className="text-center space-y-3">
                     <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-[#00D26A]/20 to-[#39FF14]/10 border border-[#00D26A]/20 flex items-center justify-center">
@@ -690,19 +680,28 @@ export default function BrainPage() {
                         )}
                       >
                         {msg.role === "assistant" ? (
-                          <div className="brain-prose">
-                            {msg.actions && msg.actions.length > 0 && (
-                              <div className="not-prose mb-3 space-y-2">
-                                {msg.actions.map((a, idx) => (
-                                  <ActionCard key={idx} action={a} />
-                                ))}
-                              </div>
-                            )}
-                            <span dangerouslySetInnerHTML={{ __html: renderContent(msg.content) }} />
-                            {streaming && i === messages.length - 1 && (
-                              <span className="brain-cursor" />
-                            )}
-                          </div>
+                          // Nothing streamed back yet — show skeleton lines
+                          // rather than an empty card with a bare caret.
+                          streaming &&
+                          i === messages.length - 1 &&
+                          !msg.content &&
+                          !(msg.actions && msg.actions.length > 0) ? (
+                            <ThinkingSkeleton />
+                          ) : (
+                            <div className="brain-prose">
+                              {msg.actions && msg.actions.length > 0 && (
+                                <div className="not-prose mb-3 space-y-2">
+                                  {msg.actions.map((a, idx) => (
+                                    <ActionCard key={idx} action={a} />
+                                  ))}
+                                </div>
+                              )}
+                              <span dangerouslySetInnerHTML={{ __html: renderContent(msg.content) }} />
+                              {streaming && i === messages.length - 1 && (
+                                <span className="brain-cursor" />
+                              )}
+                            </div>
+                          )
                         ) : (
                           msg.content
                         )}
@@ -906,7 +905,63 @@ export default function BrainPage() {
           </DialogContent>
         </Dialog>
       </>
-    </TooltipProvider>
+  );
+}
+
+/**
+ * Shown inside the assistant bubble between hitting send and the first token
+ * arriving. `sendMessage` pushes `{ role: "assistant", content: "" }` straight
+ * away, so without this the user stares at an empty card with a lone blinking
+ * caret for however long the model takes to respond.
+ *
+ * Line widths vary so it reads as prose rather than a loading bar, and the
+ * stagger keeps the three lines from pulsing in lockstep.
+ */
+function ThinkingSkeleton() {
+  const lines = [
+    { w: "w-[92%]", delay: "0ms" },
+    { w: "w-[78%]", delay: "140ms" },
+    { w: "w-[45%]", delay: "280ms" },
+  ];
+  return (
+    <div className="space-y-2.5 py-0.5" role="status" aria-label="Assistant is thinking">
+      {lines.map((l) => (
+        <div
+          key={l.w}
+          className={cn("h-3 rounded bg-white/[0.07] animate-pulse", l.w)}
+          style={{ animationDelay: l.delay }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Stands in for a restored conversation while `chatsLoading` is still true and
+ * a chat id was persisted. Without it the welcome screen — heading, stat tiles,
+ * suggested questions — paints for a frame and is then replaced by the
+ * conversation, which reads as a flash of the wrong page.
+ */
+function MessagesSkeleton() {
+  return (
+    <div className="max-w-3xl mx-auto space-y-6" role="status" aria-label="Loading conversation">
+      {[
+        { role: "user", w: "w-[45%]", h: "h-14" },
+        { role: "assistant", w: "w-[80%]", h: "h-28" },
+        { role: "user", w: "w-[35%]", h: "h-12" },
+        { role: "assistant", w: "w-[70%]", h: "h-20" },
+      ].map((m, i) => (
+        <div key={i} className={cn("flex gap-3", m.role === "user" && "justify-end")}>
+          {m.role === "assistant" && (
+            <div className="w-7 h-7 rounded-lg bg-white/[0.05] shrink-0 mt-1 animate-pulse" />
+          )}
+          <div
+            className={cn("rounded-2xl bg-white/[0.04] animate-pulse", m.w, m.h)}
+            style={{ animationDelay: `${i * 120}ms` }}
+          />
+        </div>
+      ))}
+    </div>
   );
 }
 

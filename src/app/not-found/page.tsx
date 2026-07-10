@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { SearchX, Home, PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { TapprMark } from "@/components/brand/logo";
 import Link from "next/link";
 
 export default function NotFoundPage() {
@@ -58,9 +59,7 @@ export default function NotFoundPage() {
 
       {/* Footer Branding */}
       <div className="mt-12 relative z-10 flex items-center gap-2 opacity-20 hover:opacity-100 transition-opacity duration-500">
-        <div className="w-6 h-6 rounded-lg bg-[#00D26A] flex items-center justify-center">
-          <div className="w-3 h-3 bg-black rounded-sm rotate-45" />
-        </div>
+        <TapprMark className="w-6 h-6 text-[#00D26A] shrink-0" />
         <span className="text-white font-black uppercase text-[10px] tracking-widest italic">Tappr.me</span>
       </div>
     </div>
