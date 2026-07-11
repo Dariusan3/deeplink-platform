@@ -1,10 +1,22 @@
-import Link from "next/link";
 import { Star } from "lucide-react";
 import { Reveal } from "./Reveal";
 import { PricingComparison } from "@/components/pricing/pricing-comparison";
 import { FreePlanButton } from "@/components/pricing/free-plan-button";
+import { UpgradeButton } from "@/components/billing/upgrade-button";
+import type { TapprPlan } from "@/lib/fanbasis";
 
-const TIERS = [
+type Tier = {
+  name: string;
+  price: string;
+  cadence: string;
+  blurb: string;
+  features: string[];
+  cta: string;
+  plan: TapprPlan | null; // null = the free plan (no checkout)
+  accent: boolean;
+};
+
+const TIERS: Tier[] = [
   {
     name: "Free",
     price: "€0",
@@ -17,7 +29,7 @@ const TIERS = [
       "Real-time analytics",
     ],
     cta: "Get started",
-    href: "/signup",
+    plan: null,
     accent: false,
   },
   {
@@ -32,7 +44,7 @@ const TIERS = [
       "Unlimited AI Brain + all alerts",
     ],
     cta: "Try Starter",
-    href: "/pricing",
+    plan: "starter",
     accent: false,
   },
   {
@@ -47,7 +59,7 @@ const TIERS = [
       "Developer API + keys",
     ],
     cta: "Try Growth",
-    href: "/pricing",
+    plan: "growth",
     accent: true,
   },
 ];
@@ -101,23 +113,24 @@ export function Pricing() {
                   ))}
                 </ul>
 
-                {t.name === "Free" ? (
+                {t.plan === null ? (
                   <FreePlanButton
                     className="mt-8 inline-flex items-center justify-center w-full px-4 py-3 rounded-sm btn-lift cursor-pointer border border-[var(--line)] hover:border-[var(--line-2)] text-[var(--ink-2)] hover:text-[var(--ink)]"
                   >
                     {t.cta}
                   </FreePlanButton>
                 ) : (
-                  <Link
-                    href={t.href}
-                    className={`mt-8 inline-flex items-center justify-center w-full px-4 py-3 rounded-sm btn-lift ${
+                  <UpgradeButton
+                    plan={t.plan}
+                    variant="ghost"
+                    className={`mt-8 inline-flex items-center justify-center w-full h-auto px-4 py-3 rounded-sm btn-lift cursor-pointer ${
                       t.accent
-                        ? "bg-[var(--tappr-green)] text-black font-medium hover:brightness-110"
-                        : "border border-[var(--line)] hover:border-[var(--line-2)] text-[var(--ink-2)] hover:text-[var(--ink)]"
+                        ? "bg-[var(--tappr-green)] text-black font-medium hover:bg-[var(--tappr-green)] hover:brightness-110"
+                        : "border border-[var(--line)] hover:border-[var(--line-2)] text-[var(--ink-2)] hover:text-[var(--ink)] hover:bg-transparent"
                     }`}
                   >
                     {t.cta}
-                  </Link>
+                  </UpgradeButton>
                 )}
               </article>
             </Reveal>
