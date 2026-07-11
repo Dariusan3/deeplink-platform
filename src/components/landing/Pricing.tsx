@@ -62,6 +62,21 @@ const TIERS: Tier[] = [
     plan: "growth",
     accent: true,
   },
+  {
+    name: "Agency",
+    price: "€997",
+    cadence: "/month",
+    blurb: "For agencies running client campaigns at volume.",
+    features: [
+      "Unlimited clicks · links · team members",
+      "Everything in Growth, unmetered",
+      "Unlimited QR codes + collections",
+      "Priority support — 4h response",
+    ],
+    cta: "Try Agency",
+    plan: "agency",
+    accent: false,
+  },
 ];
 
 export function Pricing() {
@@ -81,7 +96,7 @@ export function Pricing() {
           </h2>
         </Reveal>
 
-        <div className="mt-16 grid grid-cols-1 lg:grid-cols-3 gap-px bg-[var(--line)] border border-[var(--line)]">
+        <div className="mt-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-px bg-[var(--line)] border border-[var(--line)]">
           {TIERS.map((t, i) => (
             <Reveal key={t.name} delay={i * 60}>
               <article

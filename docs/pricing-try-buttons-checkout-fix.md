@@ -39,6 +39,31 @@ landing/pricing cards were never wired to it — only the dashboard billing page
 - Card styling preserved by passing `variant="ghost"` plus the original classes
   (`h-auto` restores the custom vertical padding the `Button` default height would clamp).
 
+## Missing Agency card
+
+The Agency plan (€997/mo) existed everywhere *except* the pricing cards: it's in
+`TAPPR_PLANS` (checkout works), in the comparison matrix column, in the dashboard billing
+page, the sidebar, alerts caps (1M clicks/mo), admin grant-plan and the partner
+calculator — but the card grid only rendered Free / Starter / Growth, so nobody could buy
+it from the site.
+
+Added an Agency tier to `TIERS` (features taken from the comparison matrix: unlimited
+clicks/links/team members/QR codes, priority 4h support) and widened the grid from
+`lg:grid-cols-3` to `md:grid-cols-2 lg:grid-cols-4`.
+
+## Price audit
+
+All price sources agree, no mismatch:
+
+| Source | Starter | Growth | Agency |
+| --- | --- | --- | --- |
+| `src/lib/fanbasis.ts` (`TAPPR_PLANS`, what's actually charged) | 9700c | 29700c | 99700c |
+| `src/components/landing/Pricing.tsx` | €97 | €297 | €997 |
+| `src/components/pricing/pricing-comparison.tsx` | €97 | €297 | €997 |
+| `src/app/(dashboard)/dashboard/billing/page.tsx` | 97 | 297 | 997 |
+| `src/app/admin/users/page.tsx` | 97 | 297 | 997 |
+| `src/components/partner/partner-calculator.tsx` | 97 | 297 | 997 |
+
 ## Verification
 
 - `npx tsc --noEmit` passes.
