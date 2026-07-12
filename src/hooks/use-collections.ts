@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useUser } from "./use-user";
 import { useTeam } from "./use-team";
 import { emit, subscribe } from "@/lib/refresh-bus";
+import { revalidateSlugCache } from "@/lib/revalidate-slug";
 import { toast } from "sonner";
 import { Database } from "@/types/database";
 
@@ -193,6 +194,9 @@ export function useCollections() {
       // server round-trip.
       emit("collections", { kind: "create", row });
       toast.success("Collection created!");
+      // A brand-new rotator claims a slug that may already hold a cached
+      // "not found" entry from an earlier probe.
+      revalidateSlugCache({ slugs: [rotatorSlug] });
       return data;
     },
     [user, activeTeam, supabase]
@@ -200,6 +204,8 @@ export function useCollections() {
 
   const deleteCollection = useCallback(
     async (id: string) => {
+      const rotatorSlug = collections.find((c) => c.id === id)?.rotator_slug;
+
       const { error } = await supabase.from("collections").delete().eq("id", id);
 
       if (error) {
@@ -209,13 +215,19 @@ export function useCollections() {
 
       setCollections((prev) => prev.filter((c) => c.id !== id));
       emit("collections", { kind: "delete", id });
+      revalidateSlugCache({ slugs: [rotatorSlug] });
       toast.success("Collection deleted");
     },
-    [supabase]
+    [supabase, collections]
   );
 
   const updateCollection = useCallback(
     async (id: string, updates: { name?: string; description?: string | null; color?: string; click_goal?: number | null; click_goal_period?: string | null; is_starred?: boolean; is_rotator?: boolean; rotator_slug?: string | null; parent_id?: string | null; position_x?: number | null; position_y?: number | null }, opts?: { silent?: boolean }) => {
+      // Toggling is_rotator or renaming rotator_slug changes which slug the
+      // resolver serves this collection under, so both the old and the new one
+      // have to be purged.
+      const previousRotatorSlug = collections.find((c) => c.id === id)?.rotator_slug;
+
       const { error } = await supabase
         .from("collections")
         .update(updates)
@@ -225,6 +237,8 @@ export function useCollections() {
         if (!opts?.silent) toast.error("Failed to update collection");
         throw error;
       }
+
+      revalidateSlugCache({ slugs: [previousRotatorSlug, updates.rotator_slug] });
 
       let updatedRow: Collection | null = null;
       setCollections((prev) =>
@@ -240,7 +254,7 @@ export function useCollections() {
       if (updatedRow) emit("collections", { kind: "update", row: updatedRow });
       if (!opts?.silent) toast.success("Collection updated");
     },
-    [supabase]
+    [supabase, collections]
   );
 
   // Reparent + optional positions. Wraps updateCollection but uses silent
@@ -270,6 +284,25 @@ export function useCollections() {
 
   const moveLinksToCollection = useCallback(
     async (linkIds: string[], collectionId: string | null) => {
+      // Read the links' current collections *before* the move. Moving a link
+      // changes the member list of both rotators involved — the one it leaves
+      // and the one it joins — and each is cached under its own rotator_slug.
+      // Once the update lands, the old collection id is gone for good.
+      const { data: before } = await supabase
+        .from("links")
+        .select("collection_id")
+        .in("id", linkIds);
+
+      const previousCollectionIds = ((before ?? []) as { collection_id: string | null }[]).map(
+        (l) => l.collection_id
+      );
+
+      const affectedCollectionIds = [
+        ...new Set(
+          [...previousCollectionIds, collectionId].filter((c): c is string => !!c)
+        ),
+      ];
+
       for (const linkId of linkIds) {
         const { error } = await supabase
           .from("links")
@@ -280,6 +313,8 @@ export function useCollections() {
           console.error("Error moving link:", error.message);
         }
       }
+
+      revalidateSlugCache({ collectionIds: affectedCollectionIds });
 
       toast.success(
         collectionId

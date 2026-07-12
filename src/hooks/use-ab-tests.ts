@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/hooks/use-user";
 import { useTeam } from "@/hooks/use-team";
+import { revalidateSlugCache } from "@/lib/revalidate-slug";
 import { toast } from "sonner";
 import type { Database } from "@/types/database";
 
@@ -83,6 +84,7 @@ export function useABTests() {
         console.error(error);
       } else {
         toast.success("A/B test created");
+        revalidateSlugCache({ slugs: [payload.slug] });
       }
     },
     [activeTeam?.id, user?.id, supabase]
@@ -90,6 +92,9 @@ export function useABTests() {
 
   const updateTest = useCallback(
     async (id: string, payload: ABTestUpdate) => {
+      // An edit can rename the slug, so the old one has to be purged too.
+      const previousSlug = tests.find((t) => t.id === id)?.slug;
+
       const { error } = await supabase
         .from("ab_tests")
         .update({ ...payload, updated_at: new Date().toISOString() })
@@ -100,13 +105,16 @@ export function useABTests() {
         console.error(error);
       } else {
         toast.success("A/B test updated");
+        revalidateSlugCache({ slugs: [previousSlug, payload.slug] });
       }
     },
-    [supabase]
+    [supabase, tests]
   );
 
   const deleteTest = useCallback(
     async (id: string) => {
+      const previousSlug = tests.find((t) => t.id === id)?.slug;
+
       const { error } = await supabase.from("ab_tests").delete().eq("id", id);
       if (error) {
         toast.error("Failed to delete A/B test");
@@ -114,9 +122,10 @@ export function useABTests() {
       } else {
         toast.success("A/B test deleted");
         setTests((prev) => prev.filter((t) => t.id !== id));
+        revalidateSlugCache({ slugs: [previousSlug] });
       }
     },
-    [supabase]
+    [supabase, tests]
   );
 
   const selectWinner = useCallback(
@@ -135,9 +144,12 @@ export function useABTests() {
         toast.error("Failed to select winner");
       } else {
         toast.success(`Winner selected: Variant ${winner.toUpperCase()}`);
+        // Picking a winner flips the redirect from a 50/50 split to 100% of
+        // traffic on one variant — the resolver has to see it immediately.
+        revalidateSlugCache({ slugs: [tests.find((t) => t.id === id)?.slug] });
       }
     },
-    [supabase]
+    [supabase, tests]
   );
 
   const fetchEvents = useCallback(

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { authenticateApiKey } from "@/lib/api-auth";
 import { normalizeDestinationUrl } from "@/lib/url-normalize";
+import { invalidateLink } from "@/lib/link-cache";
 import { NextRequest } from "next/server";
 
 // GET /api/v1/links/:id — Get a single link
@@ -66,6 +67,15 @@ export async function PATCH(
 
   const supabase = await createClient();
 
+  // The pre-update row: a PATCH can rename the slug, and the old slug's cache
+  // entry has to be dropped too or the old short link keeps resolving.
+  const { data: before } = await supabase
+    .from("links")
+    .select("slug, collection_id")
+    .eq("id", id)
+    .eq("team_id", auth.teamId)
+    .maybeSingle();
+
   const { data, error } = await supabase
     .from("links")
     .update({
@@ -79,6 +89,16 @@ export async function PATCH(
     .eq("team_id", auth.teamId)
     .select("id, slug, destination_url, title, is_active, created_at, updated_at")
     .single();
+
+  if (!error) {
+    await invalidateLink(supabase, {
+      slug: before?.slug,
+      collection_id: before?.collection_id,
+    });
+    if (data.slug !== before?.slug) {
+      await invalidateLink(supabase, { slug: data.slug });
+    }
+  }
 
   if (error) {
     if (error.code === "23505") {
@@ -107,10 +127,11 @@ export async function DELETE(
   const { id } = await params;
   const supabase = await createClient();
 
-  // Verify the link belongs to the team
+  // Verify the link belongs to the team. Also grabs the slug and collection —
+  // both needed to purge the resolver cache once the row is gone.
   const { data: existing } = await supabase
     .from("links")
-    .select("id")
+    .select("id, slug, collection_id")
     .eq("id", id)
     .eq("team_id", auth.teamId)
     .single();
@@ -127,6 +148,11 @@ export async function DELETE(
   if (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
+
+  await invalidateLink(supabase, {
+    slug: existing.slug,
+    collection_id: existing.collection_id,
+  });
 
   return Response.json({ message: "Link deleted" });
 }

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendABWinnerEmail } from "@/lib/email";
+import { invalidateSlugs } from "@/lib/link-cache";
 
 type ABTestRow = {
   id: string;
@@ -74,6 +75,11 @@ export async function finalizeABWinnerIfReady(
     .maybeSingle();
 
   if (error || !data) return null;
+
+  // Auto-optimization just flipped this test from a 50/50 split to 100% on the
+  // winner. The resolver caches the test row, so without this the losing
+  // variant would keep getting traffic until the entry aged out.
+  await invalidateSlugs([test.slug]);
 
   if (opts.sendEmail !== false) {
     await notifyABWinner(supabase, test, winner).catch((err) => {

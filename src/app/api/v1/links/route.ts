@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { authenticateApiKey } from "@/lib/api-auth";
 import { normalizeDestinationUrl } from "@/lib/url-normalize";
 import { parseRedirectRules } from "@/lib/redirect-rules";
+import { invalidateSlugs } from "@/lib/link-cache";
 import { NextRequest } from "next/server";
 import type { RedirectRule } from "@/types/links";
 import type { Json } from "@/types/database";
@@ -114,6 +115,12 @@ export async function POST(request: NextRequest) {
     })
     .select("id, slug, destination_url, title, redirect_rules, is_active, created_at")
     .single();
+
+  if (!error) {
+    // Clear any cached "no such slug" resolution left behind by a probe of
+    // this slug before the link existed. See lib/link-cache.ts.
+    await invalidateSlugs([data.slug]);
+  }
 
   if (error) {
     if (error.code === "23505") {

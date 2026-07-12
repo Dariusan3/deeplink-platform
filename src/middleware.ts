@@ -42,10 +42,23 @@ export default async function middleware(request: NextRequest) {
     }
   );
 
-  // Refresh session - important for Server Components
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Refresh session - important for Server Components.
+  //
+  // `getClaims()` rather than `getUser()`: this middleware runs on every
+  // request that matches the config below — including each RSC navigation and
+  // prefetch — and `getUser()` paid a network round-trip to Supabase Auth every
+  // single time, which sat in front of every sidebar page transition.
+  //
+  // Security is unchanged. Our project signs JWTs with an asymmetric key
+  // (ES256, see /auth/v1/.well-known/jwks.json), so getClaims() verifies the
+  // token's signature locally against the cached JWK — a forged or tampered
+  // token still fails. It calls getSession() underneath, so expired tokens are
+  // still refreshed and the rotated cookies still flow through setAll() above.
+  // If the project were ever migrated back to a symmetric (HS256) secret,
+  // getClaims() falls back to getUser() on its own — it never trusts an
+  // unverified token.
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const user = claimsData?.claims ? { id: claimsData.claims.sub } : null;
 
   // Protect dashboard routes
   if (!user && request.nextUrl.pathname.startsWith("/dashboard")) {

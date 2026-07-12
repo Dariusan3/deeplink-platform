@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { RedirectRule } from "@/types/links";
 import { finalizeABWinnerIfReady } from "@/lib/ab-testing";
 import { getAppDeepLink } from "@/lib/deeplink";
+import { resolveSlug } from "@/lib/link-cache";
 
 // Interstitial that opens the native app on a phone, then falls back to
 // the web URL if the app isn't installed. A plain 302 to https does NOT
@@ -126,44 +127,21 @@ export async function GET(
   const { slug } = await params;
   if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
 
-  // Resolve the slug across its three possible namespaces in parallel.
-  // Previously these ran sequentially, so a plain link paid for the rotator
-  // and A/B round-trips before its own query even started. Firing all three
-  // at once collapses those serial hops into a single round-trip. Match
-  // priority is unchanged: rotator > A/B test > plain link.
-  const [rotatorRes, abRes, linkRes] = await Promise.all([
-    supabase
-      .from("collections")
-      .select("id")
-      .eq("rotator_slug", slug)
-      .eq("is_rotator", true)
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from("ab_tests")
-      .select("*")
-      .eq("slug", slug)
-      .in("status", ["running", "completed"])
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from("links")
-      .select("id, destination_url, redirect_rules, is_active, team_id")
-      .eq("slug", slug)
-      .maybeSingle(),
-  ]);
+  // Resolve the slug across its three possible namespaces (rotator collection,
+  // A/B test, plain link). This lookup is cached server-side — see
+  // lib/link-cache.ts for the TTL and invalidation story. Match priority is
+  // unchanged: rotator > A/B test > plain link.
+  //
+  // Only the *lookup* is cached. Everything below that depends on this request
+  // — the rotator's random pick, the A/B split, geo/device rule evaluation, and
+  // click tracking — still runs fresh on every hit.
+  const resolution = await resolveSlug(slug);
 
   // Rotator collection takes precedence.
-  const rotatorCollection = rotatorRes.data;
-  if (rotatorCollection) {
-    // Get all active links in this collection
-    const { data: rotatorLinks } = await supabase
-      .from("links")
-      .select("id, destination_url, slug")
-      .eq("collection_id", rotatorCollection.id)
-      .eq("is_active", true);
+  if (resolution.rotator) {
+    const rotatorLinks = resolution.rotator.links;
 
-    if (rotatorLinks && rotatorLinks.length > 0) {
+    if (rotatorLinks.length > 0) {
       // Random pick
       const randomBytes = new Uint8Array(1);
       crypto.getRandomValues(randomBytes);
@@ -186,11 +164,11 @@ export async function GET(
   }
 
   // Then A/B test.
-  if (abRes.data) {
-    return handleABTest(request, abRes.data);
+  if (resolution.abTest) {
+    return handleABTest(request, resolution.abTest);
   }
 
-  const link = linkRes.data;
+  const link = resolution.link;
   if (!link) return NextResponse.redirect(new URL("/not-found", request.url), { status: 302 });
 
   // Detect TikTok in-app browser up front so we know whether team display

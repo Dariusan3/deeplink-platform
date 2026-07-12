@@ -14,6 +14,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/hooks/use-user";
 import { useTeam } from "@/hooks/use-team";
 import { emit, subscribe } from "@/lib/refresh-bus";
+import { revalidateSlugCache } from "@/lib/revalidate-slug";
 import { toast } from "sonner";
 import { Link, LinkInsert } from "@/types/links";
 
@@ -215,10 +216,21 @@ export function LinksProvider({
 
     setLinks((prev) => [data, ...prev]);
     emit("links", { kind: "create", row: data });
+
+    // Yes, invalidate on *create* too. If anyone hit this slug before the link
+    // existed, the resolver cached a "no such slug" resolution for it, and that
+    // negative entry would keep 404ing the brand-new link until it aged out.
+    revalidateSlugCache({ slugs: [data.slug], collectionIds: [data.collection_id] });
     return data;
   }, [user, activeTeam, supabase]);
 
   const updateLink = useCallback(async (id: string, payload: Partial<LinkInsert>) => {
+    // Capture the pre-update row: an edit can move the link to a different slug
+    // or a different collection, and the *old* slug's cache entry has to be
+    // dropped as well — otherwise the old short link keeps resolving to the old
+    // destination.
+    const before = links.find((l) => l.id === id);
+
     const { data, error } = await supabase
       .from("links")
       .update(payload)
@@ -233,10 +245,18 @@ export function LinksProvider({
 
     setLinks((prev) => prev.map((l) => (l.id === id ? { ...data, click_count: l.click_count } : l)));
     emit("links", { kind: "update", row: data });
+
+    revalidateSlugCache({
+      slugs: [before?.slug, data.slug],
+      collectionIds: [before?.collection_id, data.collection_id],
+    });
     return data;
-  }, [supabase]);
+  }, [supabase, links]);
 
   const deleteLink = useCallback(async (id: string) => {
+    // Read the slug before the row is gone — the delete only returns the id.
+    const before = links.find((l) => l.id === id);
+
     const { data, error } = await supabase
       .from("links")
       .delete()
@@ -259,8 +279,13 @@ export function LinksProvider({
 
     setLinks((prev) => prev.filter((l) => l.id !== id));
     emit("links", { kind: "delete", id });
+
+    revalidateSlugCache({
+      slugs: [before?.slug],
+      collectionIds: [before?.collection_id],
+    });
     toast.success("Link decommissioned successfully");
-  }, [supabase]);
+  }, [supabase, links]);
 
   const toggleFavorite = useCallback(async (id: string, favorite: boolean) => {
     // Optimistic update so the sidebar reflects the change instantly.

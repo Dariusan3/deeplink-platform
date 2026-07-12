@@ -11,6 +11,11 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { normalizeDestinationUrl, sanitizePath } from "@/lib/url-normalize";
+import {
+  invalidateLink,
+  invalidateSlugs,
+  invalidateTeamRotators,
+} from "@/lib/link-cache";
 
 export interface ToolContext {
   supabase: SupabaseClient;
@@ -303,6 +308,10 @@ export async function runTool(
           .select()
           .single();
         if (error) return { ok: false, error: friendlyError(error) };
+        await invalidateLink(ctx.supabase, {
+          slug: data.slug,
+          collection_id: collectionId,
+        });
         return {
           ok: true,
           data,
@@ -336,11 +345,21 @@ export async function runTool(
           collectionId = await resolveCollectionId(ctx, String(args.collection_id));
           if (!collectionId) return { ok: false, error: "Couldn't find that collection." };
         }
+        // The rotator it's leaving is only knowable before the update lands.
+        const { data: before } = await ctx.supabase
+          .from("links")
+          .select("collection_id")
+          .eq("id", linkId)
+          .maybeSingle();
+
         const { error } = await ctx.supabase
           .from("links")
           .update({ collection_id: collectionId })
           .eq("id", linkId);
         if (error) return { ok: false, error: friendlyError(error) };
+
+        await invalidateLink(ctx.supabase, { collection_id: before?.collection_id });
+        await invalidateLink(ctx.supabase, { collection_id: collectionId });
         return {
           ok: true,
           summary: collectionId ? "Moved link to collection" : "Removed link from collection",
@@ -358,6 +377,15 @@ export async function runTool(
         if (args.is_active !== undefined) update.is_active = Boolean(args.is_active);
         if (args.click_goal !== undefined) update.click_goal = args.click_goal === null ? null : Number(args.click_goal);
         if (args.click_goal_period !== undefined) update.click_goal_period = String(args.click_goal_period);
+
+        // This tool can rename the slug and pause the link, so the pre-update
+        // slug has to be purged alongside the new one.
+        const { data: before } = await ctx.supabase
+          .from("links")
+          .select("slug, collection_id")
+          .eq("id", linkId)
+          .maybeSingle();
+
         const { data, error } = await ctx.supabase
           .from("links")
           .update(update)
@@ -365,6 +393,12 @@ export async function runTool(
           .select()
           .single();
         if (error) return { ok: false, error: friendlyError(error) };
+
+        await invalidateLink(ctx.supabase, {
+          slug: before?.slug,
+          collection_id: before?.collection_id,
+        });
+        if (data.slug !== before?.slug) await invalidateSlugs([data.slug]);
         return { ok: true, data, summary: `Updated link "${data.title || data.slug}"` };
       }
 
@@ -440,9 +474,16 @@ export async function runTool(
             return { ok: false, error: "Pick a target: all, active, paused, by_collection, or by_ids." };
         }
 
-        const { data, error } = await q.select("id");
+        const { data, error } = await q.select("id, slug");
         if (error) return { ok: false, error: friendlyError(error) };
         const count = data?.length ?? 0;
+
+        // Purge each touched link, plus every rotator on the team — a bulk
+        // pause or move can change rotator membership, and reconstructing which
+        // rotators specifically would mean snapshotting the pre-update state of
+        // every matched row. See invalidateTeamRotators().
+        await invalidateSlugs((data ?? []).map((l) => l.slug as string));
+        if (ctx.teamId) await invalidateTeamRotators(ctx.supabase, ctx.teamId);
 
         let verb = "Updated";
         if (update.is_active === false) verb = "Paused";

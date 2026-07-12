@@ -32,14 +32,6 @@ export function LegalShell({
         <div className="legal-prose text-[15px] leading-[1.7] text-[var(--ink-2)]">
           {children}
         </div>
-
-        <div className="mt-14 pt-6 border-t border-[var(--line)] flex items-center gap-4 text-[13px]">
-          <Link href="/privacy" className="text-[var(--ink-2)] hover:text-[var(--ink)] transition-colors">Privacy</Link>
-          <span className="text-[var(--line)]">·</span>
-          <Link href="/terms" className="text-[var(--ink-2)] hover:text-[var(--ink)] transition-colors">Terms</Link>
-          <span className="text-[var(--line)]">·</span>
-          <Link href="/dashboard/contact" className="text-[var(--ink-2)] hover:text-[var(--ink)] transition-colors">Contact</Link>
-        </div>
       </main>
       <Footer />
     </div>
