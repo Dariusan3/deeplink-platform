@@ -1,8 +1,80 @@
 import { normalizeDestinationUrl } from "@/lib/url-normalize";
+import { getHourInTimezone, getDayOfWeekInTimezone } from "@/lib/format-date";
 import type { RedirectRule } from "@/types/links";
 
 const DEVICE_TYPES = new Set(["mobile", "tablet", "desktop"]);
 const MAX_RULES = 50;
+
+/**
+ * Decide whether a visitor matches a rule's conditions. This is THE redirect
+ * engine — src/app/[slug]/route.ts calls it for every click.
+ *
+ * It lives next to `parseRedirectRules` on purpose: the validator's whole job
+ * is to reject anything this function can't read, and the two drifting apart
+ * is exactly how you get a rule that saves fine and then silently never fires.
+ *
+ * An empty `conditions` object matches everything — that's how a catch-all
+ * rule is expressed.
+ *
+ * `context.timezone` is the team's IANA zone (team_settings.timezone, default
+ * "UTC"). It is NOT optional in spirit: hour and day-of-week used to be read
+ * with now.getHours() / now.getDay(), which are the *server's* local time —
+ * UTC on Vercel. A user in Bucharest setting "9 AM – 5 PM" was silently getting
+ * 12:00–20:00 their time, and because a dev machine runs in the user's own zone
+ * the bug was invisible locally and only appeared in production.
+ */
+export function evaluateConditions(
+  rule: RedirectRule,
+  context: { country?: string; deviceType: string; now: Date; timezone?: string | null }
+): boolean {
+  const { conditions } = rule;
+
+  if (conditions.geo?.countries && conditions.geo.countries.length > 0) {
+    if (!context.country || !conditions.geo.countries.includes(context.country.toUpperCase())) {
+      return false;
+    }
+  }
+
+  if (conditions.device?.types && conditions.device.types.length > 0) {
+    if (!conditions.device.types.includes(context.deviceType as "mobile" | "tablet" | "desktop")) {
+      return false;
+    }
+  }
+
+  if (conditions.time) {
+    const now = context.now;
+    const tz = context.timezone;
+
+    // after/before are absolute instants, so they compare correctly regardless
+    // of zone — no conversion needed.
+    if (conditions.time.after && now < new Date(conditions.time.after)) return false;
+    if (conditions.time.before && now > new Date(conditions.time.before)) return false;
+
+    if (conditions.time.daysOfWeek && conditions.time.daysOfWeek.length > 0) {
+      if (!conditions.time.daysOfWeek.includes(getDayOfWeekInTimezone(now, tz))) return false;
+    }
+
+    const { hourStart, hourEnd } = conditions.time;
+    if (hourStart !== undefined || hourEnd !== undefined) {
+      // One-sided windows are meaningful and the UI lets you build them:
+      // "from 9" means 09:00 until end of day, "to 17" means midnight to 17:00.
+      // The engine used to apply the window ONLY when both bounds were present,
+      // so a half-filled range was dropped and the rule fired 24/7.
+      const start = hourStart ?? 0;
+      const end = hourEnd ?? 24; // exclusive upper bound
+      const hour = getHourInTimezone(now, tz);
+
+      if (start <= end) {
+        if (hour < start || hour >= end) return false;
+      } else {
+        // Overnight range (e.g. 22 → 6)
+        if (hour < start && hour >= end) return false;
+      }
+    }
+  }
+
+  return true;
+}
 
 /**
  * Validate a `redirect_rules` payload against the exact shape the redirect
@@ -100,19 +172,16 @@ export function parseRedirectRules(
         time.daysOfWeek = t.daysOfWeek;
       }
 
-      // The engine only applies an hour window when BOTH bounds are present.
-      const hasStart = t.hourStart !== undefined;
-      const hasEnd = t.hourEnd !== undefined;
-      if (hasStart !== hasEnd) {
-        return { error: `${at}.conditions.time requires both hourStart and hourEnd, or neither` };
-      }
-      if (hasStart) {
-        for (const key of ["hourStart", "hourEnd"] as const) {
-          if (!Number.isInteger(t[key]) || t[key] < 0 || t[key] > 23) {
-            return { error: `${at}.conditions.time.${key} must be an integer between 0 and 23` };
-          }
-          time[key] = t[key];
+      // Either bound may stand alone: "from 9" runs to end of day, "to 17"
+      // starts at midnight. This used to demand both-or-neither, because the
+      // engine silently ignored a one-sided window — the engine now handles it,
+      // so the validator no longer has to reject something reasonable.
+      for (const key of ["hourStart", "hourEnd"] as const) {
+        if (t[key] === undefined) continue;
+        if (!Number.isInteger(t[key]) || t[key] < 0 || t[key] > 23) {
+          return { error: `${at}.conditions.time.${key} must be an integer between 0 and 23` };
         }
+        time[key] = t[key];
       }
 
       conditions.time = time;

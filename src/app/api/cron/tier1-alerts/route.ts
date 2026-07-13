@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { runAllDetectors, persistDetections, type DetectedAlert } from "@/lib/alert-detectors";
+import { runAllDetectors, persistDetections, mergeRuns, type DetectorRun } from "@/lib/alert-detectors";
 
 // Vercel cron: scans every team on a 3-hour cadence and inserts alerts +
 // re-verifies acked ones. Manual user-initiated checks go through
@@ -33,11 +33,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ teams: 0, alerts: 0 });
   }
 
-  const all: DetectedAlert[] = [];
+  const runs: DetectorRun[] = [];
   for (const team of teams) {
-    all.push(...await runAllDetectors(supabase, team));
+    runs.push(await runAllDetectors(supabase, team));
   }
-  const inserted = await persistDetections(supabase, teams.map((t) => t.id), all);
+  const all = mergeRuns(runs);
+  const { inserted, closed } = await persistDetections(supabase, teams.map((t) => t.id), all);
 
-  return NextResponse.json({ teams: teams.length, detected: all.length, inserted });
+  return NextResponse.json({
+    teams: teams.length,
+    detected: all.alerts.length,
+    inserted,
+    closed,
+  });
 }

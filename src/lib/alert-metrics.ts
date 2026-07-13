@@ -10,7 +10,12 @@ import { planClickCap } from "./alerts";
 export type AlertMetrics = {
   // ── Plan / volume ─────────────────────────────────
   plan: string;
-  planCap: number;
+  // null on an uncapped plan (Agency). It USED to be `number`, holding the
+  // Infinity that planClickCap returns — but this struct is shipped over the
+  // wire, and JSON.stringify(Infinity) is `null`. So the type promised a number
+  // the client never got, and `planCap.toLocaleString()` threw for every Agency
+  // customer who opened the page. Say null and mean it.
+  planCap: number | null;
   clicksThisMonth: number;
   monthPct: number;
   clicksToday: number;
@@ -280,11 +285,15 @@ export async function computeAlertMetrics(
     ? Math.ceil((new Date(sub.expires_at).getTime() - Date.now()) / 86_400_000)
     : null;
 
+  const capped = Number.isFinite(planCap);
+
   return {
     plan,
-    planCap,
+    planCap: capped ? planCap : null,
     clicksThisMonth,
-    monthPct: planCap > 0 ? Math.round((clicksThisMonth / planCap) * 100) : 0,
+    // An uncapped plan has no percentage. `used / Infinity` is 0, which would
+    // have rendered a paying Agency customer a permanent, meaningless 0%.
+    monthPct: capped && planCap > 0 ? Math.round((clicksThisMonth / planCap) * 100) : 0,
     clicksToday,
     clicksAvg7d,
     todayVsAvgPct,

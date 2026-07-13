@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { invalidateSlugs } from "@/lib/link-cache";
+import { invalidateSlugs, invalidateTeamLinks } from "@/lib/link-cache";
 
 // Bridge for client-side writers.
 //
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let body: { slugs?: unknown; collectionIds?: unknown };
+  let body: { slugs?: unknown; collectionIds?: unknown; teamId?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -37,12 +37,36 @@ export async function POST(request: NextRequest) {
 
   const slugs = body.slugs === undefined ? [] : body.slugs;
   const collectionIds = body.collectionIds === undefined ? [] : body.collectionIds;
+  const teamId = body.teamId;
 
-  if (!isStringArray(slugs) || !isStringArray(collectionIds)) {
+  if (
+    !isStringArray(slugs) ||
+    !isStringArray(collectionIds) ||
+    (teamId !== undefined && typeof teamId !== "string")
+  ) {
     return NextResponse.json(
-      { error: "Body must be { slugs?: string[], collectionIds?: string[] }" },
+      { error: "Body must be { slugs?: string[], collectionIds?: string[], teamId?: string }" },
       { status: 400 }
     );
+  }
+
+  // teamId = "purge everything this team owns". Used when a team-level setting
+  // that the resolver caches changes — today that's team_settings.timezone,
+  // which the redirect engine reads to evaluate hour rules. Only members may
+  // trigger it, so one team can't force cache churn on another.
+  if (teamId) {
+    const { data: membership } = await supabase
+      .from("team_members")
+      .select("team_id")
+      .eq("team_id", teamId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (!membership) {
+      return NextResponse.json({ error: "Not a member of this team" }, { status: 403 });
+    }
+
+    await invalidateTeamLinks(supabase, teamId);
   }
 
   const toInvalidate: string[] = [...slugs];

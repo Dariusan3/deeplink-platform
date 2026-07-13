@@ -24,15 +24,29 @@ export type AlertSeverity = "low" | "medium" | "high";
 export type AlertTier = 1 | 2 | 3 | 4;
 
 // Monthly click caps per plan — matches the public /pricing page.
+//
+// Agency is Infinity, not a number: /pricing and the comparison table both sell
+// it as "Unlimited clicks". It used to be capped at 1,000,000, which meant an
+// Agency customer paying €997 could be told they'd hit their limit and should
+// "consider upgrading" — to a plan that doesn't exist. Callers must therefore
+// handle a non-finite cap (see `hasClickCap`).
 export const PLAN_CLICK_CAPS: Record<string, number> = {
   free:    500,
   starter: 50_000,
   growth:  250_000,
-  agency:  1_000_000,
+  agency:  Infinity,
 };
 
 export function planClickCap(plan: string | null | undefined): number {
   return PLAN_CLICK_CAPS[plan || "free"] ?? PLAN_CLICK_CAPS.free;
+}
+
+// True when the plan actually has a ceiling worth measuring against. Guard any
+// percentage, progress bar or "N of M" string with this — `used / Infinity` is
+// 0 and `Infinity.toLocaleString()` renders as "∞", neither of which is what
+// you want to show a paying customer.
+export function hasClickCap(plan: string | null | undefined): boolean {
+  return Number.isFinite(planClickCap(plan));
 }
 
 // Monday (UTC) of the week containing `dateStr` (or now), as YYYY-MM-DD.
@@ -44,28 +58,57 @@ function isoWeekStart(dateStr?: string): string {
   return base.toISOString().slice(0, 10);
 }
 
-// Build the dedup key for an alert. Same team + same key = same alert.
-// Most time-windowed alerts include the date so we get at most one per day;
-// low-urgency housekeeping (stale_links) buckets by week instead.
+// Build the dedup key for an alert. Same team + same key = same alert, and
+// `persistDetections` refuses to insert a key that's already open or fired
+// inside the cooldown window.
+//
+// The key's TIME BUCKET is therefore the alert's re-fire cadence, and picking it
+// is the single biggest lever on how noisy the list gets. The rule: bucket by
+// the window the alert is actually *about*.
+//
+//   * A condition that persists for weeks (a shifted top country, a pile of
+//     stale links) must not re-announce itself every single day.
+//   * A goal is hit once per goal period, not once per day — a monthly goal
+//     crossed on the 5th used to re-fire on the 6th, the 7th, and every day to
+//     the 30th, because the bucket was the date instead of the period.
+//   * Anything scoped to one link must carry that link's id, or the second
+//     link to trip the same detector on the same day gets silently swallowed as
+//     a duplicate of the first.
 export function dedupKey(
   type: AlertType,
-  args: { id?: string; threshold?: number; date?: string } = {}
+  args: { id?: string; threshold?: number; date?: string; period?: string } = {}
 ): string {
   const today = args.date ?? new Date().toISOString().slice(0, 10);
+  const week  = isoWeekStart(args.date);
+  const month = today.slice(0, 7);
   switch (type) {
     case "destination_broken": return `destination_broken:${args.id}`;
-    case "click_drop":         return `click_drop:${today}`;
+    // Per link, weekly. This key used to be just `click_drop:${today}` while the
+    // detector passed a link id it never used — so on a day when three links
+    // dropped, two of them were dropped on the floor as duplicates. Weekly (not
+    // daily) because a link that stays down would otherwise file a fresh alert
+    // every morning until you fixed it.
+    case "click_drop":         return `click_drop:${args.id}:${week}`;
     case "click_spam":         return `click_spam:${args.id ?? "team"}:${today}`;
-    case "plan_limit":         return `plan_limit:${args.threshold ?? 80}`;
+    // Month bucket: crossing 80% again next cycle is genuinely new news; crossing
+    // it again tomorrow is not.
+    case "plan_limit":         return `plan_limit:${args.threshold ?? 80}:${month}`;
     case "ab_winner":          return `ab_winner:${args.id}`;
-    case "goal_hit":           return `goal_hit:${args.id}:${today}`;
+    // Bucket by the goal's OWN period, so a weekly goal reports once a week and a
+    // monthly goal once a month.
+    case "goal_hit": {
+      const bucket = args.period === "monthly" ? month : args.period === "weekly" ? week : today;
+      return `goal_hit:${args.id}:${bucket}`;
+    }
     case "traffic_spike":      return `traffic_spike:${today}`;
-    case "peak_hour_shift":    return `peak_hour_shift:${today}`;
-    case "country_shift":      return `country_shift:${today}`;
-    case "device_shift":       return `device_shift:${today}`;
-    // Weekly bucket — "you have N stale links" is the same message every day,
-    // so surface it at most once per week.
-    case "stale_links":        return `stale_links:${isoWeekStart(args.date)}`;
+    // The remaining four all describe slow-moving conditions measured over a
+    // 7-day-vs-30-day window. That window barely moves between two consecutive
+    // days, so a daily bucket meant the same trend was re-announced ~7 times
+    // before it changed. Weekly.
+    case "peak_hour_shift":    return `peak_hour_shift:${week}`;
+    case "country_shift":      return `country_shift:${week}`;
+    case "device_shift":       return `device_shift:${week}`;
+    case "stale_links":        return `stale_links:${week}`;
     case "subscription_expiring": return `subscription_expiring:${args.id}`;
   }
 }

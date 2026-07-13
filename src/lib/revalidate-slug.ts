@@ -8,16 +8,19 @@
 export function revalidateSlugCache(input: {
   slugs?: (string | null | undefined)[];
   collectionIds?: (string | null | undefined)[];
+  /** Purge every slug this team owns — for team-level settings the resolver caches (timezone). */
+  teamId?: string | null;
 }) {
   const slugs = (input.slugs ?? []).filter((s): s is string => !!s);
   const collectionIds = (input.collectionIds ?? []).filter((s): s is string => !!s);
+  const teamId = input.teamId || undefined;
 
-  if (slugs.length === 0 && collectionIds.length === 0) return;
+  if (slugs.length === 0 && collectionIds.length === 0 && !teamId) return;
 
   void fetch("/api/cache/revalidate", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ slugs, collectionIds }),
+    body: JSON.stringify({ slugs, collectionIds, teamId }),
   }).catch((err) => {
     console.error("Slug cache revalidation failed (will self-heal via TTL):", err);
   });

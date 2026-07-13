@@ -116,6 +116,33 @@
     text-shadow: 0 0 30px rgba(0, 210, 106, 0.2);
   }
 
+  /* Tailwind v4's preflight sets `button { cursor: default }` — a deliberate
+     break from v3, which gave buttons `cursor: pointer`. Nothing in the app
+     asked for that, so every button, tab, checkbox and menu item across the
+     dashboard quietly lost its pointer and stopped looking clickable.
+     Restore it for anything interactive, and show `not-allowed` when disabled
+     so a dead control reads as dead instead of just unresponsive. */
+  button:not(:disabled),
+  [role="button"]:not(:disabled),
+  [role="tab"]:not([aria-disabled="true"]),
+  [role="option"]:not([aria-disabled="true"]),
+  [role="menuitem"]:not([aria-disabled="true"]),
+  [role="switch"]:not(:disabled),
+  [role="checkbox"]:not(:disabled),
+  [role="radio"]:not(:disabled),
+  label[for],
+  summary,
+  select:not(:disabled),
+  a[href] {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  select:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+
   /* Override browser autofill white background on dark inputs */
   input:-webkit-autofill,
   input:-webkit-autofill:hover,

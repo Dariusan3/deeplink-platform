@@ -73,7 +73,7 @@ function CollectionNode({ data, selected }: NodeProps<Node<CollectionNodeData>>)
         className="!bg-[#00D26A]/50 !border-2 !border-[#00D26A] !w-3 !h-3 hover:!bg-[#00D26A] transition-all"
       />
 
-      <div className="flex items-center gap-2" onClick={() => data.onOpen(c.id)}>
+      <div className="flex items-center gap-2 cursor-pointer" onClick={() => data.onOpen(c.id)}>
         <div
           className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
           style={{ backgroundColor: `${color}20` }}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { TAPPR_PLANS, type TapprPlan } from "@/lib/fanbasis";
+import { invalidateOwnerQuota } from "@/lib/click-quota";
 import { logAuditEvent, type AuditEventType, type AuditSeverity } from "@/lib/audit";
 
 // FanBasis webhook receiver. The exact signature header/algorithm isn't in
@@ -289,6 +290,18 @@ export async function POST(request: NextRequest) {
         plan: resolvedPlan,
         api_metadata: md,
       },
+    });
+  }
+
+  // Anything we did above that touched `subscriptions` may have moved the plan:
+  // the sync_team_plan DB trigger (migration 024) recomputes the owner's best
+  // plan and writes it across all their teams, with no application code in the
+  // loop. That plan feeds the monthly click cap, whose verdict the redirect path
+  // caches per team — so it has to be dropped here, on renew and on cancel
+  // alike. Non-fatal: the cache is TTL-bounded anyway.
+  if (resolvedTeamId) {
+    await invalidateOwnerQuota(admin, resolvedTeamId).catch((err) => {
+      console.error("Quota cache invalidation failed after FanBasis webhook:", err);
     });
   }
 

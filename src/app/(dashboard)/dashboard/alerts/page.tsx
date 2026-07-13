@@ -18,10 +18,13 @@ import {
   ALERT_LABELS,
   ALERT_TIERS,
   TIER_META,
+  hasClickCap,
+  planClickCap,
   type AlertType,
   type AlertSeverity,
   type AlertTier,
 } from "@/lib/alerts";
+import { alertBadge, alertSubject, alertSummary, alertUrl } from "@/lib/alert-display";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -38,6 +41,7 @@ import {
   X,
   Search,
   BarChart3,
+  ExternalLink,
 } from "lucide-react";
 import { ALERT_ICONS as CATEGORY_ICONS } from "@/lib/alert-icons";
 
@@ -59,33 +63,31 @@ type AlertRow = {
   created_at: string;
 };
 
-// Visual style per alert type. Tier 1 = red/amber, Tier 2 = green (good
-// news), Tier 3 = amber/blue, Tier 4 = neutral.
-// Each alert type maps ONLY to an icon — colour comes from severity (see
-// SEVERITY_STYLES) so the whole page sticks to three signal colours:
-// red (high), amber (medium), green (low). Keeping the icon per type
-// still tells you what KIND of alert it is at a glance. The icon map is
-// shared with the header notification bell — see src/lib/alert-icons.ts.
+// ── Layout note ──────────────────────────────────────────────────────
+// This page is an inbox, not a dashboard. One alert = one row; everything
+// secondary (the destination URL, the full advice, the CTAs) lives behind an
+// expand. The previous version stacked a plan banner, a hero card, four tier
+// tiles, a filter bar and a metrics panel above the list, then nested every
+// alert under a tier heading AND a category badge — roughly 500px of chrome
+// and three levels of hierarchy before you could read a single alert. Tier and
+// category are now filters and a chip, which is all they ever were.
 
-// The only three colours on the page. high = red, medium = amber,
-// low = green. Everything that shows colour reads from here.
+// The only three colours on the page. high = red, medium = amber, low = green.
+// Everything that shows colour reads from here.
 type Sev = "high" | "medium" | "low";
-const SEVERITY_STYLES: Record<Sev, { tint: string; text: string; border: string; ring: string }> = {
-  high:   { tint: "bg-red-500/10",   text: "text-red-400",   border: "border-red-500/30",   ring: "ring-red-500/20" },
-  medium: { tint: "bg-amber-500/10", text: "text-amber-400", border: "border-amber-500/30", ring: "ring-amber-500/20" },
-  low:    { tint: "bg-[#00D26A]/10", text: "text-[#00D26A]", border: "border-[#00D26A]/30", ring: "ring-[#00D26A]/20" },
+const SEVERITY_STYLES: Record<Sev, { dot: string; tint: string; text: string; border: string }> = {
+  high:   { dot: "bg-red-500",     tint: "bg-red-500/10",     text: "text-red-400",   border: "border-red-500/25"   },
+  medium: { dot: "bg-amber-400",   tint: "bg-amber-500/10",   text: "text-amber-400", border: "border-amber-500/25" },
+  low:    { dot: "bg-[#00D26A]",   tint: "bg-[#00D26A]/10",   text: "text-[#00D26A]", border: "border-[#00D26A]/25" },
 };
 function sevStyle(severity: string) {
   return SEVERITY_STYLES[(severity as Sev)] ?? SEVERITY_STYLES.medium;
 }
-// Highest severity in a list — drives a category group's badge colour.
-function maxSeverity(list: { severity: string }[]): Sev {
-  if (list.some((a) => a.severity === "high")) return "high";
-  if (list.some((a) => a.severity === "medium")) return "medium";
-  return "low";
-}
 
 const TIER_ORDER: AlertTier[] = [1, 2, 3, 4];
+// Sort weight within a row's tier. Urgency used to be carried by which section
+// an alert sat in; in a flat list it has to be carried by the sort.
+const SEV_WEIGHT: Record<string, number> = { high: 0, medium: 1, low: 2 };
 
 // Per-team alerts cache (stale-while-revalidate) so the list paints
 // instantly on repeat visits instead of waiting on the query.
@@ -118,7 +120,7 @@ function Seg<T extends string>({
           onClick={() => onChange(o.v)}
           aria-pressed={value === o.v}
           className={cn(
-            "px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest transition-colors",
+            "px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest transition-colors cursor-pointer",
             value === o.v ? "bg-white/10 text-white" : "text-neutral-500 hover:text-neutral-300"
           )}
         >
@@ -146,6 +148,7 @@ export default function AlertsPage() {
   const [sevFilter, setSevFilter] = useState<Sev | "all">("all");
   const [search, setSearch] = useState("");
   const [metricsOpen, setMetricsOpen] = useState(false); // secondary info, collapsed by default
+  const [expanded, setExpanded] = useState<string | null>(null); // one row open at a time
 
   const fetchAlerts = useCallback(async (showLoading = false) => {
     if (!activeTeam?.id) return;
@@ -196,8 +199,8 @@ export default function AlertsPage() {
     return () => { supabase.removeChannel(channel); };
   }, [activeTeam?.id, supabase, fetchAlerts]);
 
-  // Apply the active filters (tier / severity / search) before grouping.
-  // Chips + counts stay on the full `alerts` set; only the rendered list narrows.
+  // Apply the active filters (tier / severity / search), then flatten into one
+  // urgency-ordered list: tier first, then severity, then newest.
   //
   // Search is forgiving: it strips quotes/smart-quotes and matches each typed
   // word anywhere across the title, description AND affected link — so you can
@@ -206,16 +209,24 @@ export default function AlertsPage() {
   const filtered = useMemo(() => {
     const norm = (s: string) => s.toLowerCase().replace(/["'`“”‘’]/g, "");
     const words = norm(search).split(/\s+/).filter(Boolean);
-    return alerts.filter((a) => {
-      if (!a.alert_type) return false;
-      if (tierFilter !== "all" && ALERT_TIERS[a.alert_type] !== tierFilter) return false;
-      if (sevFilter !== "all" && a.severity !== sevFilter) return false;
-      if (words.length) {
-        const hay = norm(`${a.title} ${a.description} ${a.affected_link ?? ""}`);
-        if (!words.every((w) => hay.includes(w))) return false;
-      }
-      return true;
-    });
+    return alerts
+      .filter((a) => {
+        if (!a.alert_type) return false;
+        if (tierFilter !== "all" && ALERT_TIERS[a.alert_type] !== tierFilter) return false;
+        if (sevFilter !== "all" && a.severity !== sevFilter) return false;
+        if (words.length) {
+          const hay = norm(`${a.title} ${a.description} ${a.affected_link ?? ""}`);
+          if (!words.every((w) => hay.includes(w))) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        const tierDiff = ALERT_TIERS[a.alert_type!] - ALERT_TIERS[b.alert_type!];
+        if (tierDiff !== 0) return tierDiff;
+        const sevDiff = (SEV_WEIGHT[a.severity] ?? 1) - (SEV_WEIGHT[b.severity] ?? 1);
+        if (sevDiff !== 0) return sevDiff;
+        return b.created_at.localeCompare(a.created_at);
+      });
   }, [alerts, tierFilter, sevFilter, search]);
 
   const hasActiveFilters =
@@ -223,17 +234,6 @@ export default function AlertsPage() {
   const clearFilters = useCallback(() => {
     setTierFilter("all"); setSevFilter("all"); setSearch("");
   }, []);
-
-  // Group the FILTERED alerts by tier → by alert_type.
-  const groupedByTier = useMemo(() => {
-    const tiers: Record<AlertTier, Partial<Record<AlertType, AlertRow[]>>> = { 1: {}, 2: {}, 3: {}, 4: {} };
-    for (const a of filtered) {
-      if (!a.alert_type) continue;
-      const tier = ALERT_TIERS[a.alert_type];
-      (tiers[tier][a.alert_type] ||= []).push(a);
-    }
-    return tiers;
-  }, [filtered]);
 
   const totals = useMemo(() => {
     const byTier: Record<AlertTier, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
@@ -269,8 +269,9 @@ export default function AlertsPage() {
   };
 
   // ── Multi-select bulk dismiss ─────────────────────────────────────
-  // A checkbox sits on every card; the action bar appears once something is
-  // picked. No separate "select mode" — the checkbox is always right there.
+  // The checkbox shares a slot with the severity dot: the dot is the resting
+  // state, hovering (or having a selection open) swaps in the checkbox. Keeps
+  // the row to one leading glyph instead of two.
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkConfirm, setBulkConfirm] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -338,11 +339,13 @@ export default function AlertsPage() {
         toast.error(json.error || "Couldn't run checks");
         return;
       }
-      if (json.inserted > 0) {
-        toast.success(`${json.inserted} new alert${json.inserted === 1 ? "" : "s"}`);
-      } else {
-        toast.success("Re-checked, nothing new");
-      }
+      // A run can also CLOSE alerts — a destination that came back healthy, a
+      // trend that reverted. Saying "nothing new" while quietly clearing four
+      // rows off the list makes the page look like it lost them.
+      const parts: string[] = [];
+      if (json.inserted > 0) parts.push(`${json.inserted} new`);
+      if (json.closed > 0) parts.push(`${json.closed} resolved`);
+      toast.success(parts.length > 0 ? parts.join(" · ") : "Re-checked, nothing new");
       fetchAlerts(false);
       setMetricsRefreshKey((n) => n + 1);
     } catch {
@@ -352,139 +355,116 @@ export default function AlertsPage() {
     }
   };
 
+  const headline =
+    totals.byTier[1] > 0
+      ? `${totals.byTier[1]} critical`
+      : totals.all > 0
+        ? `${totals.all} open alert${totals.all !== 1 ? "s" : ""}`
+        : "All clear";
+
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-5 p-6">
       <Header title="Alerts" />
 
-      <div className="max-w-5xl mx-auto w-full space-y-6 pb-20">
-        {/* Plan banner — always visible at the very top so the user
-            always knows which plan / click cap they're on. */}
-        <PlanBanner activeTeamPlan={activeTeam?.plan ?? "free"} />
+      <div className="max-w-4xl mx-auto w-full space-y-4 pb-24">
+        {/* Status strip — plan, click usage, headline count and Check now, all
+            on one line. Used to be two full-height cards stacked on top of the
+            list. The plan/cap is still unmissable, it just doesn't cost a
+            screenful to say so. */}
+        <StatusStrip
+          plan={activeTeam?.plan ?? "free"}
+          headline={headline}
+          critical={totals.byTier[1] > 0}
+          allClear={totals.all === 0}
+          running={running}
+          canRun={!!activeTeam}
+          onRun={runChecksNow}
+        />
 
-        {/* Hero header */}
-        <Card className="glass-card border-white/5">
-          <CardContent className="p-6 flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-4">
-              <div className={cn(
-                "w-14 h-14 rounded-2xl flex items-center justify-center border",
-                totals.byTier[1] > 0
-                  ? "bg-red-500/10 border-red-500/30 text-red-400 shadow-[0_0_30px_rgba(239,68,68,0.15)]"
-                  : totals.all > 0
-                    ? "bg-amber-500/10 border-amber-500/30 text-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.15)]"
-                    : "bg-[#00D26A]/10 border-[#00D26A]/30 text-[#00D26A] shadow-[0_0_30px_rgba(0,210,106,0.15)]"
-              )}>
-                {totals.all > 0 ? <ShieldAlert className="w-7 h-7" /> : <ShieldCheck className="w-7 h-7" />}
-              </div>
-              <div>
-                <h2 className="text-2xl font-black tracking-tight text-white capitalize">
-                  {totals.byTier[1] > 0
-                    ? `${totals.byTier[1]} critical alert${totals.byTier[1] !== 1 ? "s" : ""}`
-                    : totals.all > 0
-                      ? `${totals.all} open alert${totals.all !== 1 ? "s" : ""}`
-                      : "All clear"}
-                </h2>
-                <p className="text-sm text-neutral-400 mt-1 max-w-xl">
-                  Tappr auto-checks every 3 hours. Use <span className="text-white font-bold">Check now</span> any time to refresh manually. Dismiss an alert once you&apos;ve handled it.
-                </p>
-              </div>
-            </div>
-            <Button
-              onClick={runChecksNow}
-              disabled={running || !activeTeam}
-              className="btn-primary h-11 px-5 rounded-xl font-black uppercase text-[10px] tracking-widest gap-2 text-black"
-            >
-              <RefreshCw className={cn("w-4 h-4", running && "animate-spin")} />
-              {running ? "Checking…" : "Check now"}
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Tier filter chips — click a tier to filter the list; click again to reset. */}
+        {/* One filter row: tier pills (which replaced the four tier tiles AND
+            the tier section headings), search, severity. */}
         {alerts.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {TIER_ORDER.map((tier) => {
-              const meta = TIER_META[tier];
-              const count = totals.byTier[tier];
-              const active = tierFilter === tier;
-              return (
-                <button
-                  key={tier}
-                  onClick={() => setTierFilter((t) => (t === tier ? "all" : tier))}
-                  aria-pressed={active}
-                  className={cn(
-                    "text-left rounded-2xl border p-4 transition-all cursor-pointer",
-                    active
-                      ? "border-white/25 ring-1 ring-white/20 bg-white/[0.04]"
-                      : count > 0
-                        ? "border-white/10 bg-white/[0.01] hover:border-white/20 hover:bg-white/[0.02]"
-                        : "border-white/5 bg-white/[0.01] opacity-50 hover:opacity-75"
-                  )}
-                >
-                  <p className={cn("text-[10px] font-black uppercase tracking-widest", count > 0 ? meta.accent : "text-neutral-500")}>{meta.title}</p>
-                  <p className={cn("text-3xl font-black tracking-tight mt-2", count > 0 ? meta.accent : "text-neutral-600")}>
-                    {count}
-                  </p>
-                  <p className="text-[10px] text-neutral-500 mt-1 font-medium leading-tight">{meta.subtitle}</p>
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Filter bar — search + severity + status. */}
-        {alerts.length > 0 && (
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search alerts…"
-                className="w-full h-9 pl-9 pr-3 rounded-lg bg-white/[0.02] border border-white/10 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/25"
+          <div className="space-y-3">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <TierPill
+                label="All"
+                count={totals.all}
+                active={tierFilter === "all"}
+                accent="text-white"
+                onClick={() => setTierFilter("all")}
               />
+              {TIER_ORDER.map((tier) => (
+                <TierPill
+                  key={tier}
+                  label={TIER_META[tier].title}
+                  count={totals.byTier[tier]}
+                  active={tierFilter === tier}
+                  accent={TIER_META[tier].accent}
+                  onClick={() => setTierFilter((t) => (t === tier ? "all" : tier))}
+                />
+              ))}
             </div>
-            <Seg
-              options={[
-                { v: "all", label: "All" },
-                { v: "high", label: "High" },
-                { v: "medium", label: "Med" },
-                { v: "low", label: "Low" },
-              ]}
-              value={sevFilter}
-              onChange={setSevFilter}
-            />
-            {hasActiveFilters && (
-              <button
-                onClick={clearFilters}
-                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-[10px] font-bold uppercase tracking-widest text-neutral-400 hover:text-white hover:bg-white/5 transition-colors"
-              >
-                <X className="w-3.5 h-3.5" /> Clear
-              </button>
-            )}
-            <span className="text-[10px] text-neutral-500 font-bold whitespace-nowrap ml-auto">
-              {filtered.length} of {alerts.length}
-            </span>
+
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search alerts…"
+                  className="w-full h-9 pl-9 pr-3 rounded-lg bg-white/[0.02] border border-white/10 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/25"
+                />
+              </div>
+              <Seg
+                options={[
+                  { v: "all", label: "All" },
+                  { v: "high", label: "High" },
+                  { v: "medium", label: "Med" },
+                  { v: "low", label: "Low" },
+                ]}
+                value={sevFilter}
+                onChange={setSevFilter}
+              />
+              {hasActiveFilters && (
+                <button
+                  onClick={clearFilters}
+                  className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-[10px] font-bold uppercase tracking-widest text-neutral-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" /> Clear
+                </button>
+              )}
+            </div>
           </div>
         )}
 
-        {/* Detector metrics — secondary, collapsed by default. */}
-        {alerts.length > 0 && (
-          <div className="rounded-2xl border border-white/5 overflow-hidden">
+        {/* Detector metrics — collapsed, directly above the list.
+            It sat BELOW the list for one release and that was wrong: with 20
+            open alerts you had to scroll past all of them to reach it, so the
+            panel that explains why the alerts exist was the hardest thing on the
+            page to find. Collapsed it costs one ~40px bar, which doesn't move no
+            matter how long the list gets. */}
+        {!loading && alerts.length > 0 && (
+          <div className="rounded-2xl border border-white/[0.06] overflow-hidden">
             <button
               onClick={() => setMetricsOpen((o) => !o)}
-              className="w-full flex items-center justify-between px-5 py-3 text-left hover:bg-white/[0.02] transition-colors"
+              className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-white/[0.02] transition-colors cursor-pointer"
             >
-              <span className="text-xs font-black uppercase tracking-widest text-neutral-400 inline-flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-neutral-500" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500 inline-flex items-center gap-2">
+                <BarChart3 className="w-3.5 h-3.5" />
                 Detector metrics
               </span>
-              <ChevronDown className={cn("w-4 h-4 text-neutral-500 transition-transform", metricsOpen && "rotate-180")} />
+              <ChevronDown className={cn("w-4 h-4 text-neutral-600 transition-transform", metricsOpen && "rotate-180")} />
             </button>
-            {metricsOpen && (
-              <div className="p-1">
-                <MetricsDashboard refreshKey={metricsRefreshKey} />
-              </div>
-            )}
+            {metricsOpen && <MetricsDashboard refreshKey={metricsRefreshKey} />}
+          </div>
+        )}
+
+        {/* Loading skeleton — rows, not cards, so it matches what lands. */}
+        {loading && (
+          <div className="rounded-2xl border border-white/[0.06] divide-y divide-white/[0.05] overflow-hidden">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="h-14 bg-white/[0.02] animate-pulse" />
+            ))}
           </div>
         )}
 
@@ -496,8 +476,11 @@ export default function AlertsPage() {
                 <Sparkles className="w-9 h-9 text-[#00D26A]" />
               </div>
               <h3 className="text-xl font-black text-white tracking-tight">Nothing to worry about</h3>
+              {/* Hedged on purpose. These are conclusions from the last scan,
+                  which the daily cron may have run up to 24h ago — stating them
+                  in the flat present tense promised a freshness we don't have. */}
               <p className="text-sm text-neutral-400 mt-2 max-w-md mx-auto leading-relaxed">
-                All your destinations respond fine, traffic looks normal, no spam patterns, and you&apos;re comfortably under your plan limit. Hit <span className="text-white font-bold">Check now</span> any time to re-scan.
+                As of the last scan: destinations responding, traffic normal, no spam patterns, and you&apos;re under your plan limit. Hit <span className="text-white font-bold">Check now</span> to re-scan against live data.
               </p>
             </CardContent>
           </Card>
@@ -505,93 +488,47 @@ export default function AlertsPage() {
 
         {/* No-results state — alerts exist but the active filters hide them all. */}
         {!loading && alerts.length > 0 && filtered.length === 0 && (
-          <Card className="glass-card border-white/10">
-            <CardContent className="p-10 text-center">
-              <div className="mx-auto w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-4">
-                <Search className="w-7 h-7 text-neutral-500" />
-              </div>
-              <h3 className="text-lg font-black text-white tracking-tight">No alerts match your filters</h3>
-              <p className="text-sm text-neutral-400 mt-2">Try widening the filters or clearing them.</p>
-              <button
-                onClick={clearFilters}
-                className="mt-4 inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-black uppercase tracking-widest text-white transition-colors"
-              >
-                <X className="w-3.5 h-3.5" /> Clear filters
-              </button>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Loading skeleton */}
-        {loading && (
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-24 rounded-2xl bg-white/[0.02] border border-white/5 animate-pulse" />
-            ))}
+          <div className="rounded-2xl border border-white/[0.06] p-10 text-center">
+            <div className="mx-auto w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-3">
+              <Search className="w-5 h-5 text-neutral-500" />
+            </div>
+            <h3 className="text-sm font-black text-white tracking-tight">No alerts match your filters</h3>
+            <button
+              onClick={clearFilters}
+              className="mt-3 inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-black uppercase tracking-widest text-white transition-colors cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" /> Clear filters
+            </button>
           </div>
         )}
 
-        {/* Tier sections */}
-        {!loading && TIER_ORDER.map((tier) => {
-          const tierMap = groupedByTier[tier];
-          const types = Object.keys(tierMap) as AlertType[];
-          if (types.length === 0) return null;
-          const tMeta = TIER_META[tier];
-          return (
-            <section key={tier} className="space-y-4">
-              <div className="pl-1">
-                <h2 className={cn("text-base font-black tracking-tight uppercase", tMeta.accent)}>{tMeta.title}</h2>
-                <p className="text-[11px] text-neutral-500 font-medium">{tMeta.subtitle}</p>
-              </div>
-
-              <div className="space-y-4">
-                {types.map((cat) => {
-                  const list = tierMap[cat] || [];
-                  if (list.length === 0) return null;
-                  const meta = ALERT_LABELS[cat];
-                  const CatIcon = CATEGORY_ICONS[cat] ?? ShieldAlert;
-                  // Badge colour = highest severity in this group, so a
-                  // category with a critical alert reads red even if it
-                  // also holds lower ones.
-                  const style = sevStyle(maxSeverity(list));
-                  return (
-                    <div key={cat} className="space-y-2">
-                      <div className="flex items-center gap-3 pl-1">
-                        <span className={cn("inline-flex items-center gap-2 px-2.5 py-1 rounded-md border text-[10px] font-semibold uppercase tracking-widest", style.tint, style.text, style.border)}>
-                          <CatIcon className="w-3.5 h-3.5" />
-                          {meta.label}
-                        </span>
-                        <span className="text-[10px] text-neutral-500 font-bold">
-                          {list.length} open
-                        </span>
-                      </div>
-
-                      <AnimatePresence initial={false}>
-                        {list.map((a, i) => (
-                          <motion.div
-                            key={a.id}
-                            layout
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.96 }}
-                            transition={{ duration: 0.18, ease: "easeOut", delay: Math.min(i * 0.03, 0.18) }}
-                          >
-                            <AlertCard
-                              alert={a}
-                              selected={selected.has(a.id)}
-                              onToggleSelect={toggleSelect}
-                              onRequestDelete={setDeleteCandidate}
-                            />
-                          </motion.div>
-                        ))}
-                      </AnimatePresence>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          );
-        })}
+        {/* The list. One border, hairline dividers, no nesting. */}
+        {!loading && filtered.length > 0 && (
+          <div className="rounded-2xl border border-white/[0.06] divide-y divide-white/[0.05] overflow-hidden">
+            <AnimatePresence initial={false}>
+              {filtered.map((a) => (
+                <motion.div
+                  key={a.id}
+                  layout
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.15, ease: "easeOut" }}
+                >
+                  <AlertRowItem
+                    alert={a}
+                    selected={selected.has(a.id)}
+                    selectionActive={selected.size > 0}
+                    expanded={expanded === a.id}
+                    onToggleExpand={() => setExpanded((id) => (id === a.id ? null : a.id))}
+                    onToggleSelect={toggleSelect}
+                    onRequestDelete={setDeleteCandidate}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        )}
 
       </div>
 
@@ -603,19 +540,19 @@ export default function AlertsPage() {
           </span>
           <button
             onClick={selectAllVisible}
-            className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 hover:text-white transition-colors"
+            className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 hover:text-white transition-colors cursor-pointer"
           >
             Select all
           </button>
           <button
             onClick={clearSelection}
-            className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 hover:text-white transition-colors"
+            className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 hover:text-white transition-colors cursor-pointer"
           >
             Clear
           </button>
           <button
             onClick={() => setBulkConfirm(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white text-[10px] font-black uppercase tracking-widest transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white text-[10px] font-black uppercase tracking-widest transition-colors cursor-pointer"
           >
             <Trash2 className="w-3.5 h-3.5" />
             Delete {selected.size}
@@ -670,7 +607,7 @@ export default function AlertsPage() {
           <DialogDescription className="text-neutral-400 font-medium leading-relaxed">
             {deleteCandidate && (
               <>
-                You&apos;ll stop seeing <span className="text-white font-bold">&quot;{deleteCandidate.title}&quot;</span> in your list.
+                You&apos;ll stop seeing <span className="text-white font-bold">&quot;{alertSubject(deleteCandidate)}&quot;</span> in your list.
                 If the underlying issue happens again, Tappr will re-create the alert automatically.
               </>
             )}
@@ -701,128 +638,254 @@ export default function AlertsPage() {
 
 // ────────────────────────────────────────────────────────────────────
 
-function AlertCard({
+function TierPill({
+  label,
+  count,
+  active,
+  accent,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  active: boolean;
+  accent: string;
+  onClick: () => void;
+}) {
+  const empty = count === 0;
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer",
+        active
+          ? "border-white/25 bg-white/[0.06] text-white"
+          : empty
+            ? "border-white/[0.06] text-neutral-600 hover:text-neutral-400"
+            : "border-white/10 text-neutral-400 hover:text-white hover:border-white/20"
+      )}
+    >
+      <span className={cn(!active && !empty && accent)}>{label}</span>
+      <span className={cn(
+        "tabular-nums",
+        active ? "text-white/60" : empty ? "text-neutral-700" : "text-neutral-500"
+      )}>
+        {count}
+      </span>
+    </button>
+  );
+}
+
+// One alert = one row. Collapsed: severity dot, short code chip, subject, gist,
+// age. Expanded: the full advice, the destination URL on its own line, and the
+// CTAs. Clicking anywhere on the row toggles the expand.
+function AlertRowItem({
   alert,
   selected,
+  selectionActive,
+  expanded,
+  onToggleExpand,
   onToggleSelect,
   onRequestDelete,
 }: {
   alert: AlertRow;
   selected: boolean;
+  selectionActive: boolean;
+  expanded: boolean;
+  onToggleExpand: () => void;
   onToggleSelect: (id: string) => void;
   onRequestDelete: (alert: AlertRow) => void;
 }) {
   const cat = alert.alert_type as AlertType;
   const Icon = CATEGORY_ICONS[cat] ?? ShieldAlert;
   const style = sevStyle(alert.severity);
+  const badge = alertBadge(alert);
+  const subject = alertSubject(alert);
+  const summary = alertSummary(alert);
+  const url = alertUrl(alert);
+  // Category name is the chip's tooltip rather than a second badge — it's the
+  // answer to "what kind of alert is this", which the icon already gestures at
+  // and which you only actually need spelled out on demand.
+  const categoryLabel = ALERT_LABELS[cat]?.label ?? "Alert";
 
   return (
-    <Card className={cn(
-      "glass-card transition-all group",
-      selected ? "border-red-500/40 ring-1 ring-red-500/40" : `${style.border} ring-1 ${style.ring}`
-    )}>
-      <CardContent className="p-4 flex items-start gap-3">
-        {/* Select checkbox — always visible, drives bulk delete. */}
-        <button
-          onClick={() => onToggleSelect(alert.id)}
+    <div
+      className={cn(
+        "group relative transition-colors",
+        selected ? "bg-red-500/[0.06]" : "hover:bg-white/[0.02]"
+      )}
+    >
+      <div
+        onClick={onToggleExpand}
+        className="flex items-center gap-3 px-3 py-2.5 cursor-pointer"
+      >
+        {/* Leading slot: severity dot at rest, checkbox on hover or while a
+            selection is open. One glyph, two jobs. */}
+        <div className="relative w-5 h-5 shrink-0 flex items-center justify-center">
+          <span
+            className={cn(
+              "w-2 h-2 rounded-full transition-opacity",
+              style.dot,
+              (selected || selectionActive) ? "opacity-0" : "opacity-100 group-hover:opacity-0"
+            )}
+          />
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleSelect(alert.id); }}
+            className={cn(
+              "absolute inset-0 rounded-md border-2 flex items-center justify-center transition-all cursor-pointer",
+              selected
+                ? "bg-red-500 border-red-500 opacity-100"
+                : selectionActive
+                  ? "border-white/20 hover:border-red-400/60 opacity-100"
+                  : "border-white/20 hover:border-red-400/60 opacity-0 group-hover:opacity-100 focus:opacity-100"
+            )}
+            aria-label={selected ? "Deselect alert" : "Select alert"}
+          >
+            {selected && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+          </button>
+        </div>
+
+        {/* Short code chip — "404", "-62%", "97%". Reads out of the detector's
+            metadata, so it says the one number the alert is actually about. */}
+        <span
+          title={categoryLabel}
           className={cn(
-            "w-5 h-5 mt-0.5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all",
-            selected ? "bg-red-500 border-red-500" : "border-white/20 hover:border-red-400/60 hover:bg-red-500/5"
+            "shrink-0 inline-flex items-center gap-1.5 h-6 px-2 rounded-md border text-[10px] font-black uppercase tracking-wider tabular-nums",
+            style.tint, style.text, style.border
           )}
-          aria-label={selected ? "Deselect alert" : "Select alert"}
-          title="Select"
         >
-          {selected && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
-        </button>
+          <Icon className="w-3 h-3" />
+          {badge}
+        </span>
 
-        {/* Icon */}
-        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", style.tint, style.text)}>
-          <Icon className="w-5 h-5" />
+        {/* Subject + gist. On a wide row they sit side by side; the gist is the
+            first thing to get clipped, which is correct — the subject is what
+            you scan for. */}
+        <div className="flex-1 min-w-0 flex items-baseline gap-2">
+          <span className="text-sm font-bold text-white truncate shrink-0 max-w-[55%]">
+            {subject}
+          </span>
+          <span className="text-xs text-neutral-500 truncate hidden sm:block">
+            {summary}
+          </span>
         </div>
 
-        {/* Body */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-sm font-black text-white">
-              {alert.title}
-            </h3>
-            <span className={cn(
-              "px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-widest",
-              style.tint, style.text
-            )}>
-              {alert.severity}
-            </span>
-          </div>
-          <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
-            {alert.description}
-          </p>
-          <div className="flex items-center gap-3 mt-2 flex-wrap">
-            <span className="text-[10px] text-neutral-600 font-medium">
-              {formatRelative(alert.created_at)}
-            </span>
-            {/* Tier-specific deep links / CTAs */}
-            {alert.affected_link && (
-              <Link
-                href={`/dashboard/links?slug=${encodeURIComponent(alert.affected_link)}`}
-                className="text-[10px] font-bold uppercase tracking-widest text-[#00D26A] hover:text-[#39FF14] inline-flex items-center gap-1"
-              >
-                Open link <ChevronRight className="w-3 h-3" />
-              </Link>
-            )}
-            {cat === "plan_limit" && (
-              <Link
-                href="/dashboard/billing"
-                className="text-[10px] font-bold uppercase tracking-widest text-[#00D26A] hover:text-[#39FF14] inline-flex items-center gap-1"
-              >
-                Upgrade plan <ChevronRight className="w-3 h-3" />
-              </Link>
-            )}
-            {cat === "ab_winner" && (
-              <Link
-                href="/dashboard/ab-testing"
-                className="text-[10px] font-bold uppercase tracking-widest text-[#00D26A] hover:text-[#39FF14] inline-flex items-center gap-1"
-              >
-                View test <ChevronRight className="w-3 h-3" />
-              </Link>
-            )}
-            {cat === "subscription_expiring" && (
-              <Link
-                href="/dashboard/billing"
-                className="text-[10px] font-bold uppercase tracking-widest text-[#00D26A] hover:text-[#39FF14] inline-flex items-center gap-1"
-              >
-                Manage billing <ChevronRight className="w-3 h-3" />
-              </Link>
-            )}
-            {cat === "stale_links" && (
-              <Link
-                href="/dashboard/links"
-                className="text-[10px] font-bold uppercase tracking-widest text-[#00D26A] hover:text-[#39FF14] inline-flex items-center gap-1"
-              >
-                Clean up links <ChevronRight className="w-3 h-3" />
-              </Link>
-            )}
-          </div>
-        </div>
+        <span
+          className="shrink-0 text-[10px] text-neutral-600 font-medium tabular-nums cursor-help hidden sm:block"
+          title={formatAbsolute(alert.created_at)}
+        >
+          {formatRelative(alert.created_at)}
+        </span>
 
-        {/* Delete button — visible on hover (or always on touch). Opens
-            a confirmation dialog before dismissing the row. */}
         <button
-          onClick={() => onRequestDelete(alert)}
-          className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-neutral-600 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all"
-          title="Delete this alert"
-          aria-label="Delete this alert"
+          onClick={(e) => { e.stopPropagation(); onRequestDelete(alert); }}
+          className="shrink-0 w-7 h-7 rounded-md flex items-center justify-center text-neutral-600 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all cursor-pointer"
+          title="Dismiss this alert"
+          aria-label="Dismiss this alert"
         >
-          <Trash2 className="w-4 h-4" />
+          <Trash2 className="w-3.5 h-3.5" />
         </button>
-      </CardContent>
-    </Card>
+
+        <ChevronDown
+          className={cn(
+            "shrink-0 w-4 h-4 text-neutral-600 transition-transform",
+            expanded && "rotate-180"
+          )}
+        />
+      </div>
+
+      {/* Expanded detail */}
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="overflow-hidden"
+          >
+            <div className="pl-11 pr-3 pb-3.5 space-y-3">
+              <p className="text-xs text-neutral-400 leading-relaxed max-w-2xl">
+                {summary}
+              </p>
+
+              {/* The destination URL, on its own line, in mono. This is the copy
+                  that used to be buried mid-sentence in the card body. */}
+              {url && (
+                <div className="rounded-lg border border-white/[0.06] bg-black/40 px-3 py-2">
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-neutral-600 mb-1">Destination</p>
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-[11px] font-mono text-neutral-400 hover:text-white break-all inline-flex items-start gap-1.5 transition-colors"
+                  >
+                    {url}
+                    <ExternalLink className="w-3 h-3 shrink-0 mt-0.5" />
+                  </a>
+                </div>
+              )}
+
+              <div className="flex items-center gap-4 flex-wrap">
+                <RowCta alert={alert} />
+                <span className="text-[10px] text-neutral-600 font-medium sm:hidden">
+                  {formatAbsolute(alert.created_at)}
+                </span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 
-// Prominent plan banner shown at the very top of the alerts page. Fetches
-// monthly click usage from /api/alerts/metrics so the progress bar reflects
-// the same numbers as the plan_limit detector.
-function PlanBanner({ activeTeamPlan }: { activeTeamPlan: string }) {
+// Per-type deep link out of the alert into the thing you'd fix.
+function RowCta({ alert }: { alert: AlertRow }) {
+  const cat = alert.alert_type as AlertType;
+  const cls =
+    "text-[10px] font-black uppercase tracking-widest text-[#00D26A] hover:text-[#39FF14] inline-flex items-center gap-1 transition-colors";
+
+  const target =
+    alert.affected_link
+      ? { href: `/dashboard/links?slug=${encodeURIComponent(alert.affected_link)}`, label: "Open link" }
+      : cat === "plan_limit" || cat === "subscription_expiring"
+        ? { href: "/dashboard/billing", label: cat === "plan_limit" ? "Upgrade plan" : "Manage billing" }
+        : cat === "ab_winner"
+          ? { href: "/dashboard/ab-testing", label: "View test" }
+          : cat === "stale_links"
+            ? { href: "/dashboard/links", label: "Clean up links" }
+            : null;
+
+  if (!target) return null;
+  return (
+    <Link href={target.href} onClick={(e) => e.stopPropagation()} className={cls}>
+      {target.label} <ChevronRight className="w-3 h-3" />
+    </Link>
+  );
+}
+
+// Plan + click usage + headline + Check now, on one line. Replaces the old
+// PlanBanner card and hero card, which together ran ~280px tall before the
+// first alert.
+function StatusStrip({
+  plan,
+  headline,
+  critical,
+  allClear,
+  running,
+  canRun,
+  onRun,
+}: {
+  plan: string;
+  headline: string;
+  critical: boolean;
+  allClear: boolean;
+  running: boolean;
+  canRun: boolean;
+  onRun: () => void;
+}) {
   const { activeTeam } = useTeam();
   const [usage, setUsage] = useState<{ used: number; cap: number; pct: number } | null>(null);
 
@@ -839,76 +902,80 @@ function PlanBanner({ activeTeamPlan }: { activeTeamPlan: string }) {
     return () => { cancelled = true; };
   }, [activeTeam?.id]);
 
-  const planKey = (activeTeamPlan ?? "free").toLowerCase();
-  const planMeta = {
-    free:    { label: "FREE",    capLabel: "500 clicks/mo",       accent: "text-neutral-400", chip: "bg-white/5 border-white/10",          bar: "bg-neutral-500" },
-    starter: { label: "STARTER", capLabel: "50,000 clicks/mo",    accent: "text-neutral-200", chip: "bg-white/5 border-white/10",          bar: "bg-neutral-300" },
-    growth:  { label: "GROWTH",  capLabel: "250,000 clicks/mo",   accent: "text-[#00D26A]",   chip: "bg-[#00D26A]/10 border-[#00D26A]/30", bar: "bg-[#00D26A]" },
-    agency:  { label: "AGENCY",  capLabel: "1,000,000 clicks/mo", accent: "text-amber-400",   chip: "bg-amber-500/10 border-amber-500/30", bar: "bg-amber-400" },
-  }[planKey] ?? { label: planKey.toUpperCase(), capLabel: "", accent: "text-white", chip: "bg-white/5 border-white/10", bar: "bg-white" };
+  const planKey = (plan ?? "free").toLowerCase();
+  const planLabel = planKey.toUpperCase();
+  // No ceiling → no percentage, no progress bar. Just the count. `used / Infinity`
+  // is 0 and "N / ∞ (0%)" is worse than saying nothing.
+  const uncapped = !hasClickCap(planKey);
+  const cap = planClickCap(planKey);
 
   const barColor =
     usage && usage.pct >= 100 ? "bg-red-500" :
     usage && usage.pct >= 80  ? "bg-amber-400" :
-    planMeta.bar;
+    "bg-[#00D26A]";
+
+  const statusColor = critical
+    ? "bg-red-500/10 border-red-500/30 text-red-400"
+    : allClear
+      ? "bg-[#00D26A]/10 border-[#00D26A]/30 text-[#00D26A]"
+      : "bg-amber-500/10 border-amber-500/30 text-amber-400";
 
   return (
     <Card className="glass-card border-white/5">
-      <CardContent className="p-5 flex flex-col md:flex-row md:items-center gap-4">
-        <div className="flex items-center gap-3 shrink-0">
-          <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center border", planMeta.chip)}>
-            <Sparkles className={cn("w-5 h-5", planMeta.accent)} />
+      <CardContent className="p-3.5 flex items-center gap-4 flex-wrap">
+        {/* Status */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center border", statusColor)}>
+            {allClear ? <ShieldCheck className="w-4.5 h-4.5" /> : <ShieldAlert className="w-4.5 h-4.5" />}
           </div>
           <div>
-            <p className="text-[9px] font-black uppercase tracking-[0.3em] text-neutral-500 leading-none">Your plan</p>
-            <p className={cn("text-2xl font-black tracking-tight leading-none mt-1", planMeta.accent)}>{planMeta.label}</p>
-            <p className="text-[10px] text-neutral-500 mt-1 font-medium">{planMeta.capLabel}</p>
+            <p className="text-base font-black tracking-tight text-white leading-none">{headline}</p>
+            {/* Cadence must match vercel.json. The crons run once a day — a Vercel
+                Hobby limit, not something we can quietly bump, so the copy has to
+                be honest about it and point at "Check now". */}
+            <p className="text-[10px] text-neutral-500 mt-1 leading-none">Scanned daily · re-scan any time</p>
           </div>
         </div>
 
-        {/* Usage bar */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-baseline justify-between text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-1.5">
-            <span>Click usage this month</span>
-            <span className="text-white">
-              {usage
-                ? `${usage.used.toLocaleString()} / ${usage.cap.toLocaleString()} (${usage.pct}%)`
-                : "Loading…"}
-            </span>
+        {/* Plan + usage */}
+        <div className="flex-1 min-w-[180px] flex items-center gap-3">
+          <Link
+            href="/dashboard/billing"
+            className="shrink-0 inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg border border-white/10 bg-white/[0.03] text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/[0.06] transition-colors"
+          >
+            <Sparkles className="w-3 h-3 text-[#00D26A]" />
+            {planLabel}
+          </Link>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-baseline justify-between gap-2 text-[10px] font-bold text-neutral-500 mb-1">
+              <span className="uppercase tracking-widest">Clicks this month</span>
+              <span className="text-neutral-300 tabular-nums whitespace-nowrap">
+                {!usage
+                  ? "…"
+                  : uncapped
+                    ? `${usage.used.toLocaleString()}`
+                    : `${usage.used.toLocaleString()} / ${cap.toLocaleString()}`}
+              </span>
+            </div>
+            {!uncapped && (
+              <div className="h-1 rounded-full bg-white/5 overflow-hidden">
+                <div
+                  className={cn("h-full rounded-full transition-all duration-500", barColor)}
+                  style={{ width: usage ? `${Math.min(usage.pct, 100)}%` : "0%" }}
+                />
+              </div>
+            )}
           </div>
-          <div className="h-2 rounded-full bg-white/5 overflow-hidden">
-            <div
-              className={cn("h-full rounded-full transition-all duration-500", barColor)}
-              style={{ width: usage ? `${Math.min(usage.pct, 100)}%` : "0%" }}
-            />
-          </div>
-          {usage && usage.pct >= 80 && (
-            <p className={cn("text-[10px] font-bold mt-1.5", usage.pct >= 100 ? "text-red-400" : "text-amber-400")}>
-              {usage.pct >= 100
-                ? "You've hit your monthly cap. New visitors see the paused page until upgrade or reset."
-                : "You're close to your monthly cap. Consider upgrading before it runs out."}
-            </p>
-          )}
         </div>
 
-        {/* CTA */}
-        <div className="shrink-0">
-          {planKey === "agency" ? (
-            <Link
-              href="/dashboard/billing"
-              className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl border border-white/10 bg-white/[0.02] text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/5 transition-colors"
-            >
-              Manage billing
-            </Link>
-          ) : (
-            <Link
-              href="/dashboard/billing"
-              className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl btn-primary-pulse text-black text-[10px] font-black uppercase tracking-widest"
-            >
-              Upgrade plan <ChevronRight className="w-3.5 h-3.5" />
-            </Link>
-          )}
-        </div>
+        <Button
+          onClick={onRun}
+          disabled={running || !canRun}
+          className="btn-primary h-9 px-4 rounded-xl font-black uppercase text-[10px] tracking-widest gap-2 text-black shrink-0"
+        >
+          <RefreshCw className={cn("w-3.5 h-3.5", running && "animate-spin")} />
+          {running ? "Checking…" : "Check now"}
+        </Button>
       </CardContent>
     </Card>
   );
@@ -918,9 +985,26 @@ function formatRelative(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
   const minutes = Math.round(diffMs / 60_000);
   if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes} min ago`;
+  if (minutes < 60) return `${minutes}m`;
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return `${hours}h`;
   const days = Math.round(hours / 24);
-  return `${days}d ago`;
+  if (days <= 7) return `${days}d`;
+  // Past a week "34d" stops meaning anything — show the actual date.
+  return formatAbsolute(iso, { short: true });
+}
+
+// Full timestamp, in the reader's own locale and timezone. Used for the
+// tooltip on every alert's age, because "3d" is not an answer to "when
+// exactly did this fire" — and that's the question you have when you're
+// deciding whether an alert is still relevant.
+function formatAbsolute(iso: string, opts: { short?: boolean } = {}): string {
+  const d = new Date(iso);
+  if (opts.short) {
+    return d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  }
+  return d.toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 }

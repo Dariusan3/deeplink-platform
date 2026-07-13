@@ -321,7 +321,7 @@ function TreeRow({
         </div>
 
         {/* Name + meta */}
-        <div className="flex-1 min-w-0 flex items-baseline gap-2" onClick={() => onOpen(node.collection.id)}>
+        <div className="flex-1 min-w-0 flex items-baseline gap-2 cursor-pointer" onClick={() => onOpen(node.collection.id)}>
           <span className="text-sm font-bold text-white truncate">{node.collection.name}</span>
           <span className="text-[10px] text-neutral-500 font-medium shrink-0 inline-flex items-center gap-1">
             <Link2 className="w-2.5 h-2.5" />

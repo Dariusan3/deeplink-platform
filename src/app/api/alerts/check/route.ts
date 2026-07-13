@@ -43,8 +43,8 @@ export async function POST(request: NextRequest) {
     .single();
   if (!team) return NextResponse.json({ error: "team not found" }, { status: 404 });
 
-  const detected = await runAllDetectors(admin, team);
-  const inserted = await persistDetections(admin, [team_id], detected);
+  const run = await runAllDetectors(admin, team);
+  const { inserted, closed } = await persistDetections(admin, [team_id], run);
 
-  return NextResponse.json({ detected: detected.length, inserted });
+  return NextResponse.json({ detected: run.alerts.length, inserted, closed });
 }

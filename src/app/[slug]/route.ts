@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import type { RedirectRule } from "@/types/links";
+import { evaluateConditions } from "@/lib/redirect-rules";
 import { finalizeABWinnerIfReady } from "@/lib/ab-testing";
 import { getAppDeepLink } from "@/lib/deeplink";
 import { resolveSlug } from "@/lib/link-cache";
+import { isTeamOverClickCap } from "@/lib/click-quota";
 
 // Interstitial that opens the native app on a phone, then falls back to
 // the web URL if the app isn't installed. A plain 302 to https does NOT
@@ -85,41 +86,6 @@ function ensureAbsoluteUrl(url: string): string {
   return `https://${trimmedUrl}`;
 }
 
-function evaluateConditions(
-  rule: RedirectRule,
-  context: { country?: string; deviceType: string; now: Date }
-): boolean {
-  const { conditions } = rule;
-  if (conditions.geo?.countries && conditions.geo.countries.length > 0) {
-    if (!context.country || !conditions.geo.countries.includes(context.country.toUpperCase())) {
-      return false;
-    }
-  }
-  if (conditions.device?.types && conditions.device.types.length > 0) {
-    if (!conditions.device.types.includes(context.deviceType as "mobile" | "tablet" | "desktop")) {
-      return false;
-    }
-  }
-  if (conditions.time) {
-    const now = context.now;
-    if (conditions.time.after && now < new Date(conditions.time.after)) return false;
-    if (conditions.time.before && now > new Date(conditions.time.before)) return false;
-    if (conditions.time.daysOfWeek && conditions.time.daysOfWeek.length > 0) {
-      if (!conditions.time.daysOfWeek.includes(now.getDay())) return false;
-    }
-    if (conditions.time.hourStart !== undefined && conditions.time.hourEnd !== undefined) {
-      const hour = now.getHours();
-      if (conditions.time.hourStart <= conditions.time.hourEnd) {
-        if (hour < conditions.time.hourStart || hour >= conditions.time.hourEnd) return false;
-      } else {
-        // Overnight range (e.g. 22 → 6)
-        if (hour < conditions.time.hourStart && hour >= conditions.time.hourEnd) return false;
-      }
-    }
-  }
-  return true;
-}
-
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
@@ -136,6 +102,20 @@ export async function GET(
   // — the rotator's random pick, the A/B split, geo/device rule evaluation, and
   // click tracking — still runs fresh on every hit.
   const resolution = await resolveSlug(slug);
+
+  // Monthly click cap. Checked once, before any of the three paths branch, so a
+  // rotator or an A/B test can't route around it.
+  //
+  // This is the enforcement the product has been promising all along: the
+  // plan_limit alert tells users "New visitors will see the paused page until
+  // you upgrade or the cycle resets", and until now nothing did that. The
+  // verdict is cached per team (60s), so this costs no query on a normal click.
+  // It fails open — see lib/click-quota.ts.
+  if (resolution.teamId && (await isTeamOverClickCap(resolution.teamId))) {
+    const overCapUrl = new URL("/paused", request.url);
+    overCapUrl.searchParams.set("reason", "quota");
+    return NextResponse.redirect(overCapUrl, { status: 302 });
+  }
 
   // Rotator collection takes precedence.
   if (resolution.rotator) {
@@ -228,7 +208,16 @@ export async function GET(
   const sortedRules = [...rules].sort((a: any, b: any) => (a.priority || 0) - (b.priority || 0));
 
   for (let i = 0; i < sortedRules.length; i++) {
-    if (evaluateConditions(sortedRules[i], { country: country || undefined, deviceType, now })) {
+    // timezone: the team's zone, so "9 AM – 5 PM" means what the user meant
+    // when they set it, not 9–17 UTC on whatever server happens to run this.
+    if (
+      evaluateConditions(sortedRules[i], {
+        country: country || undefined,
+        deviceType,
+        now,
+        timezone: resolution.timezone,
+      })
+    ) {
       destinationUrl = sortedRules[i].destination_url;
       matchedRuleIndex = i;
       break;

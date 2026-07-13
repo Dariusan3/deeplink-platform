@@ -1,14 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import { useTeam } from "@/hooks/use-team";
 import type { AlertMetrics } from "@/lib/alert-metrics";
 import { cn } from "@/lib/utils";
 import {
   Gauge,
   TrendingDown,
-  TrendingUp,
   Rocket,
   Clock,
   Globe,
@@ -18,17 +16,26 @@ import {
   Trophy,
   ShieldAlert,
   CreditCard,
-  AlertCircle,
+  type LucideIcon,
 } from "lucide-react";
 
-// Live dashboard shown on /dashboard/alerts above the alert list. Every
-// card maps 1:1 to a detector in src/lib/alert-detectors.ts so the user
-// can see the numbers behind each alert type. Re-fetches on mount and on
-// `refreshKey` change (the page bumps this after "Check now").
+// Shown below the alert list on /dashboard/alerts, behind a disclosure.
+//
+// This answers exactly one question: "why did (or didn't) this detector fire?"
+// The honest shape of that answer is a reading next to a threshold — so it's a
+// table, one row per detector, not twelve tiles.
+//
+// It used to be a 12-card grid split across three sections, each with its own
+// heading and subtitle, nested inside a disclosure that already had a heading.
+// Four levels of titling for a diagnostics panel. Two of the cards ("Today vs
+// 7-day avg" and "Clicks today") were the same number framed twice, and one
+// (plan usage) repeated the bar already sitting at the top of the page. What it
+// never showed was the thing you actually need — the threshold the reading is
+// being compared against.
 
 // Per-team metrics cache (stale-while-revalidate) — the /api/alerts/metrics
 // endpoint aggregates every detector server-side so it's the heavy part of
-// the alerts page. Cache the last result so the cards paint instantly on
+// the alerts page. Cache the last result so the rows paint instantly on
 // repeat visits, then refresh in the background.
 const METRICS_CACHE_PREFIX = "tappr_alert_metrics_cache_";
 function readMetricsCache(teamId: string): AlertMetrics | null {
@@ -39,6 +46,165 @@ function readMetricsCache(teamId: string): AlertMetrics | null {
 }
 function writeMetricsCache(teamId: string, metrics: AlertMetrics) {
   try { localStorage.setItem(METRICS_CACHE_PREFIX + teamId, JSON.stringify(metrics)); } catch {}
+}
+
+// firing → the condition is true right now and is bad news.
+// winning → true right now and is good news (a spike, an A/B winner).
+// near    → not there yet, but close enough that you should know.
+// quiet   → nothing to say. The resting state, and most rows most days.
+// off     → detector disabled in runAllDetectors.
+type State = "firing" | "winning" | "near" | "quiet" | "off";
+
+// Three signal colours only — red, amber, green — matching the alert list. A
+// `quiet` detector is the resting state and gets no colour at all: if most cards
+// are lit, none of them mean anything.
+const STATE_STYLE: Record<State, { tint: string; value: string; border: string }> = {
+  firing:  { tint: "bg-red-500/10",   value: "text-red-400",     border: "border-red-500/30"   },
+  winning: { tint: "bg-[#00D26A]/10", value: "text-[#00D26A]",   border: "border-[#00D26A]/30" },
+  near:    { tint: "bg-amber-500/10", value: "text-amber-400",   border: "border-amber-500/30" },
+  quiet:   { tint: "bg-white/5",      value: "text-neutral-200", border: "border-white/5"      },
+  off:     { tint: "bg-white/5",      value: "text-neutral-600", border: "border-white/5"      },
+};
+
+type Row = {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  // The threshold, in the user's words. This is the payload of the whole panel:
+  // a reading with no rule next to it doesn't explain anything.
+  rule: string;
+  state: State;
+};
+
+function buildRows(m: AlertMetrics): Row[] {
+  const uncapped = m.planCap === null;
+  const sign = m.todayVsAvgPct >= 0 ? "+" : "";
+  const spike = m.spikeRatio >= 3 && m.clicksLastHour >= 25 && m.hourAvg24h >= 5;
+  const countryShifted =
+    m.topCountryNow !== null && m.topCountryBefore !== null && m.topCountryNow !== m.topCountryBefore;
+  const mobileDelta = m.mobileShareNow - m.mobileShareBefore;
+  const subExpiring = m.subDaysLeft !== null && m.subDaysLeft <= 3 && m.subDaysLeft >= 0;
+
+  return [
+    {
+      icon: Link2,
+      label: "Destinations",
+      value: m.brokenDestinations > 0 ? `${m.brokenDestinations} broken` : "All OK",
+      rule:
+        m.brokenSamples.length > 0
+          ? m.brokenSamples.map((s) => `${s.slug} (${s.status})`).join(" · ")
+          : `${m.linksActive} active · fires on 404, 410 or 5xx`,
+      state: m.brokenDestinations > 0 ? "firing" : "quiet",
+    },
+    {
+      icon: TrendingDown,
+      label: "Today vs 7-day avg",
+      value: `${sign}${m.todayVsAvgPct}%`,
+      rule: `${m.clicksToday.toLocaleString()} today vs ${Math.round(m.clicksAvg7d).toLocaleString()}/day · fires below -60%`,
+      state:
+        m.todayVsAvgPct <= -60 && m.clicksAvg7d >= 10 ? "firing"
+        : m.todayVsAvgPct <= -40 ? "near"
+        : "quiet",
+    },
+    {
+      icon: ShieldAlert,
+      label: "Top IP, last hour",
+      value: m.topIpLastHour ? `${m.topIpLastHour.count} hits` : "Quiet",
+      rule: m.topIpLastHour
+        ? `${m.topIpLastHour.ip} · fires at 30+ in 60 min`
+        : "No clicks in the last 60 min · fires at 30+",
+      state:
+        (m.topIpLastHour?.count ?? 0) >= 30 ? "firing"
+        : (m.topIpLastHour?.count ?? 0) >= 20 ? "near"
+        : "quiet",
+    },
+    {
+      icon: Gauge,
+      label: "Plan usage",
+      value: uncapped ? `${m.clicksThisMonth.toLocaleString()}` : `${m.monthPct}%`,
+      rule: uncapped
+        ? `${m.plan} · unlimited clicks, never fires`
+        : `${m.clicksThisMonth.toLocaleString()} / ${m.planCap!.toLocaleString()} · fires at 80% and 100%`,
+      state:
+        uncapped ? "quiet"
+        : m.monthPct >= 100 ? "firing"
+        : m.monthPct >= 80 ? "near"
+        : "quiet",
+    },
+    {
+      icon: Rocket,
+      label: "Last-hour pace",
+      value: m.spikeRatio > 0 ? `${m.spikeRatio.toFixed(1)}×` : "—",
+      rule: `${m.clicksLastHour} last hour vs ${Math.round(m.hourAvg24h)}/h · fires at 3× and 25+ clicks`,
+      state: spike ? "winning" : "quiet",
+    },
+    {
+      icon: Trophy,
+      label: "A/B tests",
+      value: `${m.abRunning} running`,
+      rule:
+        m.abRecentWinners > 0
+          ? `${m.abRecentWinners} winner${m.abRecentWinners === 1 ? "" : "s"} confirmed in the last 24h`
+          : m.abRunning === 0
+            ? "No tests running · fires when a winner is confirmed"
+            : "Collecting data · fires when a winner is confirmed",
+      state: m.abRecentWinners > 0 ? "winning" : "quiet",
+    },
+    {
+      icon: Globe,
+      label: "Top country (7d)",
+      value: m.topCountryNow
+        ? `${m.topCountryNow} ${Math.round(m.topCountryNowShare * 100)}%`
+        : "—",
+      rule: countryShifted
+        ? `Was ${m.topCountryBefore} · fires when the old leader drops 20+ points and the new one holds 35%+`
+        : "Fires when the old leader drops 20+ points and the new one holds 35%+",
+      state: countryShifted ? "near" : "quiet",
+    },
+    {
+      icon: Smartphone,
+      label: "Mobile share (7d)",
+      value: m.mobileShareNow > 0 ? `${Math.round(m.mobileShareNow * 100)}%` : "—",
+      rule:
+        m.mobileShareBefore > 0
+          ? `Was ${Math.round(m.mobileShareBefore * 100)}% · fires on a 20-point swing`
+          : "Not enough history yet · fires on a 20-point swing",
+      state: Math.abs(mobileDelta) >= 0.2 ? "near" : "quiet",
+    },
+    {
+      icon: Trash2,
+      label: "Stale links (30d)",
+      value: `${m.linksStale}`,
+      rule: `${m.linksActive} active · fires at 10 or more with zero clicks`,
+      state: m.linksStale >= 10 ? "near" : "quiet",
+    },
+    {
+      icon: CreditCard,
+      label: "Subscription",
+      value:
+        m.subStatus === "active" && m.subDaysLeft !== null
+          ? `${m.subDaysLeft}d left`
+          : m.subStatus === "none"
+            ? "Free plan"
+            : m.subStatus,
+      rule: m.subPlan
+        ? `${m.subPlan} · fires 3 days before renewal`
+        : "No paid subscription on file",
+      state: subExpiring ? "firing" : "quiet",
+    },
+    {
+      icon: Clock,
+      label: "Peak hour (7d)",
+      value: m.peakHourNow !== null ? `${m.peakHourNow}:00` : "—",
+      // Kept visible on purpose. The number is still worth glancing at, and a
+      // silently missing row would read as a bug rather than a decision.
+      rule:
+        m.peakHourBefore !== null
+          ? `Was ${m.peakHourBefore}:00 · detector off, it flapped daily`
+          : "Detector off, it flapped daily",
+      state: "off",
+    },
+  ];
 }
 
 export function MetricsDashboard({ refreshKey }: { refreshKey: number }) {
@@ -73,11 +239,13 @@ export function MetricsDashboard({ refreshKey }: { refreshKey: number }) {
 
   useEffect(() => { fetchMetrics(); }, [fetchMetrics, refreshKey]);
 
+  const rows = useMemo(() => (metrics ? buildRows(metrics) : []), [metrics]);
+
   if (loading && !metrics) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-          <div key={i} className="h-28 rounded-2xl bg-white/[0.02] border border-white/5 animate-pulse" />
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2.5 p-3">
+        {Array.from({ length: 8 }, (_, i) => (
+          <div key={i} className="h-24 rounded-xl bg-white/[0.02] border border-white/5 animate-pulse" />
         ))}
       </div>
     );
@@ -85,321 +253,38 @@ export function MetricsDashboard({ refreshKey }: { refreshKey: number }) {
   if (!metrics) return null;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between pl-1">
-        <div>
-          <h2 className="text-xs font-black uppercase tracking-[0.3em] text-neutral-400">Live metrics</h2>
-          <p className="text-[10px] text-neutral-600 font-medium mt-0.5">The numbers driving each detector, updated each time you load the page</p>
-        </div>
-      </div>
+    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2.5 p-3">
+      {rows.map((r) => {
+        const style = STATE_STYLE[r.state];
+        return (
+          <div
+            key={r.label}
+            className={cn(
+              "rounded-xl border p-3 transition-colors",
+              r.state === "off" ? "border-white/5 opacity-50" : style.border
+            )}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <div className={cn("w-6 h-6 rounded-lg flex items-center justify-center shrink-0", style.tint, style.value)}>
+                <r.icon className="w-3 h-3" />
+              </div>
+              <p className="text-[9px] font-black uppercase tracking-widest text-neutral-500 leading-none truncate">
+                {r.label}
+              </p>
+            </div>
 
-      {/* ── Health & limits ─────────────────────────────── */}
-      <SectionLabel tone="red" title="Health & limits" subtitle="What might be costing you money right now" />
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <PlanUsageCard m={metrics} />
-        <ClickDropCard m={metrics} />
-        <DestinationsCard m={metrics} />
-        <ClickSpamCard m={metrics} />
-      </div>
+            <p className={cn("text-xl font-black tracking-tight leading-none tabular-nums", style.value)}>
+              {r.value}
+            </p>
 
-      {/* ── Performance & wins ──────────────────────────── */}
-      <SectionLabel tone="green" title="Performance & wins" subtitle="Where your traffic is paying off" />
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <TrafficSpikeCard m={metrics} />
-        <ABTestCard m={metrics} />
-        <PeakHourCard m={metrics} />
-        <TodayVsAvgCard m={metrics} />
-      </div>
-
-      {/* ── Audience & housekeeping ─────────────────────── */}
-      <SectionLabel tone="amber" title="Audience & housekeeping" subtitle="Trends and account hygiene" />
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <CountryCard m={metrics} />
-        <DeviceCard m={metrics} />
-        <StaleLinksCard m={metrics} />
-        <SubscriptionCard m={metrics} />
-      </div>
-    </div>
-  );
-}
-
-// ── Section label ───────────────────────────────────────────────────
-
-function SectionLabel({ tone, title, subtitle }: { tone: "red" | "green" | "amber" | "neutral"; title: string; subtitle: string }) {
-  const accent =
-    tone === "red"   ? "text-red-400" :
-    tone === "green" ? "text-[#00D26A]" :
-    tone === "amber" ? "text-amber-400" :
-                       "text-neutral-300";
-  return (
-    <div className="pl-1">
-      <h3 className={cn("text-sm font-black uppercase tracking-tight", accent)}>{title}</h3>
-      <p className="text-[10px] text-neutral-500 font-medium">{subtitle}</p>
-    </div>
-  );
-}
-
-// ── Reusable metric tile ────────────────────────────────────────────
-
-function MetricTile({
-  Icon,
-  label,
-  value,
-  hint,
-  tone = "neutral",
-  highlight = false,
-}: {
-  Icon: typeof Gauge;
-  label: string;
-  value: string;
-  hint?: string;
-  tone?: "neutral" | "good" | "warn" | "bad" | "info";
-  highlight?: boolean;
-}) {
-  // Only three signal colours: green (good), amber (warn), red (bad).
-  // "neutral" and "info" both render muted white/gray — not a 4th colour,
-  // just an absence of signal.
-  const toneStyles = {
-    neutral: { tint: "bg-white/5",      text: "text-white",       border: "border-white/10" },
-    good:    { tint: "bg-[#00D26A]/10", text: "text-[#00D26A]",   border: "border-[#00D26A]/30" },
-    warn:    { tint: "bg-amber-500/10", text: "text-amber-400",   border: "border-amber-500/30" },
-    bad:     { tint: "bg-red-500/10",   text: "text-red-400",     border: "border-red-500/30" },
-    info:    { tint: "bg-white/5",      text: "text-neutral-300", border: "border-white/10" },
-  }[tone];
-
-  return (
-    <Card className={cn(
-      "glass-card transition-all",
-      highlight ? toneStyles.border + " ring-1 ring-current/10" : "border-white/5"
-    )}>
-      <CardContent className="p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center", toneStyles.tint, toneStyles.text)}>
-            <Icon className="w-3.5 h-3.5" />
+            {/* The rule. This is the payload of the whole panel: a reading with
+                no threshold next to it explains nothing. */}
+            <p className="text-[10px] text-neutral-600 mt-1.5 leading-tight line-clamp-2">
+              {r.rule}
+            </p>
           </div>
-          <p className="text-[9px] font-black uppercase tracking-widest text-neutral-500 leading-none">{label}</p>
-        </div>
-        <p className={cn("text-2xl font-black tracking-tight leading-none", toneStyles.text)}>
-          {value}
-        </p>
-        {hint && <p className="text-[10px] text-neutral-500 mt-1.5 leading-tight">{hint}</p>}
-      </CardContent>
-    </Card>
-  );
-}
-
-// ── Tier 1 ──────────────────────────────────────────────────────────
-
-function PlanUsageCard({ m }: { m: AlertMetrics }) {
-  const tone = m.monthPct >= 100 ? "bad" : m.monthPct >= 80 ? "warn" : "neutral";
-  return (
-    <MetricTile
-      Icon={Gauge}
-      label="Plan usage"
-      value={`${m.monthPct}%`}
-      hint={`${m.clicksThisMonth.toLocaleString()} / ${m.planCap.toLocaleString()} clicks · ${m.plan}`}
-      tone={tone}
-      highlight={m.monthPct >= 80}
-    />
-  );
-}
-
-function ClickDropCard({ m }: { m: AlertMetrics }) {
-  const dropping = m.todayVsAvgPct < -40 && m.clicksAvg7d >= 50;
-  const tone = dropping ? "bad" : m.todayVsAvgPct < 0 ? "warn" : "good";
-  const sign = m.todayVsAvgPct >= 0 ? "+" : "";
-  return (
-    <MetricTile
-      Icon={m.todayVsAvgPct < 0 ? TrendingDown : TrendingUp}
-      label="Today vs 7-day avg"
-      value={`${sign}${m.todayVsAvgPct}%`}
-      hint={`${m.clicksToday.toLocaleString()} today · ${Math.round(m.clicksAvg7d).toLocaleString()}/day avg`}
-      tone={tone}
-      highlight={dropping}
-    />
-  );
-}
-
-function DestinationsCard({ m }: { m: AlertMetrics }) {
-  const tone = m.brokenDestinations > 0 ? "bad" : "good";
-  return (
-    <MetricTile
-      Icon={Link2}
-      label="Destinations health"
-      value={m.brokenDestinations > 0 ? `${m.brokenDestinations} broken` : "All OK"}
-      hint={
-        m.brokenSamples.length > 0
-          ? m.brokenSamples.map((s) => `${s.slug} (${s.status})`).join(" · ")
-          : `${m.linksActive} active links · last 15 probed`
-      }
-      tone={tone}
-      highlight={m.brokenDestinations > 0}
-    />
-  );
-}
-
-function ClickSpamCard({ m }: { m: AlertMetrics }) {
-  const tone = m.topIpLastHour && m.topIpLastHour.count >= 30 ? "bad" : "good";
-  return (
-    <MetricTile
-      Icon={ShieldAlert}
-      label="Top IP, last hour"
-      value={
-        m.topIpLastHour
-          ? `${m.topIpLastHour.count} hits`
-          : "Quiet"
-      }
-      hint={m.topIpLastHour ? m.topIpLastHour.ip : "No clicks in last 60 min"}
-      tone={tone}
-      highlight={tone === "bad"}
-    />
-  );
-}
-
-// ── Tier 2 ──────────────────────────────────────────────────────────
-
-function TrafficSpikeCard({ m }: { m: AlertMetrics }) {
-  const ratio = m.spikeRatio;
-  const tone = ratio >= 3 ? "good" : ratio >= 1.5 ? "info" : "neutral";
-  return (
-    <MetricTile
-      Icon={Rocket}
-      label="Last hour pace"
-      value={ratio > 0 ? `${ratio.toFixed(1)}×` : "—"}
-      hint={`${m.clicksLastHour} clicks last hour · ${Math.round(m.hourAvg24h)}/h avg`}
-      tone={tone}
-      highlight={ratio >= 3}
-    />
-  );
-}
-
-function ABTestCard({ m }: { m: AlertMetrics }) {
-  const tone = m.abRecentWinners > 0 ? "good" : m.abRunning > 0 ? "info" : "neutral";
-  return (
-    <MetricTile
-      Icon={Trophy}
-      label="A/B testing"
-      value={`${m.abRunning} running`}
-      hint={
-        m.abRecentWinners > 0
-          ? `${m.abRecentWinners} winner${m.abRecentWinners === 1 ? "" : "s"} confirmed in last 24h`
-          : m.abRunning === 0
-            ? "Start your first test to find conversion lifts"
-            : "Tests collecting data, winner needs enough conversions"
-      }
-      tone={tone}
-      highlight={m.abRecentWinners > 0}
-    />
-  );
-}
-
-function PeakHourCard({ m }: { m: AlertMetrics }) {
-  const shifted = m.peakHourNow !== null && m.peakHourBefore !== null && Math.abs(m.peakHourNow - m.peakHourBefore) >= 2;
-  const tone = shifted ? "info" : "neutral";
-  return (
-    <MetricTile
-      Icon={Clock}
-      label="Peak hour (7d)"
-      value={m.peakHourNow !== null ? `${m.peakHourNow}:00` : "—"}
-      hint={
-        m.peakHourBefore !== null && m.peakHourNow !== null
-          ? `Was ${m.peakHourBefore}:00 in days 8–30 ${shifted ? "· shifted" : ""}`
-          : "Not enough click history yet"
-      }
-      tone={tone}
-      highlight={shifted}
-    />
-  );
-}
-
-function TodayVsAvgCard({ m }: { m: AlertMetrics }) {
-  // Different framing from ClickDropCard — this one emphasises spike (positive)
-  const tone = m.todayVsAvgPct >= 30 ? "good" : m.todayVsAvgPct <= -30 ? "bad" : "neutral";
-  return (
-    <MetricTile
-      Icon={m.todayVsAvgPct >= 0 ? TrendingUp : TrendingDown}
-      label="Clicks today"
-      value={m.clicksToday.toLocaleString()}
-      hint={`Hour avg ${Math.round(m.hourAvg24h)} · month ${m.clicksThisMonth.toLocaleString()}`}
-      tone={tone}
-    />
-  );
-}
-
-// ── Tier 3 + 4 ──────────────────────────────────────────────────────
-
-function CountryCard({ m }: { m: AlertMetrics }) {
-  const shifted = m.topCountryNow !== null && m.topCountryBefore !== null && m.topCountryNow !== m.topCountryBefore;
-  return (
-    <MetricTile
-      Icon={Globe}
-      label="Top country (7d)"
-      value={m.topCountryNow ?? "—"}
-      hint={
-        m.topCountryNow
-          ? `${Math.round(m.topCountryNowShare * 100)}% of traffic ${shifted ? `· was ${m.topCountryBefore}` : ""}`
-          : "No geo data yet"
-      }
-      tone={shifted ? "warn" : "neutral"}
-      highlight={shifted}
-    />
-  );
-}
-
-function DeviceCard({ m }: { m: AlertMetrics }) {
-  const delta = m.mobileShareNow - m.mobileShareBefore;
-  const shifted = Math.abs(delta) >= 0.2;
-  return (
-    <MetricTile
-      Icon={Smartphone}
-      label="Mobile share (7d)"
-      value={m.mobileShareNow > 0 ? `${Math.round(m.mobileShareNow * 100)}%` : "—"}
-      hint={
-        m.mobileShareBefore > 0
-          ? `Was ${Math.round(m.mobileShareBefore * 100)}% ${shifted ? `· ${delta > 0 ? "+" : ""}${Math.round(delta * 100)} pts` : ""}`
-          : "Not enough history yet"
-      }
-      tone={shifted ? "warn" : "neutral"}
-      highlight={shifted}
-    />
-  );
-}
-
-function StaleLinksCard({ m }: { m: AlertMetrics }) {
-  const tone = m.linksStale >= 10 ? "warn" : "neutral";
-  return (
-    <MetricTile
-      Icon={Trash2}
-      label="Stale links (30d)"
-      value={`${m.linksStale}`}
-      hint={`${m.linksActive} active · zero clicks in 30 days`}
-      tone={tone}
-      highlight={m.linksStale >= 10}
-    />
-  );
-}
-
-function SubscriptionCard({ m }: { m: AlertMetrics }) {
-  const expiringSoon = m.subDaysLeft !== null && m.subDaysLeft <= 3 && m.subDaysLeft >= 0;
-  const tone = expiringSoon ? "bad" : m.subStatus === "active" ? "good" : "neutral";
-  return (
-    <MetricTile
-      Icon={m.subStatus === "active" ? CreditCard : AlertCircle}
-      label="Subscription"
-      value={
-        m.subStatus === "active" && m.subDaysLeft !== null
-          ? `${m.subDaysLeft}d left`
-          : m.subStatus === "none"
-            ? "Free plan"
-            : m.subStatus
-      }
-      hint={
-        m.subPlan
-          ? `${m.subPlan} · ${m.subStatus}`
-          : "No paid subscription on file"
-      }
-      tone={tone}
-      highlight={expiringSoon}
-    />
+        );
+      })}
+    </div>
   );
 }

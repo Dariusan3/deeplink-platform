@@ -59,6 +59,25 @@ export function getHourInTimezone(input: string | Date, tz?: string | null): num
   return parseInt(hour, 10) % 24;
 }
 
+// 0 (Sunday) through 6 (Saturday), in the given timezone — same numbering as
+// Date.prototype.getDay(), which is what the routing rules' `daysOfWeek` array
+// stores. Needed because a click at 23:00 UTC on a Monday is already Tuesday in
+// Bucharest, and a "weekdays only" rule has to agree with the calendar the user
+// was looking at when they set it.
+const WEEKDAY_INDEX: Record<string, number> = {
+  Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
+};
+
+export function getDayOfWeekInTimezone(input: string | Date, tz?: string | null): number {
+  const d = typeof input === "string" ? new Date(input) : input;
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: safeTz(tz),
+    weekday: "short",
+  }).formatToParts(d);
+  const weekday = parts.find((p) => p.type === "weekday")?.value ?? "Sun";
+  return WEEKDAY_INDEX[weekday] ?? 0;
+}
+
 // "2026-03-14" — date key in the user's timezone, used to bucket clicks
 // by day so the chart matches the user's calendar (a click at 11pm UTC
 // in Bucharest is "tomorrow" not "today").

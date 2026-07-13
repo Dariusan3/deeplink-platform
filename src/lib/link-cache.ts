@@ -49,6 +49,14 @@ export type SlugResolution = {
     is_active: boolean;
     team_id: string | null;
   } | null;
+  // The owning team's IANA zone (team_settings.timezone, default "UTC"). The
+  // redirect engine needs it to evaluate hour / day-of-week rules in the zone
+  // the user actually set them in. Cached alongside the link so a time-based
+  // rule doesn't cost an extra round-trip on every click.
+  timezone: string | null;
+  // Whichever of the three namespaces matched, this is the team that owns it.
+  // The redirect path needs it to enforce the monthly click cap (lib/click-quota.ts).
+  teamId: string | null;
 };
 
 // The uncached lookup. Resolves a slug across its three namespaces in
@@ -56,12 +64,12 @@ export type SlugResolution = {
 // caller, exactly as before.
 async function lookupSlug(slug: string): Promise<SlugResolution> {
   const supabase = anonClient();
-  if (!supabase) return { rotator: null, abTest: null, link: null };
+  if (!supabase) return { rotator: null, abTest: null, link: null, timezone: null, teamId: null };
 
   const [rotatorRes, abRes, linkRes] = await Promise.all([
     supabase
       .from("collections")
-      .select("id")
+      .select("id, team_id")
       .eq("rotator_slug", slug)
       .eq("is_rotator", true)
       .limit(1)
@@ -95,11 +103,31 @@ async function lookupSlug(slug: string): Promise<SlugResolution> {
     };
   }
 
-  return {
-    rotator,
-    abTest: (abRes.data as Record<string, unknown> | null) ?? null,
-    link: (linkRes.data as SlugResolution["link"]) ?? null,
-  };
+  const link = (linkRes.data as SlugResolution["link"]) ?? null;
+  const abTest = (abRes.data as Record<string, unknown> | null) ?? null;
+
+  // Whichever namespace matched, resolve the owning team. Priority mirrors the
+  // resolver's own match order: rotator > A/B test > plain link.
+  const teamId =
+    (rotatorRes.data?.team_id as string | undefined) ??
+    (abTest?.team_id as string | undefined) ??
+    link?.team_id ??
+    null;
+
+  // Only a plain link with time-based rules actually needs the zone, but
+  // fetching it whenever we have a team keeps this a single cached shape rather
+  // than a conditional one.
+  let timezone: string | null = null;
+  if (teamId) {
+    const { data } = await supabase
+      .from("team_settings")
+      .select("timezone")
+      .eq("team_id", teamId)
+      .maybeSingle();
+    timezone = (data?.timezone as string | null) ?? null;
+  }
+
+  return { rotator, abTest, link, timezone, teamId };
 }
 
 // Cached entry point used by the resolver route.
@@ -169,4 +197,23 @@ export async function invalidateTeamRotators(
     .eq("is_rotator", true);
 
   await invalidateSlugs((data ?? []).map((c) => c.rotator_slug as string | null));
+}
+
+// Purge every slug a team owns.
+//
+// Needed because the cached resolution embeds team_settings.timezone, which the
+// redirect engine uses to evaluate hour / day-of-week rules. Change the team's
+// timezone in Settings and every one of its links is now cached against the old
+// zone — so all of them have to go, not just the one you edited.
+export async function invalidateTeamLinks(
+  supabase: SupabaseClient,
+  teamId: string
+) {
+  const { data } = await supabase
+    .from("links")
+    .select("slug")
+    .eq("team_id", teamId);
+
+  await invalidateSlugs((data ?? []).map((l) => l.slug as string | null));
+  await invalidateTeamRotators(supabase, teamId);
 }

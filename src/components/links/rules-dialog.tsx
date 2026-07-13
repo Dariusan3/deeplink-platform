@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link, RedirectRule } from "@/types/links";
 import { useLinks } from "@/hooks/use-links";
+import { useSettings } from "@/hooks/use-settings";
 import { CountryMultiSelect } from "@/components/ui/country-multiselect";
 import { normalizeDestinationUrl } from "@/lib/url-normalize";
 import { toast } from "sonner";
@@ -42,6 +43,9 @@ export function RulesDialog({ link, trigger, open: controlledOpen, onOpenChange:
   const [clickGoalPeriod, setClickGoalPeriod] = useState(link.click_goal_period || "daily");
   const [loading, setLoading] = useState(false);
   const { updateLink } = useLinks();
+  // The zone the redirect engine will read these hours in — team_settings.timezone.
+  const { settings } = useSettings();
+  const teamTimezone = settings?.timezone || "UTC";
 
   useEffect(() => {
     if (open) {
@@ -134,11 +138,13 @@ export function RulesDialog({ link, trigger, open: controlledOpen, onOpenChange:
       )}
       <DialogContent className="glass-card bg-black/95 border-white/5 shadow-[0_0_50px_rgba(0,210,106,0.1)] text-white sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-black tracking-tight flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-[#00D26A]/10 text-[#00D26A]">
+          {/* min-w-0 + break-words so a long link title wraps instead of
+              pushing the header (and the close button) out of the dialog. */}
+          <DialogTitle className="text-2xl font-black tracking-tight flex items-center gap-2 min-w-0 pr-8">
+            <div className="p-2 rounded-lg bg-[#00D26A]/10 text-[#00D26A] shrink-0">
               <Settings2 className="w-5 h-5" />
             </div>
-            Smart Routing: {link.title || link.slug}
+            <span className="min-w-0 wrap-break-word">Smart Routing: {link.title || link.slug}</span>
           </DialogTitle>
         </DialogHeader>
 
@@ -155,7 +161,10 @@ export function RulesDialog({ link, trigger, open: controlledOpen, onOpenChange:
           {/* Default destination info */}
           <div className="p-4 rounded-xl bg-white/2 border border-white/5">
             <p className="text-[9px] font-black uppercase tracking-widest text-neutral-500 mb-1">Default Destination (no rules match)</p>
-            <p className="text-sm font-medium text-white truncate">{link.destination_url}</p>
+            {/* break-all, not truncate: this is the URL the user came here to
+                verify, and an ellipsis hides the query string — the exact part
+                worth checking on a link like ?utm_source=…&utm_campaign=…. */}
+            <p className="text-sm font-medium text-white break-all">{link.destination_url}</p>
           </div>
 
           {/* Click Goal */}
@@ -311,8 +320,14 @@ export function RulesDialog({ link, trigger, open: controlledOpen, onOpenChange:
 
                     {/* Row 3: Time of Day */}
                     <div className="space-y-2">
+                      {/* Name the zone. The engine evaluates these hours in the
+                          team's timezone (Settings → Timezone); without saying
+                          so, "9 AM" is a guess. */}
                       <Label className="text-[9px] font-black uppercase tracking-widest text-neutral-500 flex items-center gap-2">
                         <Clock className="w-3 h-3 text-[#00D26A]" /> Time of Day
+                        <span className="text-neutral-600 normal-case tracking-normal font-medium">
+                          ({teamTimezone})
+                        </span>
                       </Label>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">

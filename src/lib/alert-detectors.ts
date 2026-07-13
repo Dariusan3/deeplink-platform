@@ -44,45 +44,117 @@ function startOfDay(d = new Date()): Date {
 
 // ─── TIER 1 ──────────────────────────────────────────────────────────
 
-export async function detectDestinationBroken(supabase: SupabaseClient, teamId: string): Promise<DetectedAlert[]> {
+// Statuses that actually mean "your visitors are hitting a dead page".
+//
+// The old check alerted on any status >= 400, which is why the list filled up
+// with links that opened perfectly well in a browser. A live, healthy page
+// routinely answers:
+//   401 / 403 — the origin blocks datacenter IPs or unknown user agents
+//   405       — the origin doesn't implement HEAD (very common)
+//   429       — we got rate-limited, which says nothing about the page
+// None of those are the destination being broken. 404/410 (gone) and 5xx
+// (origin is erroring) are.
+function isDecisivelyBroken(status: number): boolean {
+  return status === 404 || status === 410 || status >= 500;
+}
+
+const PROBE_TIMEOUT_MS = 6000;
+// Some origins 403 anything that doesn't look like a browser.
+const PROBE_UA =
+  "Mozilla/5.0 (compatible; TapprLinkCheck/1.0; +https://tappr.me/bot)";
+
+async function probe(url: string, method: "HEAD" | "GET"): Promise<number | null> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), PROBE_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      method,
+      redirect: "follow",
+      signal: ctrl.signal,
+      headers: { "user-agent": PROBE_UA, accept: "*/*" },
+    });
+    return res.status;
+  } catch {
+    // Timeout, DNS failure, TLS error, aborted. We don't know anything, and
+    // guessing "broken" here is exactly how a flaky network run turns into a
+    // page full of alerts about links that were never down.
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// null = inconclusive (network failure — say nothing, resolve nothing).
+async function checkDestination(url: string): Promise<number | null> {
+  const head = await probe(url, "HEAD");
+  if (head !== null && head < 400) return head;
+  // HEAD said "bad" (or said nothing). Before we accuse the destination, ask for
+  // it the way a real visitor does. This one retry is what separates "the origin
+  // doesn't do HEAD" from "the page is gone".
+  const get = await probe(url, "GET");
+  return get ?? head;
+}
+
+// Run `worker` over `items` with at most `limit` in flight. The old version used
+// a bare Promise.all over a hard-capped 25 links — the cap meant a team with 40
+// links never got the other 15 checked, and left us unable to auto-close alerts
+// (an unchecked link is not a healthy link).
+async function pool<T, R>(items: T[], limit: number, worker: (item: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let cursor = 0;
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (cursor < items.length) {
+      const i = cursor++;
+      out[i] = await worker(items[i]);
+    }
+  });
+  await Promise.all(runners);
+  return out;
+}
+
+export type DestinationScan = {
+  alerts: DetectedAlert[];
+  // dedup_keys we positively confirmed healthy this run (the probe came back
+  // < 400). Only these are safe to auto-close: absence of an alert could just
+  // mean the probe timed out.
+  healthy: string[];
+};
+
+export async function detectDestinationBroken(supabase: SupabaseClient, teamId: string): Promise<DestinationScan> {
   const { data: links } = await supabase
     .from("links")
     .select("id, slug, destination_url, title")
     .eq("team_id", teamId)
     .eq("is_active", true)
-    .limit(25);
-  if (!links || links.length === 0) return [];
+    .limit(200);
+  if (!links || links.length === 0) return { alerts: [], healthy: [] };
 
-  const out: DetectedAlert[] = [];
-  await Promise.all(
-    links.map(async (l) => {
-      if (!l.destination_url) return;
-      try {
-        const ctrl = new AbortController();
-        const t = setTimeout(() => ctrl.abort(), 5000);
-        const res = await fetch(l.destination_url, {
-          method: "HEAD",
-          redirect: "follow",
-          signal: ctrl.signal,
-        }).catch(() => null);
-        clearTimeout(t);
-        if (!res) return;
-        if (res.status >= 400) {
-          out.push({
-            team_id: teamId,
-            alert_type: "destination_broken",
-            severity: res.status >= 500 ? "high" : "medium",
-            title: `Link "${l.title || l.slug}" destination returns ${res.status}`,
-            description: `${l.destination_url} responded with HTTP ${res.status}. Visitors clicking your link are reaching a broken page. Fix the destination URL or replace it.`,
-            affected_link: l.slug,
-            dedup_key: dedupKey("destination_broken", { id: l.id }),
-            metadata: { status: res.status, url: l.destination_url, link_id: l.id },
-          });
-        }
-      } catch { /* swallow */ }
-    })
-  );
-  return out;
+  const alerts: DetectedAlert[] = [];
+  const healthy: string[] = [];
+
+  await pool(links, 8, async (l) => {
+    if (!l.destination_url) return;
+    const status = await checkDestination(l.destination_url);
+    if (status === null) return; // inconclusive — neither alert nor resolve
+
+    const key = dedupKey("destination_broken", { id: l.id });
+    if (!isDecisivelyBroken(status)) {
+      healthy.push(key);
+      return;
+    }
+    alerts.push({
+      team_id: teamId,
+      alert_type: "destination_broken",
+      severity: status >= 500 ? "high" : "medium",
+      title: `Link "${l.title || l.slug}" destination returns ${status}`,
+      description: `${l.destination_url} responded with HTTP ${status}. Visitors clicking your link are reaching a broken page. Fix the destination URL or replace it.`,
+      affected_link: l.slug,
+      dedup_key: key,
+      metadata: { status, url: l.destination_url, link_id: l.id },
+    });
+  });
+
+  return { alerts, healthy };
 }
 
 export async function detectClickDrop(supabase: SupabaseClient, teamId: string): Promise<DetectedAlert[]> {
@@ -194,6 +266,12 @@ export async function detectClickSpam(supabase: SupabaseClient, teamId: string):
 
 export async function detectPlanLimit(supabase: SupabaseClient, teamId: string, plan: string): Promise<DetectedAlert[]> {
   const cap = planClickCap(plan);
+
+  // Agency has no cap. Without this the detector would compute used/Infinity = 0%
+  // and never fire — harmless — but it would still burn a count query on every
+  // run for a team that can never hit a limit.
+  if (!Number.isFinite(cap)) return [];
+
   const monthStart = new Date();
   monthStart.setDate(1);
   monthStart.setHours(0, 0, 0, 0);
@@ -313,7 +391,10 @@ export async function detectGoalHit(supabase: SupabaseClient, teamId: string): P
         title: `"${l.title || l.slug}" hit its ${period} goal`,
         description: `${count} clicks on tappr.me/${l.slug} ${period === "daily" ? "today" : period === "weekly" ? "this week" : "this month"} — past your goal of ${l.click_goal}. Consider raising the goal to ${l.click_goal * 2} or scaling the traffic source that's working.`,
         affected_link: l.slug,
-        dedup_key: dedupKey("goal_hit", { id: l.id }),
+        // Bucket by the goal's own period. Without this a monthly goal cleared on
+        // the 5th re-fired every day until the 30th: the clicks stayed past the
+        // goal, and the key only changed when the date did.
+        dedup_key: dedupKey("goal_hit", { id: l.id, period }),
         metadata: { link_id: l.id, count, goal: l.click_goal, period },
       });
     }
@@ -340,9 +421,18 @@ export async function detectTrafficSpike(supabase: SupabaseClient, teamId: strin
     .gte("clicked_at", dayAgo.toISOString())
     .lt("clicked_at", hourAgo.toISOString());
 
+  // Three gates, and the absolute floor is the one that matters. On a quiet
+  // account "3× normal" is 18 clicks instead of 6 — technically a spike, not
+  // remotely worth an alert, and it fired most days. A spike has to be big in
+  // ratio AND big in absolute terms before it's news.
+  const MIN_AVG_PER_HOUR = 5;
+  const MIN_CLICKS_LAST_HOUR = 25;
+  const MIN_RATIO = 3;
+
   const avgPerHour = (last24h ?? 0) / 23;
-  if (avgPerHour < 5) return [];                // too quiet to call
-  if ((lastHour ?? 0) < avgPerHour * 3) return [];
+  if (avgPerHour < MIN_AVG_PER_HOUR) return [];          // too quiet to call
+  if ((lastHour ?? 0) < MIN_CLICKS_LAST_HOUR) return [];
+  if ((lastHour ?? 0) < avgPerHour * MIN_RATIO) return [];
 
   const ratio = Math.round((lastHour ?? 0) / avgPerHour);
   return [{
@@ -405,6 +495,12 @@ export async function detectPeakHourShift(supabase: SupabaseClient, teamId: stri
 
 // ─── TIER 3 — Strategic ───────────────────────────────────────────────
 
+// Both trend detectors compare the last 7 days against the 23 before them. With
+// only 100 clicks in a window, a single busy afternoon from one country moves the
+// "top country" — so the old floor was low enough to manufacture trends out of
+// noise. A trend claim needs a sample big enough to be a trend.
+const MIN_TREND_SAMPLE = 250;
+
 export async function detectCountryShift(supabase: SupabaseClient, teamId: string): Promise<DetectedAlert[]> {
   const sevenDaysAgo = new Date(Date.now() - 7 * 86_400_000);
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86_400_000);
@@ -424,7 +520,7 @@ export async function detectCountryShift(supabase: SupabaseClient, teamId: strin
     .gte("clicked_at", thirtyDaysAgo.toISOString())
     .lt("clicked_at", sevenDaysAgo.toISOString());
 
-  if (!recent || recent.length < 100 || !historic || historic.length < 100) return [];
+  if (!recent || recent.length < MIN_TREND_SAMPLE || !historic || historic.length < MIN_TREND_SAMPLE) return [];
 
   const tally = (rows: { country: string | null }[]) => {
     const m = new Map<string, number>();
@@ -449,7 +545,11 @@ export async function detectCountryShift(supabase: SupabaseClient, teamId: strin
   const newTopShare = (recentMap.get(newTop) ?? 0) / recent.length;
   const oldTopShareNow = (recentMap.get(oldTop) ?? 0) / recent.length;
   const oldTopShareBefore = (historicMap.get(oldTop) ?? 0) / historic.length;
-  if (oldTopShareBefore - oldTopShareNow < 0.15) return []; // shift not strong enough
+  // Two links can trade the #1 spot at 21% vs 20% without anything having
+  // happened. Demand that the old leader genuinely collapsed AND that the new
+  // leader is actually leading.
+  if (oldTopShareBefore - oldTopShareNow < 0.2) return [];
+  if (newTopShare < 0.35) return [];
 
   return [{
     team_id: teamId,
@@ -482,7 +582,7 @@ export async function detectDeviceShift(supabase: SupabaseClient, teamId: string
     .gte("clicked_at", thirtyDaysAgo.toISOString())
     .lt("clicked_at", sevenDaysAgo.toISOString());
 
-  if (!recent || recent.length < 100 || !historic || historic.length < 100) return [];
+  if (!recent || recent.length < MIN_TREND_SAMPLE || !historic || historic.length < MIN_TREND_SAMPLE) return [];
 
   const mobShare = (rows: { device_type: string | null }[]) => {
     let mob = 0, total = 0;
@@ -571,84 +671,181 @@ export async function detectSubscriptionExpiring(supabase: SupabaseClient, teamI
 
 // ─── Orchestrator ────────────────────────────────────────────────────
 
+// What one pass over one team produced. `resolved` and `ran` exist so
+// persistDetections can close alerts that no longer apply WITHOUT ever closing
+// one just because a detector crashed or a probe timed out.
+export type DetectorRun = {
+  alerts: DetectedAlert[];
+  // `${team_id}:${dedup_key}` we positively confirmed cleared this run.
+  resolved: string[];
+  // `${team_id}:${alert_type}` for every detector that completed without
+  // throwing. A detector that threw tells us nothing about its condition.
+  ran: string[];
+};
+
+export function emptyRun(): DetectorRun {
+  return { alerts: [], resolved: [], ran: [] };
+}
+
+export function mergeRuns(runs: DetectorRun[]): DetectorRun {
+  return {
+    alerts:   runs.flatMap((r) => r.alerts),
+    resolved: runs.flatMap((r) => r.resolved),
+    ran:      runs.flatMap((r) => r.ran),
+  };
+}
+
 export async function runAllDetectors(
   supabase: SupabaseClient,
   team: { id: string; plan: string | null }
-): Promise<DetectedAlert[]> {
+): Promise<DetectorRun> {
   const plan = team.plan ?? "free";
-  const detectors: Promise<DetectedAlert[]>[] = [
-    detectDestinationBroken(supabase, team.id),
-    detectClickDrop(supabase, team.id),
-    detectClickSpam(supabase, team.id),
-    detectPlanLimit(supabase, team.id, plan),
-    detectABWinner(supabase, team.id),
-    detectGoalHit(supabase, team.id),
-    detectTrafficSpike(supabase, team.id),
+
+  // Each entry declares which alert types it is authoritative for, so a detector
+  // that throws can be excluded from auto-close.
+  const specs: { types: AlertType[]; run: () => Promise<DetectedAlert[]> }[] = [
+    { types: ["click_drop"],            run: () => detectClickDrop(supabase, team.id) },
+    { types: ["click_spam"],            run: () => detectClickSpam(supabase, team.id) },
+    { types: ["plan_limit"],            run: () => detectPlanLimit(supabase, team.id, plan) },
+    { types: ["ab_winner"],             run: () => detectABWinner(supabase, team.id) },
+    { types: ["goal_hit"],              run: () => detectGoalHit(supabase, team.id) },
+    { types: ["traffic_spike"],         run: () => detectTrafficSpike(supabase, team.id) },
     // detectPeakHourShift — disabled: peak-hour naturally flaps day to day,
     // so this fired constantly with almost no actionable value. It was the
     // 2nd-noisiest alert in production. Kept the function in case we want a
     // much stricter version later.
-    detectCountryShift(supabase, team.id),
-    detectDeviceShift(supabase, team.id),
-    detectStaleLinks(supabase, team.id),
-    detectSubscriptionExpiring(supabase, team.id),
+    { types: ["country_shift"],         run: () => detectCountryShift(supabase, team.id) },
+    { types: ["device_shift"],          run: () => detectDeviceShift(supabase, team.id) },
+    { types: ["stale_links"],           run: () => detectStaleLinks(supabase, team.id) },
+    { types: ["subscription_expiring"], run: () => detectSubscriptionExpiring(supabase, team.id) },
   ];
-  const results = await Promise.allSettled(detectors);
-  const out: DetectedAlert[] = [];
-  for (const r of results) {
-    if (r.status === "fulfilled") out.push(...r.value);
-    else console.error("[alerts] detector failed:", r.reason);
+
+  const out: DetectorRun = emptyRun();
+
+  // destination_broken is special: it reports health per link, not just failure,
+  // because "no alert" from a network probe could equally mean "timed out".
+  const dest = await detectDestinationBroken(supabase, team.id).catch((e) => {
+    console.error("[alerts] destination probe failed:", e);
+    return null;
+  });
+  if (dest) {
+    out.alerts.push(...dest.alerts);
+    out.resolved.push(...dest.healthy.map((k) => `${team.id}:${k}`));
+    out.ran.push(`${team.id}:destination_broken`);
   }
+
+  const results = await Promise.allSettled(specs.map((s) => s.run()));
+  results.forEach((r, i) => {
+    if (r.status === "fulfilled") {
+      out.alerts.push(...r.value);
+      for (const t of specs[i].types) out.ran.push(`${team.id}:${t}`);
+    } else {
+      console.error("[alerts] detector failed:", r.reason);
+    }
+  });
+
   return out;
 }
 
-// Re-alert the same condition at most this often. The cron runs every 3
-// hours, so without a guard every detector that keeps firing (stale links,
-// an ongoing click drop, a shifted peak hour) re-inserted an identical row
-// 8× a day — the main reason the alert list flooded.
-//
-// Suppression is by EXACT dedup_key, which already encodes the time bucket
-// (day for most alerts, week for stale_links). A 7-day lookback therefore
-// dedupes precisely per bucket: daily-keyed alerts still fire once/day
-// (yesterday's key differs), weekly-keyed stale_links fires once/week, and
-// stable-key alerts (e.g. destination_broken) get a weekly re-alert cadence.
-const SUPPRESS_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+// How long a MANUALLY DISMISSED alert stays suppressed. If you dismissed
+// "destination returns 404" and haven't fixed it, we don't nag you again
+// tomorrow. Alerts the system closed itself (condition cleared) are exempt —
+// see AUTO_CLOSE below — otherwise a link that broke, got fixed, and broke
+// again would stay silent for a week.
+const DISMISS_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 
-// Common write path: re-verify acked alerts, then insert only alerts that
-// aren't already open or cooling down. Returns the count of inserted rows.
+// Low-severity alerts stop being worth anything long before you get around to
+// them. Nobody is going to action "your peak hour moved" from three weeks ago,
+// and a list of them is why the page felt like a graveyard.
+const LOW_SEVERITY_TTL_MS = 21 * 24 * 60 * 60 * 1000;
+
+// Alert types that describe a CONDITION that is either true or false right now.
+// If the detector ran and did not re-detect it, the condition cleared — close
+// the row automatically. You already fixed it; you shouldn't also have to tidy
+// up after yourself.
+//
+// Everything NOT in here is a point-in-time EVENT — a goal was hit, a variant
+// won, an IP burst happened. Those were true when they fired and stay true, so
+// they wait to be dismissed by hand.
+//
+// destination_broken is a condition too, but it is deliberately absent: it is
+// closed only on a probe that positively came back healthy (`run.resolved`).
+// Absence of a destination_broken alert can also mean the probe timed out, and
+// closing a real outage because our network hiccuped is the worst failure mode
+// this file has.
+const AUTO_CLOSE_ON_ABSENCE: ReadonlySet<AlertType> = new Set<AlertType>([
+  "plan_limit",
+  "stale_links",
+  "country_shift",
+  "device_shift",
+  "subscription_expiring",
+]);
+
+// Common write path: close alerts whose condition has cleared, expire stale
+// low-severity ones, then insert only what isn't already open or cooling down.
 export async function persistDetections(
   supabase: SupabaseClient,
   teamIds: string[],
-  detected: DetectedAlert[]
-): Promise<number> {
-  const detectedKeys = new Set(detected.map((a) => `${a.team_id}:${a.dedup_key}`));
+  run: DetectorRun
+): Promise<{ inserted: number; closed: number }> {
+  const detectedKeys = new Set(run.alerts.map((a) => `${a.team_id}:${a.dedup_key}`));
+  const resolvedKeys = new Set(run.resolved);
+  const ranTypes = new Set(run.ran);
 
-  // Re-verify: close previously-acknowledged alerts whose condition cleared.
-  const { data: openAcked } = await supabase
+  // ── 1. Auto-close ────────────────────────────────────────────────────
+  const { data: open } = await supabase
     .from("anomaly_alerts")
-    .select("id, team_id, dedup_key")
+    .select("id, team_id, alert_type, dedup_key, acknowledged_at")
     .in("team_id", teamIds)
-    .eq("is_dismissed", false)
-    .eq("re_verified_after_ack", false)
-    .not("acknowledged_at", "is", null);
+    .eq("is_dismissed", false);
 
-  for (const row of openAcked ?? []) {
-    if (!row.dedup_key) continue;
-    const stillThere = detectedKeys.has(`${row.team_id}:${row.dedup_key}`);
-    if (!stillThere) {
-      await supabase
-        .from("anomaly_alerts")
-        .update({ re_verified_after_ack: true, is_dismissed: true })
-        .eq("id", row.id);
-    }
+  const toClose: string[] = [];
+  for (const row of open ?? []) {
+    const type = row.alert_type as AlertType | null;
+    if (!type || !row.dedup_key) continue;
+    // A detector that threw is not evidence that its condition cleared.
+    if (!ranTypes.has(`${row.team_id}:${type}`)) continue;
+
+    const key = `${row.team_id}:${row.dedup_key}`;
+    if (detectedKeys.has(key)) continue; // still firing
+
+    const cleared =
+      type === "destination_broken"
+        ? resolvedKeys.has(key)                 // needs a positive health check
+        : AUTO_CLOSE_ON_ABSENCE.has(type) || row.acknowledged_at != null;
+    if (!cleared) continue;
+
+    toClose.push(row.id);
   }
 
-  // Suppression set: an alert that is still open (undismissed) OR fired
-  // within the cooldown window blocks a duplicate insert for the same
-  // team+dedup_key. This is the fix for the flooded list — previously every
-  // run re-inserted the same rows because nothing checked for existing ones.
-  const cutoff = new Date(Date.now() - SUPPRESS_WINDOW_MS).toISOString();
-  const [openRes, recentRes] = await Promise.all([
+  // `re_verified_after_ack` marks a row the SYSTEM closed because it re-checked
+  // and the condition was gone — as opposed to one the user dismissed by hand.
+  // The cooldown in step 3 keys off exactly that difference, so it has to be set
+  // on every auto-close, acknowledged or not.
+  if (toClose.length > 0) {
+    await supabase
+      .from("anomaly_alerts")
+      .update({ is_dismissed: true, re_verified_after_ack: true })
+      .in("id", toClose);
+  }
+
+  // ── 2. Expire stale low-severity noise ───────────────────────────────
+  const { data: expired } = await supabase
+    .from("anomaly_alerts")
+    .update({ is_dismissed: true, re_verified_after_ack: true })
+    .in("team_id", teamIds)
+    .eq("is_dismissed", false)
+    .eq("severity", "low")
+    .lt("created_at", new Date(Date.now() - LOW_SEVERITY_TTL_MS).toISOString())
+    .select("id");
+
+  // ── 3. Suppression set ───────────────────────────────────────────────
+  // Blocked from re-inserting if the same team+dedup_key is either still open,
+  // or was dismissed BY HAND inside the cooldown. Rows the system auto-closed
+  // (re_verified_after_ack = true) are excluded on purpose: the condition
+  // demonstrably cleared, so if it's back, that's news.
+  const cutoff = new Date(Date.now() - DISMISS_COOLDOWN_MS).toISOString();
+  const [openRes, dismissedRes] = await Promise.all([
     supabase
       .from("anomaly_alerts")
       .select("team_id, dedup_key")
@@ -658,17 +855,20 @@ export async function persistDetections(
       .from("anomaly_alerts")
       .select("team_id, dedup_key")
       .in("team_id", teamIds)
+      .eq("is_dismissed", true)
+      .eq("re_verified_after_ack", false)
       .gte("created_at", cutoff),
   ]);
   const suppressed = new Set<string>();
-  for (const r of [...(openRes.data ?? []), ...(recentRes.data ?? [])]) {
+  for (const r of [...(openRes.data ?? []), ...(dismissedRes.data ?? [])]) {
     if (r.dedup_key) suppressed.add(`${r.team_id}:${r.dedup_key}`);
   }
 
+  // ── 4. Insert ────────────────────────────────────────────────────────
   let inserted = 0;
-  for (const a of detected) {
+  for (const a of run.alerts) {
     const key = `${a.team_id}:${a.dedup_key}`;
-    if (suppressed.has(key)) continue; // already open or cooling down
+    if (suppressed.has(key)) continue;
     const { error } = await supabase.from("anomaly_alerts").insert({
       team_id: a.team_id,
       severity: a.severity,
@@ -683,5 +883,5 @@ export async function persistDetections(
     // insert the same key within a single run.
     if (!error) { inserted++; suppressed.add(key); }
   }
-  return inserted;
+  return { inserted, closed: toClose.length + (expired?.length ?? 0) };
 }

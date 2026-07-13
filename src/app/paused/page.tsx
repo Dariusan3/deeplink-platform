@@ -9,9 +9,18 @@ import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
 function PausedContent() {
+  const params = useSearchParams();
   // Branding flag passed by [slug]/route.ts when team_settings.show_branding
   // is false. Defaults to ON (free tier always shows branding).
-  const showBranding = useSearchParams().get("branding") !== "0";
+  const showBranding = params.get("branding") !== "0";
+
+  // Two very different reasons land a visitor here: the owner paused the link,
+  // or the owner's account ran out of monthly clicks. Saying "deactivated" for
+  // the second one is misleading — the link is fine, the account is out of
+  // quota — and the copy is kept vague either way, because a visitor is not
+  // entitled to know the link owner's billing status.
+  const outOfQuota = params.get("reason") === "quota";
+
   return (
     <div className="min-h-screen bg-[#000000] flex flex-col items-center justify-center p-4 relative overflow-hidden">
       {/* Background Polish */}
@@ -30,11 +39,19 @@ function PausedContent() {
         </div>
 
         <h1 className="text-4xl font-black text-white mb-4 tracking-tighter uppercase italic">
-          Link Deactivated
+          {outOfQuota ? "Link Unavailable" : "Link Deactivated"}
         </h1>
-        
+
         <p className="text-neutral-400 font-medium mb-12 leading-relaxed">
-          The distribution node you are trying to access has been <span className="text-[#00D26A] font-bold">temporarily paused</span> or decommissioning is in progress.
+          {outOfQuota ? (
+            <>
+              This link is <span className="text-[#00D26A] font-bold">temporarily unavailable</span>. Please check back later or contact whoever shared it with you.
+            </>
+          ) : (
+            <>
+              The distribution node you are trying to access has been <span className="text-[#00D26A] font-bold">temporarily paused</span> or decommissioning is in progress.
+            </>
+          )}
         </p>
 
         <div className="space-y-4">

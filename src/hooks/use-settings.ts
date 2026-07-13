@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Database } from "@/types/database";
 import { useTeam } from "./use-team";
 import { readSwrCache, writeSwrCache } from "@/lib/swr-cache";
+import { revalidateSlugCache } from "@/lib/revalidate-slug";
 import { toast } from "sonner";
 
 type TeamSettings = Database["public"]["Tables"]["team_settings"]["Row"];
@@ -90,6 +91,14 @@ export function useSettings() {
         console.error("Error updating settings:", error.message);
         toast.error("Failed to save settings");
         throw error;
+      }
+
+      // The slug resolver caches each link together with its team's timezone,
+      // because the redirect engine evaluates hour / day-of-week rules in it.
+      // Change the zone and every link the team owns is cached against the old
+      // one — so purge the whole team, not just a slug.
+      if (updates.timezone !== undefined && settings.team_id) {
+        revalidateSlugCache({ teamId: settings.team_id });
       }
 
       setSettings(data);

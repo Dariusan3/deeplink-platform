@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSsr } from "@/lib/supabase/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { TAPPR_PLANS, type TapprPlan } from "@/lib/fanbasis";
+import { invalidateOwnerQuota } from "@/lib/click-quota";
 import { logAuditEvent } from "@/lib/audit";
 
 // POST /api/billing/activate { team_id, plan }
@@ -106,6 +107,12 @@ export async function POST(request: NextRequest) {
   // teams.plan on the UPDATE above, but set it explicitly too in case
   // the trigger is scoped narrowly.
   await admin.from("teams").update({ plan }).eq("id", team_id);
+
+  // The redirect path caches an "is this team over its click cap" verdict per
+  // team. They just paid to raise that cap — drop the verdict now rather than
+  // leaving their links dark for the rest of the TTL. Account-wide, because the
+  // plan applies to every team this owner created.
+  await invalidateOwnerQuota(admin, team_id).catch(() => {});
 
   // Credit the referring partner if this buyer was referred. Idempotent
   // (only processes a pending referral once).
