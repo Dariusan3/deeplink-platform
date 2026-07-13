@@ -182,7 +182,11 @@ export default function BillingPage() {
                 <AlertCircle className="w-5 h-5 text-amber-400" />
                 <div>
                   <p className="text-sm font-bold text-white">No payment method on file</p>
-                  <p className="text-[11px] text-neutral-500">Stripe checkout will collect a card when you upgrade.</p>
+                  {/* Said "Stripe" for as long as this card has existed. We bill
+                      through FanBasis (see src/lib/fanbasis.ts) — naming the
+                      wrong processor on a billing page is the kind of detail a
+                      customer notices and stops trusting you over. */}
+                  <p className="text-[11px] text-neutral-500">FanBasis collects your card at checkout when you upgrade.</p>
                 </div>
               </div>
               <Button render={<Link href="/pricing" />} nativeButton={false} variant="outline" className="h-9 rounded-lg border-white/10 bg-white/[0.02] text-[10px] font-black uppercase tracking-widest hover:bg-[#00D26A]/10 hover:text-[#00D26A]">

@@ -118,6 +118,10 @@ export async function POST(request: NextRequest) {
           : null;
 
       let existing: { id: string; team_id: string; plan: string } | null = null;
+      // The row this event ends up activating — used below to retire whatever
+      // subscription the team was on before the switch.
+      let activatedId: string | null = null;
+      let activatedTeamId: string | null = null;
 
       if (checkoutSessionId || fbSubscriptionId) {
         const { data } = await admin
@@ -184,20 +188,53 @@ export async function POST(request: NextRequest) {
             notes: `Activated by ${eventType}`,
           })
           .eq("id", existing.id);
+        activatedId = existing.id;
+        activatedTeamId = existing.team_id;
       } else if (resolvedTeamId && resolvedPlan) {
-        await admin.from("subscriptions").insert({
-          team_id: resolvedTeamId,
-          plan: resolvedPlan,
-          status: "active",
-          is_free: false,
-          starts_at: new Date().toISOString(),
-          expires_at: expiresAt,
-          fanbasis_checkout_session_id: checkoutSessionId
-            ? Number(checkoutSessionId)
-            : null,
-          fanbasis_subscription_id: fbSubscriptionId ? Number(fbSubscriptionId) : null,
-          notes: `Created by ${eventType} (no prior trial row)`,
-        });
+        const { data: created } = await admin
+          .from("subscriptions")
+          .insert({
+            team_id: resolvedTeamId,
+            plan: resolvedPlan,
+            status: "active",
+            is_free: false,
+            starts_at: new Date().toISOString(),
+            expires_at: expiresAt,
+            fanbasis_checkout_session_id: checkoutSessionId
+              ? Number(checkoutSessionId)
+              : null,
+            fanbasis_subscription_id: fbSubscriptionId ? Number(fbSubscriptionId) : null,
+            notes: `Created by ${eventType} (no prior trial row)`,
+          })
+          .select("id")
+          .maybeSingle();
+        activatedId = created?.id ?? null;
+        activatedTeamId = resolvedTeamId;
+      }
+
+      // A team has exactly one paid subscription. When someone switches plans we
+      // activate the new row here — and until now we left the OLD one sitting at
+      // status "active" beside it, so /dashboard/billing showed two live
+      // subscriptions and `rows.find(r => r.status === "active")` picked whichever
+      // came back first.
+      //
+      // On a renewal this is a no-op: the row being renewed IS the activated one,
+      // and neq() excludes it.
+      //
+      // `is_free` rows are left alone on purpose. Those are plans an admin granted
+      // by hand, and quietly revoking a grant because a payment webhook fired is
+      // not a decision this endpoint gets to make.
+      if (activatedId && activatedTeamId) {
+        await admin
+          .from("subscriptions")
+          .update({
+            status: "cancelled",
+            notes: `Superseded by a switch to ${resolvedPlan ?? "a new plan"}`,
+          })
+          .eq("team_id", activatedTeamId)
+          .eq("status", "active")
+          .eq("is_free", false)
+          .neq("id", activatedId);
       }
 
       // Credit the referring partner (if any). Only fires on the FIRST
