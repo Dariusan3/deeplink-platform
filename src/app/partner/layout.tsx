@@ -2,6 +2,7 @@
 
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { PartnerSidebar } from "@/components/partner/partner-sidebar";
+import { PartnerMobileNav } from "@/components/partner/partner-mobile-nav";
 import { UserProvider } from "@/providers/user-provider";
 
 export default function PartnerLayout({ children }: { children: React.ReactNode }) {
@@ -17,9 +18,12 @@ export default function PartnerLayout({ children }: { children: React.ReactNode 
             <PartnerSidebar />
           </div>
 
-          <main className="flex-1 overflow-y-auto relative z-0">
-            {children}
-          </main>
+          <div className="flex-1 flex flex-col min-w-0 relative z-0">
+            <PartnerMobileNav />
+            <main className="flex-1 overflow-y-auto">
+              {children}
+            </main>
+          </div>
         </div>
       </TooltipProvider>
     </UserProvider>

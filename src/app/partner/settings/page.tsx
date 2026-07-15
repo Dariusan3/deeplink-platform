@@ -84,7 +84,7 @@ export default function PartnerSettingsPage() {
           {/* Network picker */}
           <div className="space-y-2">
             <Label className="text-[10px] font-black uppercase tracking-widest text-[#A855F7]">Network</Label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {NETWORKS.map((n) => (
                 <button
                   key={n}

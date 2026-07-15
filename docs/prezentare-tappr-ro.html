@@ -1,0 +1,1001 @@
+<title>Tappr — Brief prezentare (RO)</title>
+
+<style>
+  :root {
+    --ground: #0A0D0B;
+    --surface: #11160F;
+    --surface-2: #161C17;
+    --line: #232B24;
+    --ink: #E3EAE4;
+    --ink-dim: #98A79B;
+    --ink-faint: #66756A;
+    --accent: #3ECF8E;
+    --accent-dim: #1F6B4C;
+    --warn: #E8B14C;
+    --warn-dim: #4A3A1B;
+
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+    --step-0: 0.9375rem;
+    --step-1: 1.0625rem;
+    --step-2: 1.375rem;
+    --step-3: 1.875rem;
+    --step-4: clamp(2.25rem, 5vw, 3.25rem);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --ground: #F3F6F3;
+      --surface: #FFFFFF;
+      --surface-2: #EBF0EC;
+      --line: #D6DED8;
+      --ink: #131A15;
+      --ink-dim: #566159;
+      --ink-faint: #7E8A81;
+      --accent: #0E7A4F;
+      --accent-dim: #B7E4CE;
+      --warn: #8A5B10;
+      --warn-dim: #F3E2BF;
+    }
+  }
+
+  :root[data-theme="light"] {
+    --ground: #F3F6F3;
+    --surface: #FFFFFF;
+    --surface-2: #EBF0EC;
+    --line: #D6DED8;
+    --ink: #131A15;
+    --ink-dim: #566159;
+    --ink-faint: #7E8A81;
+    --accent: #0E7A4F;
+    --accent-dim: #B7E4CE;
+    --warn: #8A5B10;
+    --warn-dim: #F3E2BF;
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0A0D0B;
+    --surface: #11160F;
+    --surface-2: #161C17;
+    --line: #232B24;
+    --ink: #E3EAE4;
+    --ink-dim: #98A79B;
+    --ink-faint: #66756A;
+    --accent: #3ECF8E;
+    --accent-dim: #1F6B4C;
+    --warn: #E8B14C;
+    --warn-dim: #4A3A1B;
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: var(--step-0);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: clamp(2rem, 5vw, 4.5rem) clamp(1.1rem, 4vw, 2.5rem) 6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3.5rem;
+  }
+
+  /* ---------- masthead ---------- */
+
+  .masthead {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 2.5rem;
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .masthead h1 {
+    font-family: var(--mono);
+    font-size: var(--step-4);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  .masthead p {
+    max-width: 62ch;
+    color: var(--ink-dim);
+    font-size: var(--step-1);
+    margin: 0;
+  }
+
+  .howto {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    margin-top: 0.75rem;
+  }
+
+  .howto div {
+    background: var(--surface);
+    padding: 1rem 1.15rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .howto b {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .howto span { color: var(--ink-dim); font-size: 0.875rem; }
+
+  /* ---------- slide cards ---------- */
+
+  .deck {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .slide {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 2px solid var(--accent-dim);
+    display: grid;
+    grid-template-columns: 3.75rem 1fr;
+  }
+
+  .num {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--accent);
+    padding: 1.5rem 0 0 1.15rem;
+    letter-spacing: 0.02em;
+  }
+
+  .body {
+    padding: 1.5rem 1.5rem 1.6rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    min-width: 0;
+  }
+
+  .slide-title {
+    font-family: var(--mono);
+    font-size: var(--step-2);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  .cols {
+    display: grid;
+    grid-template-columns: 1.55fr 1fr;
+    gap: 1.5rem;
+    align-items: start;
+  }
+
+  .block { display: flex; flex-direction: column; gap: 0.6rem; min-width: 0; }
+
+  .label {
+    font-family: var(--mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 600;
+  }
+
+  /* the copy that literally goes on the slide */
+  .onslide {
+    background: var(--surface-2);
+    border: 1px dashed var(--line);
+    padding: 1rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    overflow-x: auto;
+  }
+
+  .onslide .big {
+    font-family: var(--mono);
+    font-size: var(--step-2);
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+
+  .onslide .sub { color: var(--ink-dim); }
+  .onslide .green { color: var(--accent); }
+
+  .onslide ul { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.35rem; }
+  .onslide li::marker { color: var(--accent); }
+
+  .onslide .quote {
+    border-left: 2px solid var(--accent-dim);
+    padding-left: 0.85rem;
+    color: var(--ink-dim);
+    font-style: italic;
+  }
+
+  .mono {
+    font-family: var(--mono);
+    font-size: 0.8125rem;
+    color: var(--accent);
+    background: var(--ground);
+    border: 1px solid var(--line);
+    padding: 0.55rem 0.75rem;
+    white-space: pre;
+    overflow-x: auto;
+    font-style: normal;
+  }
+
+  .side { display: flex; flex-direction: column; gap: 1.15rem; }
+
+  .side p { margin: 0; color: var(--ink-dim); font-size: 0.875rem; }
+
+  /* the 2400 -> 600/1800 signature graphic */
+  .split {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    font-family: var(--mono);
+    font-size: var(--step-3);
+    font-weight: 600;
+    flex-wrap: wrap;
+  }
+  .split .real { color: var(--accent); }
+  .split .bot { color: var(--ink-faint); text-decoration: line-through; }
+  .split .arrow { color: var(--ink-faint); font-size: var(--step-1); }
+
+  /* routing demo */
+  .routes { display: flex; flex-direction: column; gap: 0.4rem; font-family: var(--mono); font-size: 0.8125rem; }
+  .route {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 0.6rem;
+    align-items: center;
+    background: var(--ground);
+    border: 1px solid var(--line);
+    padding: 0.5rem 0.7rem;
+  }
+  .route .ctx { color: var(--ink-dim); }
+  .route .arrow { color: var(--accent); }
+  .route .dest { color: var(--ink); text-align: right; }
+
+  /* comparison + pricing tables */
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); }
+  table { border-collapse: collapse; width: 100%; font-size: 0.8125rem; }
+  th, td {
+    padding: 0.6rem 0.8rem;
+    text-align: left;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  thead th {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    background: var(--surface-2);
+  }
+  tbody th { font-weight: 500; color: var(--ink-dim); white-space: normal; }
+  tbody td { font-variant-numeric: tabular-nums; color: var(--ink); }
+  .col-tappr { color: var(--accent); font-weight: 600; }
+  thead .col-tappr { color: var(--accent); }
+  tr:last-child th, tr:last-child td { border-bottom: none; }
+
+  /* ---------- rules panel ---------- */
+
+  .rules {
+    border: 1px solid var(--warn);
+    background: var(--surface);
+    border-left-width: 3px;
+    padding: 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .rules h2 {
+    font-family: var(--mono);
+    font-size: var(--step-2);
+    font-weight: 600;
+    margin: 0;
+    color: var(--warn);
+  }
+
+  .rules p { margin: 0; color: var(--ink-dim); max-width: 68ch; }
+
+  .rules ul { margin: 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: 0.55rem; }
+  .rules li { color: var(--ink); }
+  .rules li b { color: var(--warn); }
+  .rules .ok li b { color: var(--accent); }
+  .rules .ok li::marker { color: var(--accent); }
+
+  /* ---------- tone footer ---------- */
+
+  .tone {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+  }
+  .tone div { background: var(--surface); padding: 1.25rem 1.35rem; display: flex; flex-direction: column; gap: 0.45rem; }
+  .tone b { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+  .tone span { color: var(--ink-dim); font-size: 0.875rem; }
+
+  .swatches { display: flex; gap: 0.4rem; margin-top: 0.35rem; }
+  .sw { width: 2rem; height: 2rem; border: 1px solid var(--line); }
+
+  section > h2.section-head {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 1rem;
+    font-weight: 600;
+  }
+
+  @media (max-width: 760px) {
+    .cols { grid-template-columns: 1fr; gap: 1.15rem; }
+    .slide { grid-template-columns: 2.75rem 1fr; }
+    .num { padding-left: 0.85rem; }
+    .body { padding-right: 1rem; }
+    .route { grid-template-columns: 1fr; gap: 0.15rem; }
+    .route .dest { text-align: left; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">Brief de conținut · pentru cine construiește PPTX-ul</div>
+    <h1>Tappr — prezentare eveniment</h1>
+    <p>14 slide-uri. Tot textul de mai jos e extras din produsul real și din site-ul live
+      (tappr.me) — nimic inventat. Termenii de produs (Smart Routing, AI Brain, A/B Testing, API)
+      rămân în engleză, sunt nume de funcționalități.</p>
+
+    <div class="howto">
+      <div>
+        <b>Pe slide</b>
+        <span>Textul din caseta punctată se copiază ca atare. Ăsta e conținutul vizibil.</span>
+      </div>
+      <div>
+        <b>Vizual</b>
+        <span>Ce se desenează. Fără poze de stock, fără clipart cu roboți.</span>
+      </div>
+      <div>
+        <b>Spui</b>
+        <span>Merge în speaker notes. Nu se pune pe slide.</span>
+      </div>
+      <div>
+        <b>Regulile</b>
+        <span>Panoul galben de la final. Citește-l înainte să adaugi orice cifră.</span>
+      </div>
+    </div>
+  </header>
+
+  <section>
+    <h2 class="section-head">Slide-urile</h2>
+    <div class="deck">
+
+      <!-- 1 -->
+      <article class="slide">
+        <div class="num">01</div>
+        <div class="body">
+          <h3 class="slide-title">Titlu</h3>
+          <div class="cols">
+            <div class="block">
+              <div class="label">Pe slide</div>
+              <div class="onslide">
+                <div class="big">Tappr</div>
+                <div class="sub">Link-uri inteligente pentru cei care <span class="green">nu-și permit să ghicească</span>.</div>
+                <div class="mono">tappr.me · v0.4 Beta</div>
+              </div>
+            </div>
+            <div class="side">
+              <div class="block">
+                <div class="label">Vizual</div>
+                <p>Fundal negru. Logo mare. Un singur accent verde. Nimic altceva.</p>
+              </div>
+              <div class="block">
+                <div class="label">Spui</div>
+                <p>„Tappr rutează fiecare click după țară, device și oră, detectează boții în timp
+                  real, și are un AI care îți explică în cuvinte normale ce se întâmplă cu traficul."</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 2 -->
+      <article class="slide">
+        <div class="num">02</div>
+        <div class="body">
+          <h3 class="slide-title">Hook — imaginea-simbol a prezentării</h3>
+          <div class="cols">
+            <div class="block">
+              <div class="label">Pe slide</div>
+              <div class="onslide">
+                <div class="big">Ai primit 2.400 de click-uri.<br>Câte au fost <span class="green">reale</span>?</div>
+                <div class="split">
+                  <span>2.400</span>
+                  <span class="arrow">→</span>
+                  <span class="real">600 reale</span>
+                  <span class="arrow">·</span>
+                  <span class="bot">1.800 boți</span>
+                </div>
+              </div>
+            </div>
+            <div class="side">
+              <div class="block">
+                <div class="label">Vizual</div>
+                <p>Cifra 2.400 mare, care se sparge în două. 600 verde, 1.800 tăiat/stins. Ăsta e
+                  cadrul pe care oamenii îl vor ține minte.</p>
+              </div>
+              <div class="block">
+                <div class="label">Spui</div>
+                <p>Moment de tăcere. Lași cifra pe ecran. „Orice shortener îți spune <i>câte</i>
+                  click-uri ai primit. Niciunul nu îți spune <i>câte au fost reale</i>."</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 3 -->
+      <article class="slide">
+        <div class="num">03</div>
+        <div class="body">
+          <h3 class="slide-title">Problema</h3>
+          <div class="cols">
+            <div class="block">
+              <div class="label">Pe slide</div>
+              <div class="onslide">
+                <div class="big">Trei lucruri pe care shortener-ul tău nu ți le spune</div>
+                <ul>
+                  <li><b>Cel mai bun link al tău tocmai a murit și tu nu știi.</b> Postarea de
+                    Instagram care aducea 70% din trafic a fost ștearsă. Trec ore până verifici.</li>
+                  <li><b>Jumătate din traficul „viral" sunt boți.</b> Un singur referrer pompează
+                    1.800 de click-uri false. Arată excelent în dashboard — până compari cu
+                    conversiile.</li>
+                  <li><b>Îți ratezi target-ul și afli prea târziu.</b> Ziua 25 din 30, ești în urmă
+                    cu 60%. Nu mai ai ce corecta.</li>
+                </ul>
+              </div>
+            </div>
+            <div class="side">
+              <div class="block">
+                <div class="label">Vizual</div>
+                <p>Trei coloane numerotate. Iconițe simple, nu ilustrații.</p>
+              </div>
+              <div class="block">
+                <div class="label">Spui</div>
+                <p>Nu sunt probleme teoretice. Fiecare dintre cele trei devine o funcționalitate pe
+                  slide-urile 6–9.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 4 -->
+      <article class="slide">
+        <div class="num">04</div>
+        <div class="body">
+          <h3 class="slide-title">De ce am construit Tappr</h3>
+          <div class="cols">
+            <div class="block">
+              <div class="label">Pe slide</div>
+              <div class="onslide">
+                <div class="sub">Am încercat <b>Bitly</b>. Ne-a spus că o campanie a primit click-uri.
+                  Nu ne-a spus care click-uri erau boți, nici de ce a murit brusc un link, nici ce
+                  postare ar trebui să redistribuim.</div>
+                <div class="sub">Am încercat <b>Linktree</b>. Arată bine pe telefon. Dar nu e
+                  construit pentru rutare. Nu e construit pentru analiză. Și sigur nu e construit
+                  pentru cineva care rulează campanii plătite.</div>
+                <div class="sub"><span class="green">Așa că am construit Tappr</span> — pentru
+                  oamenii care chiar depind de link-uri: să funcționeze, să știe de ce funcționează,
+                  și să reacționeze rapid când nu mai funcționează.</div>
+                <div class="mono">Tappr Labs · București &amp; Brooklyn</div>
+              </div>
+            </div>
+            <div class="side">
+              <div class="block">
+                <div class="label">Vizual</div>
+                <p>Slide de text. Tipografie curată, mult spațiu.</p>
+              </div>
+              <div class="block">
+                <div class="label">Spui</div>
+                <p>Slide-ul de credibilitate. Nu vinzi aici — povestești frustrarea. Publicul ar
+                  trebui să dea din cap că a pățit-o și el.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 5 -->
+      <article class="slide">
+        <div class="num">05</div>
+        <div class="body">
+          <h3 class="slide-title">Ce este Tappr — cei trei pași</h3>
+          <div class="cols">
+            <div class="block">
+              <div class="label">Pe slide</div>
+              <div class="onslide">
+                <div class="big">Un link. Trei pași. <span class="green">Zero ghicit.</span></div>
+                <ul>
+                  <li><b>Creezi link-ul.</b> Pui destinația, alegi slug-ul, ai <code>tappr.me/promo</code>
+                    instant. Zero configurare ca să pornești.</li>
+                  <li><b>Adaugi reguli de rutare.</b> Același link duce în locuri diferite după
+                    țară, device, oră, zi sau interval de date. Prima regulă care se potrivește câștigă.</li>
+                  <li><b>Vezi ce s-a întâmplat cu adevărat.</b> Fiecare click e clasificat
+                    <i>înainte</i> de redirect. Boții sunt marcați, anomaliile dau alertă într-o oră.</li>
+                </ul>
+                <div class="mono">dacă țara=US ȘI device=mobil → App Store
+2.400 click-uri → 600 reale · 1.800 boți</div>
+              </div>
+            </div>
+            <div class="side">
+              <div class="block">
+                <div class="label">Vizual</div>
+                <p>Trei pași orizontali cu săgeți. Fragmentele de cod în monospace, pe fundal mai
+                  închis decât slide-ul.</p>
+              </div>
+              <div class="block">
+                <div class="label">Spui</div>
+                <p>Dacă cineva pleacă din sală după slide-ul ăsta, trebuie să poată explica Tappr
+                  unui prieten.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 6 -->
+      <article class="slide">
+        <div class="num">06</div>
+        <div class="body">
+          <h3 class="slide-title">Smart Routing — cel mai bun slide vizual din deck</h3>
+          <div class="cols">
+            <div class="block">
+              <div class="label">Pe slide</div>
+              <div class="onslide">
+                <div class="big">Smart Routing<br><span class="green">Un link. Orice context.</span></div>
+                <div class="sub">Reguli după țară · device · oră · zi a săptămânii · interval de date.
+                  Din același <code>tappr.me/promo</code>:</div>
+                <div class="routes">
+                  <div class="route"><span class="ctx">🇺🇸 SUA · mobil</span><span class="arrow">→</span><span class="dest">App Store</span></div>
+                  <div class="route"><span class="ctx">🇷🇴 România · mobil</span><span class="arrow">→</span><span class="dest">magazin localizat</span></div>
+                  <div class="route"><span class="ctx">📱 TikTok · browser in-app</span><span class="arrow">→</span><span class="dest">WhatsApp</span></div>
+                  <div class="route"><span class="ctx">🌙 după ora 22:00</span><span class="arrow">→</span><span class="dest">fallback</span></div>
+                </div>
+                <div class="sub">Plus <span class="green">deep linking automat</span> — deschide
+                  direct aplicația nativă pe mobil (100+ aplicații).</div>
+              </div>
+            </div>
+            <div class="side">
+              <div class="block">
+                <div class="label">Vizual</div>
+                <p>Un link în stânga, patru săgeți care pleacă spre destinații diferite în dreapta,
+                  fiecare cu contextul ei. Merită efortul — e slide-ul care face diferența evidentă.</p>
+              </div>
+              <div class="block">
+                <div class="label">Spui</div>
+                <p>„Un link clasic are o singură destinație. Al nostru are câte destinații ai nevoie."</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 7 -->
+      <article class="slide">
+        <div class="num">07</div>
+        <div class="body">
+          <h3 class="slide-title">AI Brain</h3>
+          <div class="cols">
+            <div class="block">
+              <div class="label">Pe slide</div>
+              <div class="onslide">
+                <div class="big">AI Brain<br><span class="green">Întrebi normal. Primești cauza și acțiunea.</span></div>
+                <div class="mono">› de ce a pierdut /promo trafic?</div>
+                <div class="quote">Scădere de 67% în 12 ore. Săptămâna trecută, 84% din click-uri
+                  veneau de pe instagram.com/p/abc — acel referrer a căzut la zero azi.
+                  Cauză probabilă: postarea a fost ștearsă.<br><br>
+                  → Dă-i DM contului sau mută /promo pe o strategie TikTok-first.</div>
+              </div>
+            </div>
+            <div class="side">
+              <div class="block">
+                <div class="label">Vizual</div>
+                <p>Fereastră de chat, stil terminal. Întrebarea în verde, răspunsul dedesubt.
+                  <b>Fără avatar de robot. Fără clipart AI.</b></p>
+              </div>
+              <div class="block">
+                <div class="label">Spui</div>
+                <p>Diferența: nu îți dă un grafic, îți dă <b>cauza</b> și <b>acțiunea</b>. Menționează
+                  și raportul săptămânal generat automat.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 8 -->
+      <article class="slide">
+        <div class="num">08</div>
+        <div class="body">
+          <h3 class="slide-title">Alerte în timp real</h3>
+          <div class="cols">
+            <div class="block">
+              <div class="label">Pe slide</div>
+              <div class="onslide">
+                <div class="big">Alerte în timp real<br><span class="green">Afli într-o oră, nu peste trei zile.</span></div>
+                <div class="mono">SPIKE · /launch · de 6× peste normal</div>
+                <div class="quote">412 click-uri în ultimele 60 de minute, față de o medie de 68/oră.
+                  Ceva funcționează — împinge buget cât e cald.</div>
+                <div class="sub"><b>12 tipuri de alerte:</b> creșteri bruște · scăderi de trafic
+                  (40%+) · link-uri moarte · tipare de boți · fraudă de click-uri</div>
+                <div class="sub">Fiecare anomalie vine cu <span class="green">cauza generată de AI</span>
+                  și acțiunea recomandată.</div>
+              </div>
+            </div>
+            <div class="side">
+              <div class="block">
+                <div class="label">Vizual</div>
+                <p>Card de alertă cu bandă colorată pe margine. Eventual un mic grafic cu spike-ul.</p>
+              </div>
+              <div class="block">
+                <div class="label">Spui</div>
+                <p>Alerta nu e doar „ai un spike". E „ai un spike, uite de ce, uite ce faci acum".
+                  Apar live în dashboard, fără refresh; cele grave vin și pe email.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 9 -->
+      <article class="slide">
+        <div class="num">09</div>
+        <div class="body">
+          <h3 class="slide-title">A/B Testing</h3>
+          <div class="cols">
+            <div class="block">
+              <div class="label">Pe slide</div>
+              <div class="onslide">
+                <div class="big">A/B Testing<br><span class="green">Câștigătorul se alege singur.</span></div>
+                <div class="sub">Traficul se împarte 50/50 în spatele unui singur link.</div>
+                <div class="mono">A/landing-v1   7,4% conversie
+B/landing-v2   4,1% conversie
+★ câștigător: A — rutat automat la 100%</div>
+                <div class="sub">Tracking de conversii și venit. Calculator de ROI conectat la datele
+                  reale ale testului.</div>
+              </div>
+            </div>
+            <div class="side">
+              <div class="block">
+                <div class="label">Vizual</div>
+                <p>Două bare comparate, câștigătoarea verde, cu o stea. Atât.</p>
+              </div>
+              <div class="block">
+                <div class="label">Spui</div>
+                <p>Nu trebuie să stai să te uiți la test. După ce trece pragul pe care îl setezi,
+                  Tappr mută singur tot traficul pe varianta câștigătoare.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 10 -->
+      <article class="slide">
+        <div class="num">10</div>
+        <div class="body">
+          <h3 class="slide-title">API — doar dacă în sală sunt dezvoltatori</h3>
+          <div class="cols">
+            <div class="block">
+              <div class="label">Pe slide</div>
+              <div class="onslide">
+                <div class="big">API<br><span class="green">REST. Bearer auth. Cu tot cu rutare.</span></div>
+                <div class="mono">POST https://tappr.me/api/v1/links
+Authorization: Bearer dl_xxx
+
+{
+  "destination_url": "https://shop.io",
+  "slug": "promo",
+  "redirect_rules": [...]
+}</div>
+                <div class="sub">Creezi link-uri, citești analytics, gestionezi colecții — programatic.</div>
+              </div>
+            </div>
+            <div class="side">
+              <div class="block">
+                <div class="label">Vizual</div>
+                <p>Un singur bloc de cod, curat, monospace. Nimic în jur.</p>
+              </div>
+              <div class="block">
+                <div class="label">Spui</div>
+                <p>Dacă publicul nu e tehnic, treci repede peste — dar lasă slide-ul, arată că
+                  produsul e serios.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 11 -->
+      <article class="slide">
+        <div class="num">11</div>
+        <div class="body">
+          <h3 class="slide-title">Pentru cine e</h3>
+          <div class="cols">
+            <div class="block">
+              <div class="label">Pe slide</div>
+              <div class="onslide">
+                <div class="big">Pentru cine e Tappr</div>
+                <ul>
+                  <li><b>Creatori</b> (Instagram, TikTok, YouTube) — link-ul din bio moare în tăcere;
+                    nu poți deosebi fanii reali de boți.</li>
+                  <li><b>Antreprenori la început &amp; marketeri</b> — rulezi campanii plătite, nu îți
+                    permiți să plătești pentru click-uri false.</li>
+                  <li><b>Companii care scalează</b> — rutare geo/device/oră, domeniu propriu, API,
+                    roluri pe echipă.</li>
+                  <li><b>Agenții</b> — multe campanii de client, volum mare, echipă nelimitată,
+                    suport prioritar.</li>
+                </ul>
+              </div>
+            </div>
+            <div class="side">
+              <div class="block">
+                <div class="label">Vizual</div>
+                <p>Grid 2×2 sau patru coloane. O iconiță per segment.</p>
+              </div>
+              <div class="block">
+                <div class="label">Spui</div>
+                <p>Leagă fiecare segment de planul lui de preț — asta pregătește slide-ul 13.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 12 -->
+      <article class="slide">
+        <div class="num">12</div>
+        <div class="body">
+          <h3 class="slide-title">Tappr vs. alternativele — slide-ul de poziționare</h3>
+          <div class="block">
+            <div class="label">Pe slide</div>
+            <div class="onslide">
+              <div class="big">De ce nu Bitly sau Linktree</div>
+              <div class="tablewrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th scope="col"></th>
+                      <th scope="col">Bitly</th>
+                      <th scope="col">Linktree</th>
+                      <th scope="col" class="col-tappr">Tappr</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <th scope="row">Numărare click-uri</th>
+                      <td>Un total unic</td><td>De bază</td>
+                      <td class="col-tappr">Boții separați de oameni reali</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Rutare</th>
+                      <td>O singură destinație</td><td>Pagină statică</td>
+                      <td class="col-tappr">Țară · device · oră · zi</td>
+                    </tr>
+                    <tr>
+                      <th scope="row"><i>De ce</i> s-a schimbat traficul</th>
+                      <td>Sapi prin grafice</td><td>—</td>
+                      <td class="col-tappr">AI Brain îți explică</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Când moare un link</th>
+                      <td>Afli eventual</td><td>—</td>
+                      <td class="col-tappr">Alertă într-o oră, cu cauza</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Optimizare</th>
+                      <td>Manual</td><td>—</td>
+                      <td class="col-tappr">A/B test cu câștigător automat</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="big">Toate celelalte îți spun <b>câte</b> click-uri ai.<br>
+                Tappr îți spune <span class="green">care au fost reale, de ce s-a schimbat cifra și
+                ce ai de făcut.</span></div>
+            </div>
+          </div>
+          <div class="cols">
+            <div class="block">
+              <div class="label">Vizual</div>
+              <p style="margin:0;color:var(--ink-dim);font-size:0.875rem">Tabel curat, coloana Tappr
+                evidențiată cu verde. Fraza de închidere mare, sub tabel, cu spațiu în jur.</p>
+            </div>
+            <div class="block">
+              <div class="label">Spui</div>
+              <p style="margin:0;color:var(--ink-dim);font-size:0.875rem">Dacă publicul reține un
+                singur slide din toată prezentarea, ăsta trebuie să fie.</p>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 13 -->
+      <article class="slide">
+        <div class="num">13</div>
+        <div class="body">
+          <h3 class="slide-title">Prețuri</h3>
+          <div class="block">
+            <div class="label">Pe slide</div>
+            <div class="onslide">
+              <div class="big">Începi gratis. <span class="green">Plătești când depășești.</span></div>
+              <div class="tablewrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th scope="col"></th>
+                      <th scope="col">Free</th>
+                      <th scope="col">Starter</th>
+                      <th scope="col" class="col-tappr">Growth ★</th>
+                      <th scope="col">Agency</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><th scope="row">Preț</th><td>€0</td><td>€97/lună</td><td class="col-tappr">€297/lună</td><td>€997/lună</td></tr>
+                    <tr><th scope="row">Click-uri / lună</th><td>500</td><td>50.000</td><td class="col-tappr">250.000</td><td>Nelimitat</td></tr>
+                    <tr><th scope="row">Link-uri</th><td>25</td><td>500</td><td class="col-tappr">5.000</td><td>Nelimitat</td></tr>
+                    <tr><th scope="row">Membri echipă</th><td>1</td><td>3</td><td class="col-tappr">10</td><td>Nelimitat</td></tr>
+                    <tr><th scope="row">Smart Routing</th><td>—</td><td>Geo + Device</td><td class="col-tappr">Complet</td><td>Complet</td></tr>
+                    <tr><th scope="row">AI Brain</th><td>10 chat-uri/lună</td><td>Nelimitat</td><td class="col-tappr">Nelimitat</td><td>Nelimitat</td></tr>
+                    <tr><th scope="row">Alerte</th><td>De bază</td><td>Toate 12</td><td class="col-tappr">Toate 12</td><td>Toate 12</td></tr>
+                    <tr><th scope="row">Domeniu propriu</th><td>—</td><td>—</td><td class="col-tappr">✓</td><td>✓</td></tr>
+                    <tr><th scope="row">API</th><td>—</td><td>—</td><td class="col-tappr">✓</td><td>✓</td></tr>
+                    <tr><th scope="row">Suport</th><td>Comunitate</td><td>Email</td><td class="col-tappr">Email prioritar</td><td>Prioritar · 4h</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="cols">
+            <div class="block">
+              <div class="label">Vizual</div>
+              <p style="margin:0;color:var(--ink-dim);font-size:0.875rem">Patru carduri de preț, Growth
+                evidențiat ca „cel mai popular". Sau tabelul de mai sus, dacă vrei densitate.</p>
+            </div>
+            <div class="block">
+              <div class="label">Spui</div>
+              <p style="margin:0;color:var(--ink-dim);font-size:0.875rem">Atenție: planul Free e
+                momentan <b>pe bază de invitație</b> — se deblochează cu un cod de partener. Dacă spui
+                în sală „intrați gratis", pregătește coduri de împărțit.</p>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 14 -->
+      <article class="slide">
+        <div class="num">14</div>
+        <div class="body">
+          <h3 class="slide-title">Închidere</h3>
+          <div class="cols">
+            <div class="block">
+              <div class="label">Pe slide</div>
+              <div class="onslide">
+                <div class="big">Nu mai pierde click-uri pe care <span class="green">nu le poți explica.</span></div>
+                <div class="sub">Începi gratis. Fără card. Gata în 60 de secunde.</div>
+                <div class="mono">tappr.me
+hello@tappr.me</div>
+              </div>
+            </div>
+            <div class="side">
+              <div class="block">
+                <div class="label">Vizual</div>
+                <p>Minimal. Negru, mesajul, domeniul mare. Un QR code către tappr.me e potrivit —
+                  produsul chiar generează QR-uri.</p>
+              </div>
+              <div class="block">
+                <div class="label">Spui</div>
+                <p>Cere ceva concret. Investitori în sală → ask-ul. Utilizatori în sală → QR-ul.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+    </div>
+  </section>
+
+  <section class="rules">
+    <h2>Reguli — citește înainte să adaugi orice cifră</h2>
+    <p>Tappr e la început (<b>v0.4 Beta</b>). Onestitatea face parte din pitch — un deck plin de
+      social proof fals se prăbușește la prima întrebare din sală.</p>
+    <ul>
+      <li><b>Zero testimoniale. Zero logo-uri de clienți. Zero „Trusted by".</b> Nu există. Nu inventa.</li>
+      <li><b>Zero cifre de tracțiune</b> de tipul „1,4 miliarde de click-uri rutate" sau „312 milioane
+        de boți blocați". Erau text de machetă și au fost șterse intenționat de pe site. Cifrele reale
+        de azi sunt mici — prezentarea vinde <i>problema și mecanismul</i>, nu scara.</li>
+      <li><b>Zero promisiuni de uptime, SLA sau certificări</b> (SOC 2 etc.). Nu există.</li>
+      <li><b>Zero studii de caz inventate.</b></li>
+    </ul>
+    <ul class="ok">
+      <li><b>Ce e legitim de arătat:</b> problema, cum funcționează produsul, demo-ul de rutare,
+        exemplele reale de output AI Brain, exemplele de alerte, prețurile, povestea fondatorilor.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2 class="section-head">Ton și direcție vizuală</h2>
+    <div class="tone">
+      <div>
+        <b>Ton</b>
+        <span>Direct, tehnic, fără fluff. Propoziții scurte, afirmative. Zero limbaj corporatist.
+          Vocea brandului: „pentru cei care nu-și permit să ghicească."</span>
+      </div>
+      <div>
+        <b>Regulă de aur</b>
+        <span>O idee per slide. Dacă un slide are două mesaje, sunt două slide-uri.</span>
+      </div>
+      <div>
+        <b>Tipografie</b>
+        <span>Monospace pentru titluri, date și cod. Sans curat pentru text. Secțiuni numerotate
+          /01 /02 /03.</span>
+      </div>
+      <div>
+        <b>Culoare</b>
+        <span>Fundal închis. Un singur accent verde, folosit pe cuvântul-cheie din fiecare titlu —
+          nu peste tot.</span>
+        <div class="swatches">
+          <div class="sw" style="background:#0A0D0B"></div>
+          <div class="sw" style="background:#161C17"></div>
+          <div class="sw" style="background:#3ECF8E"></div>
+          <div class="sw" style="background:#E3EAE4"></div>
+        </div>
+      </div>
+      <div>
+        <b>Stack tehnic</b>
+        <span>Dacă e nevoie de un slide tehnic: Next.js 16 · React 19 · TypeScript · Supabase
+          (PostgreSQL + Realtime) · Groq (LLaMA 3.3 70B) · Vercel.</span>
+      </div>
+    </div>
+  </section>
+
+</div>
