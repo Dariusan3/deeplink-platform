@@ -218,16 +218,16 @@ function PayoutProgressCard({ pending }: { pending: number }) {
               {ready ? (
                 <>
                   <p className="text-sm font-black text-white">€{pending.toFixed(2)} ready to withdraw</p>
-                  <p className="text-[10px] text-neutral-400">Above the ${PARTNER_MIN_PAYOUT} minimum — request a payout anytime</p>
+                  <p className="text-[10px] text-neutral-400">Above the €{PARTNER_MIN_PAYOUT} minimum — request a payout anytime</p>
                 </>
               ) : (
                 <>
                   <p className="text-sm font-black text-white">
-                    ${pending.toFixed(2)}{" "}
-                    <span className="text-neutral-500 font-bold">/ ${PARTNER_MIN_PAYOUT}</span>
+                    €{pending.toFixed(2)}{" "}
+                    <span className="text-neutral-500 font-bold">/ €{PARTNER_MIN_PAYOUT}</span>
                   </p>
                   <p className="text-[10px] text-neutral-400">
-                    ${remaining.toFixed(2)} more to unlock your first payout
+                    €{remaining.toFixed(2)} more to unlock your first payout
                   </p>
                 </>
               )}
