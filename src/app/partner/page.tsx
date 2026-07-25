@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { PartnerCalculator } from "@/components/partner/partner-calculator";
 import { usePartner } from "@/hooks/use-partner";
+import { partnerStatusLabel } from "@/types/partner";
 import {
   TrendingUp, Users, Wallet, Target, Copy, Check, ArrowRight, Sparkles, Trophy,
 } from "lucide-react";
@@ -187,7 +188,7 @@ export default function PartnerOverviewPage() {
                       r.status === "churned" ? "bg-red-500/10 text-red-400" :
                       "bg-amber-500/10 text-amber-400"
                     }`}>
-                      {r.status}
+                      {partnerStatusLabel(r.status)}
                     </span>
                   </div>
                 ))}

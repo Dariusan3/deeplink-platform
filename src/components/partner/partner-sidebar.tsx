@@ -14,7 +14,6 @@ import {
   Wallet,
   Trophy,
   Megaphone,
-  Lightbulb,
   Settings,
   ArrowLeft,
 } from "lucide-react";
@@ -25,7 +24,6 @@ const NAV = [
   { name: "Referrals", href: "/partner/referrals", icon: Users },
   { name: "Earnings", href: "/partner/earnings", icon: Wallet },
   { name: "Promo Kit", href: "/partner/promo", icon: Megaphone },
-  { name: "Suggestions", href: "/partner/suggestions", icon: Lightbulb },
   { name: "Settings", href: "/partner/settings", icon: Settings },
 ];
 

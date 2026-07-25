@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { usePartner } from "@/hooks/use-partner";
+import { partnerStatusLabel } from "@/types/partner";
 import { Search, Users, Link2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -80,7 +81,7 @@ export default function PartnerReferralsPage() {
                 : "bg-white/[0.02] text-neutral-500 border-white/10 hover:text-white"
             )}
           >
-            {f} <span className="ml-1 opacity-60">({counts[f]})</span>
+            {f === "all" ? "All" : partnerStatusLabel(f)} <span className="ml-1 opacity-60">({counts[f]})</span>
           </button>
         ))}
         <div className="relative flex-1 min-w-[200px] max-w-md ml-auto">
@@ -165,7 +166,7 @@ export default function PartnerReferralsPage() {
                           r.status === "pending" && "bg-amber-500/10 text-amber-400",
                           r.status === "churned" && "bg-red-500/10 text-red-400"
                         )}>
-                          {r.status}
+                          {partnerStatusLabel(r.status)}
                         </span>
                       </td>
                     </tr>

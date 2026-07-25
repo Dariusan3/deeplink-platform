@@ -3,6 +3,19 @@
 // later, these will still match the migration 015 schema.
 
 export type PartnerStatus = "pending" | "active" | "churned";
+
+// User-facing labels. The DB value stays "churned" (the schema constraint and
+// all the commission logic key off it), but "churned" is jargon that reads
+// harshly to a partner, so it's shown as "Inactive".
+export const PARTNER_STATUS_LABEL: Record<string, string> = {
+  pending: "Pending",
+  active: "Active",
+  churned: "Inactive",
+};
+
+export function partnerStatusLabel(status: string): string {
+  return PARTNER_STATUS_LABEL[status] ?? status;
+}
 export type PartnerEarningStatus = "pending" | "paid";
 export type PartnerEarningType = "commission" | "bonus";
 export type PartnerPayoutStatus = "requested" | "paid" | "rejected";

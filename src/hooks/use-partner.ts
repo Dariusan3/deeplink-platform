@@ -11,7 +11,6 @@ import type {
   PartnerReferral,
   PartnerEarning,
   PartnerPayout,
-  PartnerSuggestion,
   PartnerPayoutMethod,
 } from "@/types/partner";
 
@@ -23,7 +22,6 @@ export function usePartner() {
   const [referrals, setReferrals] = useState<PartnerReferral[]>([]);
   const [earnings, setEarnings] = useState<PartnerEarning[]>([]);
   const [payouts, setPayouts] = useState<PartnerPayout[]>([]);
-  const [suggestions, setSuggestions] = useState<PartnerSuggestion[]>([]);
   const [loading, setLoading] = useState(true);
 
   const supabase = useMemo(() => createClient(), []);
@@ -44,14 +42,13 @@ export function usePartner() {
       setReferrals([]);
       setEarnings([]);
       setPayouts([]);
-      setSuggestions([]);
       setLoading(false);
       return;
     }
 
     const partnerId = profileRow.id;
 
-    const [{ data: refs }, { data: earns }, { data: pays }, { data: sugs }] = await Promise.all([
+    const [{ data: refs }, { data: earns }, { data: pays }] = await Promise.all([
       supabase
         .from("partner_referrals")
         .select("*")
@@ -67,18 +64,12 @@ export function usePartner() {
         .select("*")
         .eq("partner_id", partnerId)
         .order("requested_at", { ascending: false }),
-      supabase
-        .from("partner_suggestions")
-        .select("*")
-        .order("votes", { ascending: false })
-        .limit(50),
     ]);
 
     setProfile(profileRow as PartnerProfile);
     setReferrals((refs || []) as PartnerReferral[]);
     setEarnings((earns || []) as PartnerEarning[]);
     setPayouts((pays || []) as PartnerPayout[]);
-    setSuggestions((sugs || []) as PartnerSuggestion[]);
     setLoading(false);
   }, [user?.id, supabase]);
 
@@ -185,44 +176,6 @@ export function usePartner() {
     []
   );
 
-  const submitSuggestion = useCallback(
-    async (title: string, body: string) => {
-      if (!profile) throw new Error("No partner profile");
-      const trimmed = title.trim();
-      const trimmedBody = body.trim();
-      if (!trimmed || !trimmedBody) {
-        toast.error("Title and description are required");
-        return;
-      }
-      const { error } = await supabase.from("partner_suggestions").insert({
-        partner_id: profile.id,
-        title: trimmed,
-        body: trimmedBody,
-      });
-      if (error) {
-        toast.error(error.message || "Failed to submit suggestion");
-        throw error;
-      }
-      emit(REFRESH_KEY);
-      toast.success("Suggestion submitted");
-    },
-    [profile, supabase]
-  );
-
-  const voteSuggestion = useCallback(
-    async (suggestionId: string) => {
-      const { error } = await supabase.rpc("partner_vote_suggestion", {
-        p_suggestion_id: suggestionId,
-      });
-      if (error) {
-        toast.error(error.message || "Failed to vote");
-        throw error;
-      }
-      emit(REFRESH_KEY);
-    },
-    [supabase]
-  );
-
   // ─── Derived values ──────────────────────────────────────
 
   const activeReferrals = referrals.filter((r) => r.status === "active");
@@ -246,7 +199,6 @@ export function usePartner() {
     churnedReferrals,
     earnings,
     payouts,
-    suggestions,
     loading,
     monthlyMrr,
     monthlyCommission,
@@ -255,7 +207,5 @@ export function usePartner() {
     refresh: fetchAll,
     updatePayoutMethod,
     requestPayout,
-    submitSuggestion,
-    voteSuggestion,
   };
 }
