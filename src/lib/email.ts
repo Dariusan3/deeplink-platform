@@ -98,7 +98,31 @@ type DigestAlert = {
   title: string;
   description: string;
   affectedLink?: string | null;
+  detectedAt?: string | null; // ISO date; renders a small "when" line if present
 };
+
+const SEVERITY_META: Record<string, { label: string; color: string; bg: string }> = {
+  high:   { label: "Critical", color: "#ef4444", bg: "rgba(239,68,68,0.14)" },
+  medium: { label: "Warning",  color: "#f59e0b", bg: "rgba(245,158,11,0.14)" },
+  low:    { label: "Heads up", color: "#9ca3af", bg: "rgba(156,163,175,0.14)" },
+};
+const sevMeta = (s: string) => SEVERITY_META[s] ?? SEVERITY_META.low;
+
+// Bold the numbers that carry the news (percentages, status codes) so the eye
+// lands on "404" / "63%" instead of reading the whole sentence.
+function emphasizeNumbers(s: string): string {
+  return escapeHtml(s).replace(
+    /(\d[\d,.]*%|\b\d{3,}\b)/g,
+    '<strong style="color:#fff;">$1</strong>'
+  );
+}
+
+function whenLabel(iso?: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
 
 // One digest per team per run — never N separate emails. This is the ONLY alert
 // email path: it fires from the detector cron on freshly-inserted alerts, so a
@@ -121,48 +145,74 @@ export async function sendAlertDigestEmail({
 
   const count = alerts.length;
   const top = alerts[0];
-  // Natural subject, no "[HIGH]" bracket-caps (a classic spam signal).
   const subject =
     count === 1 ? `${top.title} — ${teamName}` : `${count} new alerts for ${teamName}`;
 
+  // Inbox preview line (preheader) — the first bit of text Gmail shows next to
+  // the subject. Summarize instead of leaking raw markup.
+  const sevCounts = alerts.reduce<Record<string, number>>((m, a) => {
+    m[a.severity] = (m[a.severity] ?? 0) + 1;
+    return m;
+  }, {});
+  const preheader =
+    Object.entries(sevCounts)
+      .map(([s, n]) => `${n} ${sevMeta(s).label.toLowerCase()}`)
+      .join(" · ") + ` on ${teamName}`;
+
   const rows = alerts
     .map((a) => {
-      const color =
-        a.severity === "high" ? "#ef4444" : a.severity === "medium" ? "#f59e0b" : "#6b7280";
+      const m = sevMeta(a.severity);
+      const when = whenLabel(a.detectedAt);
+      const linkHref = a.affectedLink
+        ? (a.affectedLink.startsWith("http") ? a.affectedLink : `https://${a.affectedLink}`)
+        : null;
       return `
-        <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-left: 3px solid ${color}; border-radius: 8px; padding: 14px 16px; margin-bottom: 10px;">
-          <p style="font-size: 15px; font-weight: 800; color: #fff; margin: 0 0 4px;">${escapeHtml(a.title)}</p>
-          <p style="font-size: 13px; color: #999; line-height: 1.6; margin: 0;">${escapeHtml(a.description)}</p>
-          ${a.affectedLink ? `<p style="font-size: 12px; color: #666; margin: 6px 0 0; font-family: ui-monospace, monospace;">${escapeHtml(a.affectedLink)}</p>` : ""}
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-left: 3px solid ${m.color}; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px;">
+          <span style="display:inline-block; font-size:9px; font-weight:900; text-transform:uppercase; letter-spacing:0.12em; color:${m.color}; background:${m.bg}; padding:3px 8px; border-radius:20px;">${m.label}</span>
+          ${when ? `<span style="font-size:10px; color:#555; margin-left:8px;">${when}</span>` : ""}
+          <p style="font-size: 15px; font-weight: 800; color: #fff; margin: 8px 0 4px;">${escapeHtml(a.title)}</p>
+          <p style="font-size: 13px; color: #9aa0a6; line-height: 1.6; margin: 0;">${emphasizeNumbers(a.description)}</p>
+          ${linkHref ? `<a href="${linkHref}" style="display:inline-block; font-size: 12px; color: #00D26A; margin: 8px 0 0; font-family: ui-monospace, monospace; text-decoration:none;">${escapeHtml(a.affectedLink as string)} &rarr;</a>` : ""}
         </div>`;
     })
     .join("");
 
   const html = `
-    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; background: #000; color: #fff; border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);">
-      <div style="padding: 24px 24px 16px; border-bottom: 1px solid rgba(255,255,255,0.05);">
-        <span style="font-size: 20px; font-weight: 900; color: #fff;">Ta<span style="color: #00D26A;">ppr</span></span>
-        <p style="font-size: 11px; color: #666; margin: 6px 0 0; text-transform: uppercase; letter-spacing: 0.15em; font-weight: 700;">${count === 1 ? "New alert" : `${count} new alerts`} · ${escapeHtml(teamName)}</p>
-      </div>
-      <div style="padding: 20px 24px;">${rows}</div>
-      <div style="padding: 8px 24px 20px; text-align: center;">
-        <a href="https://tappr.me/dashboard/alerts" style="display: inline-block; background: #00D26A; color: #000; font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em; padding: 10px 24px; border-radius: 8px; text-decoration: none;">View in dashboard</a>
-      </div>
-      <div style="padding: 12px 24px; text-align: center; border-top: 1px solid rgba(255,255,255,0.05);">
-        <p style="font-size: 10px; color: #444; margin: 0;">You get these because alerts are on for ${escapeHtml(teamName)}. Manage them in your <a href="https://tappr.me/dashboard/alerts" style="color:#666;">alert settings</a>.</p>
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${escapeHtml(preheader)}</div>
+    <div style="background:#0b0b0b; padding:24px 12px;">
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; background: #000; color: #fff; border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);">
+        <div style="padding: 24px 24px 18px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+          <span style="font-size: 20px; font-weight: 900; color: #fff;">Ta<span style="color: #00D26A;">ppr</span></span>
+          <p style="font-size: 11px; color: #666; margin: 6px 0 0; text-transform: uppercase; letter-spacing: 0.15em; font-weight: 700;">${count === 1 ? "New alert" : `${count} new alerts`} · ${escapeHtml(teamName)}</p>
+          <p style="font-size: 13px; color: #9aa0a6; margin: 10px 0 0;">Here's what needs your attention on <strong style="color:#fff;">${escapeHtml(teamName)}</strong>.</p>
+        </div>
+        <div style="padding: 20px 24px;">${rows}</div>
+        <div style="padding: 4px 24px 22px; text-align: center;">
+          <a href="https://tappr.me/dashboard/alerts" style="display: inline-block; background: #00D26A; color: #000; font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em; padding: 11px 26px; border-radius: 8px; text-decoration: none;">View in dashboard</a>
+        </div>
+        <div style="padding: 14px 24px; text-align: center; border-top: 1px solid rgba(255,255,255,0.05);">
+          <p style="font-size: 10px; color: #555; margin: 0; line-height:1.6;">You're getting this because alerts are on for ${escapeHtml(teamName)}.<br/>
+            <a href="https://tappr.me/dashboard/alerts" style="color:#888; text-decoration:underline;">Manage alerts</a>
+            &nbsp;·&nbsp;
+            <a href="mailto:${SUPPORT_EMAIL}?subject=unsubscribe%20alerts" style="color:#888; text-decoration:underline;">Unsubscribe</a>
+          </p>
+        </div>
       </div>
     </div>`;
 
   const text = [
-    `${count === 1 ? "New alert" : `${count} new alerts`} for ${teamName}`,
+    preheader,
     "",
-    ...alerts.map(
-      (a) =>
-        `• [${a.severity.toUpperCase()}] ${a.title}\n  ${a.description}${a.affectedLink ? `\n  ${a.affectedLink}` : ""}`
-    ),
+    ...alerts.map((a) => {
+      const when = whenLabel(a.detectedAt);
+      return `• [${sevMeta(a.severity).label.toUpperCase()}]${when ? ` (${when})` : ""} ${a.title}\n  ${a.description}${a.affectedLink ? `\n  ${a.affectedLink}` : ""}`;
+    }),
     "",
     "View in dashboard: https://tappr.me/dashboard/alerts",
-    "Manage alert settings: https://tappr.me/dashboard/alerts",
+    "",
+    `You're getting this because alerts are on for ${teamName}.`,
+    "Manage alerts: https://tappr.me/dashboard/alerts",
+    `Unsubscribe: email ${SUPPORT_EMAIL} with subject "unsubscribe alerts"`,
   ].join("\n");
 
   try {
