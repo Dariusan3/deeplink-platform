@@ -4,6 +4,7 @@ import Groq from "groq-sdk";
 import { sendPartnerMonthlyReportEmail } from "@/lib/email";
 import { finalizeABWinnerIfReady } from "@/lib/ab-testing";
 import { pruneClickLogs } from "@/lib/prune-click-logs";
+import { invalidateOwnerQuota } from "@/lib/click-quota";
 
 // Uses the service-role key — this route is hit by a cron scheduler, not a
 // browser. Created lazily on first request rather than at module scope:
@@ -122,8 +123,11 @@ export async function GET(request: NextRequest) {
     const recent = recentClicks ?? 0;
     const prev = prevClicks ?? 0;
 
-    // Detect traffic spike/drop
-    if (prev > 0 || recent > 0) {
+    // Detect traffic spike/drop. Require an absolute volume floor first — a
+    // percentage swing on tiny numbers (prev=2 → recent=3 = +50%, or
+    // prev=0 → recent=1 = +100% "high") is statistical noise, not an anomaly,
+    // and was the single biggest false-positive source on low-traffic teams.
+    if (prev >= 20 || recent >= 20) {
       const changePercent = prev === 0
         ? (recent > 0 ? 100 : 0)
         : ((recent - prev) / prev) * 100;
@@ -326,9 +330,12 @@ Reply with only the JSON, no other text.`;
     }
   }
 
-  // Deduplicate: don't insert if same team+title+affected_link exists in
-  // last 4 hours. Keying on affected_link lets alerts for different links
-  // sharing a title (e.g. "Goal Miss Risk" for 3 different links) coexist.
+  // Deduplicate: don't insert if the same team+title+affected_link fired in the
+  // last 7 DAYS. This cron runs once daily, so the old 4-hour window meant a
+  // persistent condition (a silent link, a concentrated referrer) re-inserted a
+  // fresh alert EVERY morning — the main reason the alert list felt spammy. A
+  // weekly window matches the detector system's own weekly dedup buckets.
+  // affected_link keying still lets different links sharing a title coexist.
   const insertAnomalies = [];
   for (const anomaly of allAnomalies) {
     const dedupQuery = supabase
@@ -336,7 +343,7 @@ Reply with only the JSON, no other text.`;
       .select("*", { count: "exact", head: true })
       .eq("team_id", anomaly.team_id)
       .eq("title", anomaly.title)
-      .gte("created_at", fourHoursAgo.toISOString());
+      .gte("created_at", sevenDaysAgo.toISOString());
 
     if (anomaly.affected_link) {
       dedupQuery.eq("affected_link", anomaly.affected_link);
@@ -391,6 +398,30 @@ Reply with only the JSON, no other text.`;
         return null;
       });
       if (winner) abWinners++;
+    }
+  }
+
+  // Subscription finalizer — the boundary where scheduled downgrades and
+  // cancel-at-period-end actually take effect. A paid subscription whose paid
+  // period has ended (1-day grace to absorb a late renewal webhook) is expired
+  // here; that fires the sync_team_plan trigger (migration 024), which recomputes
+  // owner_best_plan and drops the team to its next-best active plan — the lower
+  // plan on a downgrade, or free on a plain cancel. A still-renewing sub always
+  // has expires_at ~30 days out, so it's never caught.
+  let subsExpired = 0;
+  const graceCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+  const { data: lapsed } = await supabase
+    .from("subscriptions")
+    .update({ status: "expired", notes: "Period ended — expired by finalizer" })
+    .eq("status", "active")
+    .eq("is_free", false)
+    .not("expires_at", "is", null)
+    .lt("expires_at", graceCutoff)
+    .select("team_id");
+  if (lapsed && lapsed.length > 0) {
+    subsExpired = lapsed.length;
+    for (const tid of [...new Set(lapsed.map((r) => r.team_id))]) {
+      await invalidateOwnerQuota(supabase, tid).catch(() => {});
     }
   }
 
@@ -472,6 +503,7 @@ Reply with only the JSON, no other text.`;
     detected: allAnomalies.length,
     saved: insertAnomalies.length,
     ab_winners_finalized: abWinners,
+    subscriptions_expired: subsExpired,
     partner_reports_sent: partnerReports,
     retention,
   });

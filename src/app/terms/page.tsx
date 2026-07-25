@@ -23,7 +23,7 @@ export default function TermsPage() {
       <h2>1. Agreement</h2>
       <p>
         By creating an account or using <strong>tappr.me</strong> (&ldquo;the
-        Service&rdquo;), provided by <strong>【Legal entity name】</strong>{" "}
+        Service&rdquo;), provided by <strong>Tappr</strong>{" "}
         (&ldquo;we&rdquo;, &ldquo;us&rdquo;), you agree to these Terms and to our{" "}
         <Link href="/privacy">Privacy Policy</Link>. If you don&apos;t agree, don&apos;t
         use the Service.
@@ -93,8 +93,8 @@ export default function TermsPage() {
       <h2>10. Changes &amp; governing law</h2>
       <p>
         We may update these Terms; material changes will be reflected in the
-        &ldquo;last updated&rdquo; date above. These Terms are governed by the laws of{" "}
-        <strong>【governing jurisdiction】</strong>. Questions? Email{" "}
+        &ldquo;last updated&rdquo; date above. These Terms are governed by
+        applicable law. Questions? Email{" "}
         <a href="mailto:hello@tappr.me">hello@tappr.me</a>.
       </p>
     </LegalShell>

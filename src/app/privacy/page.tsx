@@ -29,8 +29,7 @@ export default function PrivacyPage() {
       <p>
         Tappr (&ldquo;we&rdquo;, &ldquo;us&rdquo;) provides a smart link-management
         platform at <strong>tappr.me</strong>. For the purposes of GDPR, the data
-        controller is <strong>【Legal entity name】</strong>,{" "}
-        <strong>【registered address】</strong>. For any privacy question or to
+        controller is <strong>Tappr</strong>. For any privacy question or to
         exercise your rights, email{" "}
         <a href="mailto:privacy@tappr.me">privacy@tappr.me</a>.
       </p>

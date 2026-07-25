@@ -537,7 +537,7 @@ export default function TeamsPage() {
                     <Plus className="w-6 h-6 text-neutral-500 group-hover:text-[#00D26A]" />
                   </div>
                   <span className="text-xs font-black uppercase tracking-widest text-neutral-500 group-hover:text-white transition-all">
-                    Establish New Unit
+                    Create Team
                   </span>
                 </button>
               }

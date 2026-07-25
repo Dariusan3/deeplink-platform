@@ -26,7 +26,8 @@ export async function GET(request: NextRequest) {
     .range(offset, offset + limit - 1);
 
   if (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+    console.error("[v1/links GET] error:", error.message);
+    return Response.json({ error: "Internal error" }, { status: 500 });
   }
 
   return Response.json({
@@ -135,7 +136,8 @@ export async function POST(request: NextRequest) {
         { status: 409 }
       );
     }
-    return Response.json({ error: error.message }, { status: 500 });
+    console.error("[v1/links POST] error:", error.message);
+    return Response.json({ error: "Internal error" }, { status: 500 });
   }
 
   return Response.json({ data }, { status: 201 });

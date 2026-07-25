@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Download, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { Link as LinkType } from "@/types/links";
-import { buildShortUrl } from "@/lib/url-normalize";
 
 interface QrCodeCardProps {
   link: LinkType;
@@ -15,9 +14,15 @@ interface QrCodeCardProps {
 
 export function QrCodeCard({ link }: QrCodeCardProps) {
   const svgRef = useRef<HTMLDivElement>(null);
-  const shortUrl =
-    typeof window !== "undefined" ? buildShortUrl(link.slug) : link.slug;
-  const fullUrl = shortUrl.startsWith("http") ? shortUrl : `https://${shortUrl}`;
+  // Deterministic on BOTH server and client — a QR value that differs between
+  // the two (the old code used `link.slug` during SSR and the window origin on
+  // the client) makes React throw a hydration mismatch and re-render the whole
+  // tree, which is the visible flicker on this page. Env vars are inlined
+  // identically on both sides, so this renders the same string everywhere. The
+  // QR always encodes the canonical production short link, not the dev host.
+  const base = (process.env.NEXT_PUBLIC_APP_URL || "https://tappr.me").replace(/\/+$/, "");
+  const fullUrl = `${base}/${link.slug}`;
+  const shortUrl = fullUrl.replace(/^https?:\/\//, "");
 
   const handleDownload = () => {
     const svg = svgRef.current?.querySelector("svg");

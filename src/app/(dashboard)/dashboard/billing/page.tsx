@@ -91,16 +91,21 @@ export default function BillingPage() {
 
   const handleCancel = async () => {
     if (!current || current.is_free) return;
-    if (!window.confirm("Cancel your active subscription? You'll keep access until the end of the current period.")) return;
+    if (!window.confirm("Cancel your subscription? You'll keep access until the end of the current period, then it drops to Free.")) return;
+    // Cancel at PERIOD END, not now — flip the renew-off flag and keep the row
+    // active until expires_at. The finalizer (anomaly-check cron) expires it at
+    // the boundary, and owner_best_plan drops the plan then. Setting
+    // status='cancelled' here would drop the plan immediately and throw away
+    // time the user already paid for.
     const { error } = await supabase
       .from("subscriptions")
-      .update({ status: "cancelled" })
+      .update({ cancel_at_period_end: true })
       .eq("id", current.id);
     if (error) {
       toast.error(error.message || "Failed to cancel");
       return;
     }
-    toast.success("Subscription cancelled");
+    toast.success("Subscription will end at the end of your current period.");
     fetchAll();
   };
 

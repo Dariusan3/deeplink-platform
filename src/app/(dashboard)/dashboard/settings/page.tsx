@@ -291,8 +291,8 @@ export default function SettingsPage() {
                               Show Link Creation Confirmation
                             </p>
                             <p className="text-xs text-neutral-500 font-medium">
-                              Show a confirmation popup with QR code and quick actions after
-                              creating a link
+                              After creating a link, briefly show a confirmation with the new
+                              short link and a copy button
                             </p>
                           </div>
                           <Toggle checked={showConfirmation} onChange={setShowConfirmation} />

@@ -390,18 +390,21 @@ function PlanChangeDialog({
 
           {downgrade && (
             <Warn tone="amber">
-              Your monthly click cap drops to <b className="text-white">{capLabel(to)}</b>. Once
-              you pass it, new visitors see the paused page until the cycle resets.
+              You keep <b className="text-white">{PLAN_LABEL[from]}</b> and its{" "}
+              <b className="text-white">{capLabel(from)}</b> until the end of the period you
+              already paid for — then it drops to <b className="text-white">{PLAN_LABEL[to]}</b> (
+              {capLabel(to)}). Nothing changes today.
             </Warn>
           )}
 
           {/* The important one. We create a NEW FanBasis subscription — we do
               not, and currently cannot, stop the old recurring charge from
-              here. Saying so is the difference between a switch and a double
-              charge the user finds out about on their bank statement. */}
+              here. On a downgrade the old (higher) plan is intentionally kept
+              running until its period ends, so it MUST be cancelled in FanBasis
+              or it will renew alongside the new one. */}
           <Warn tone="red">
             Your <b className="text-white">{PLAN_LABEL[from]}</b> subscription does not stop by
-            itself. Cancel it from <b className="text-white">Billing</b> after this switch, or
+            itself. Cancel it from <b className="text-white">Billing</b> {downgrade ? "so it doesn't renew after the period ends" : "after this switch"}, or
             you&apos;ll be charged for both plans.
           </Warn>
         </div>

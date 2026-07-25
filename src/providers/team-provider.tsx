@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef, ReactNode } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Database } from "@/types/database";
+import { toast } from "sonner";
 import { useUserContext } from "./user-provider";
 
 export type Team = Database["public"]["Tables"]["teams"]["Row"];
@@ -99,18 +100,25 @@ export function TeamProvider({
         const newTeamName = `${user.email?.split("@")[0]}'s Team`;
         const slug = nameToSlug(newTeamName);
 
-        const { data: newTeam } = await supabase
+        const { data: newTeam, error: teamErr } = await supabase
           .from("teams")
           .insert({ name: newTeamName, slug, created_by: user.id })
           .select()
           .single();
 
-        if (newTeam) {
-          await supabase.from("team_members").insert({
+        // Do NOT swallow this. If the first team can't be created, the whole
+        // dashboard is dead (activeTeam stays null, "Create Link" is disabled)
+        // and the user has no idea why. Surface it so they can retry.
+        if (teamErr || !newTeam) {
+          console.error("Failed to create default team:", teamErr?.message);
+          toast.error("Couldn't set up your workspace. Refresh the page to try again.");
+        } else {
+          const { error: memberErr } = await supabase.from("team_members").insert({
             team_id: newTeam.id,
             user_id: user.id,
             role: "owner",
           });
+          if (memberErr) console.error("Failed to add owner membership:", memberErr.message);
           setTeams([newTeam]);
           setActiveTeam(newTeam);
           try { localStorage.setItem(TEAMS_CACHE_KEY, JSON.stringify([newTeam])); } catch {}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { TAPPR_PLANS, type TapprPlan } from "@/lib/fanbasis";
+import { planRank } from "@/lib/plans";
 import { invalidateOwnerQuota } from "@/lib/click-quota";
 import { logAuditEvent, type AuditEventType, type AuditSeverity } from "@/lib/audit";
 
@@ -40,13 +41,7 @@ export async function POST(request: NextRequest) {
   const sharedOk = !!secret && secretHeader === secret;
 
   if (!hmacOk && !sharedOk) {
-    // Surface the headers we DID receive in the response body — only useful
-    // while we're still figuring out the signing format. Remove once stable.
-    console.warn("[fanbasis-webhook] signature check failed", {
-      sigHeader: sigHeader || null,
-      secretHeader: secretHeader ? "present" : null,
-      bodyPreview: raw.slice(0, 200),
-    });
+    console.warn("[fanbasis-webhook] signature check failed");
     return NextResponse.json({ error: "invalid signature" }, { status: 401 });
   }
 
@@ -56,10 +51,6 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: "invalid JSON" }, { status: 400 });
   }
-
-  // TEMP: log the full event payload so we can see which fields
-  // FanBasis actually sends. Remove once the field map is confirmed.
-  console.log("[fanbasis-webhook] raw event:", JSON.stringify(event, null, 2));
 
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceKey) {
@@ -212,29 +203,40 @@ export async function POST(request: NextRequest) {
         activatedTeamId = resolvedTeamId;
       }
 
-      // A team has exactly one paid subscription. When someone switches plans we
-      // activate the new row here — and until now we left the OLD one sitting at
-      // status "active" beside it, so /dashboard/billing showed two live
-      // subscriptions and `rows.find(r => r.status === "active")` picked whichever
-      // came back first.
+      // Supersede prior paid subscriptions — but ONLY on an upgrade (or same
+      // rank). On a DOWNGRADE the old, higher plan must keep running until the
+      // period it was paid for ends: owner_best_plan() picks the highest active,
+      // non-expired subscription, so leaving the higher one alone keeps the user
+      // on it until its `expires_at` lapses, then the new lower plan takes over.
+      // That is the whole "keep the plan you paid for until it's done" behavior.
       //
-      // On a renewal this is a no-op: the row being renewed IS the activated one,
-      // and neq() excludes it.
-      //
-      // `is_free` rows are left alone on purpose. Those are plans an admin granted
-      // by hand, and quietly revoking a grant because a payment webhook fired is
-      // not a decision this endpoint gets to make.
-      if (activatedId && activatedTeamId) {
-        await admin
+      // On a renewal this is a no-op: the renewed row IS the activated one.
+      // `is_free` rows (admin grants) are never touched here.
+      if (activatedId && activatedTeamId && resolvedPlan) {
+        const newRank = planRank(resolvedPlan);
+        const { data: priorPaid } = await admin
           .from("subscriptions")
-          .update({
-            status: "cancelled",
-            notes: `Superseded by a switch to ${resolvedPlan ?? "a new plan"}`,
-          })
+          .select("id, plan")
           .eq("team_id", activatedTeamId)
           .eq("status", "active")
           .eq("is_free", false)
           .neq("id", activatedId);
+
+        // Cancel only prior subs the new one actually supersedes (rank <= new).
+        // A higher-rank prior sub is a downgrade target and rides to expiry.
+        const supersededIds = (priorPaid ?? [])
+          .filter((r) => planRank(r.plan) <= newRank)
+          .map((r) => r.id);
+
+        if (supersededIds.length > 0) {
+          await admin
+            .from("subscriptions")
+            .update({
+              status: "cancelled",
+              notes: `Superseded by a switch to ${resolvedPlan}`,
+            })
+            .in("id", supersededIds);
+        }
       }
 
       // Credit the referring partner (if any). Only fires on the FIRST
@@ -251,8 +253,12 @@ export async function POST(request: NextRequest) {
       break;
     }
 
-    case "subscription.canceled":
-    case "subscription.completed": {
+    case "subscription.canceled": {
+      // The user turned off auto-renew. They already paid for the current
+      // period, so DON'T drop them now — keep the subscription active until its
+      // `expires_at`, then let it lapse (the finalizer in the anomaly-check cron
+      // expires it, and owner_best_plan drops the plan). This is what stops a
+      // cancel from immediately yanking a plan the user already paid for.
       const filter =
         fbSubscriptionId
           ? { col: "fanbasis_subscription_id", val: fbSubscriptionId }
@@ -263,7 +269,29 @@ export async function POST(request: NextRequest) {
         await admin
           .from("subscriptions")
           .update({
-            status: "cancelled",
+            cancel_at_period_end: true,
+            notes: "Auto-renew off — active until period end, then lapses",
+          })
+          .eq(filter.col, filter.val)
+          .eq("status", "active");
+      }
+      break;
+    }
+
+    case "subscription.completed": {
+      // The subscription actually reached its end at FanBasis — expire it now so
+      // owner_best_plan recomputes and the plan drops.
+      const filter =
+        fbSubscriptionId
+          ? { col: "fanbasis_subscription_id", val: fbSubscriptionId }
+          : checkoutSessionId
+            ? { col: "fanbasis_checkout_session_id", val: checkoutSessionId }
+            : null;
+      if (filter) {
+        await admin
+          .from("subscriptions")
+          .update({
+            status: "expired",
             notes: `${eventType} via webhook`,
           })
           .eq(filter.col, filter.val);

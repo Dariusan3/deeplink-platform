@@ -47,7 +47,8 @@ export async function GET(request: NextRequest) {
   });
 
   if (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+    console.error("[v1/stats] error:", error.message);
+    return Response.json({ error: "Internal error" }, { status: 500 });
   }
 
   const stats = (agg ?? {}) as {

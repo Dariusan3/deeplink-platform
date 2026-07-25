@@ -158,7 +158,9 @@ export function useTeamMembers() {
         throw error;
       }
 
-      toast.success(`Invited ${email} as ${ROLE_LABELS[role]}`);
+      // This adds an EXISTING Tappr user to the team directly — no invite email
+      // is sent — so don't claim we "invited" them.
+      toast.success(`Added ${email} as ${ROLE_LABELS[role]}`);
       fetchMembers();
     },
     [activeTeam, user, members, supabase, fetchMembers]

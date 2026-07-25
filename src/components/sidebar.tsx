@@ -182,7 +182,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const isPartner = profile?.is_partner === true;
 
   const displayName = profile?.full_name || user?.user_metadata?.full_name || "User";
-  const displayEmail = profile?.email || user?.email || "user@example.com";
+  const displayEmail = profile?.email || user?.email || "";
   const initials = displayName
     .split(" ")
     .map((n: string) => n.charAt(0))

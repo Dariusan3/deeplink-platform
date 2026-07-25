@@ -95,7 +95,7 @@ export function LinkCard({
         <div className="absolute top-0 right-0 w-32 h-32 bg-[#00D26A]/5 blur-[60px] rounded-full group-hover:bg-[#00D26A]/10 transition-all duration-500 -z-10 pointer-events-none" />
 
         <CardContent className="p-6">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             {/* Selection checkbox */}
             {onToggleSelect && (
               <button
@@ -128,7 +128,7 @@ export function LinkCard({
                 <h3
                   onClick={() => router.push(`/dashboard/links/${link.id}`)}
                   className="text-lg font-black text-white truncate cursor-pointer hover:text-[#00D26A] transition-colors"
-                  title="Edit link"
+                  title={link.title || "Untitled Link"}
                 >
                   {link.title || "Untitled Link"}
                 </h3>
@@ -149,7 +149,7 @@ export function LinkCard({
                   className="flex items-center gap-2 group/url cursor-pointer min-w-0"
                   onClick={copyToClipboard}
                 >
-                  <span className="text-sm font-bold text-[#00D26A] truncate">
+                  <span className="text-sm font-bold text-[#00D26A] truncate" title={shortUrl}>
                     {shortUrl}
                   </span>
                 </div>
@@ -167,7 +167,7 @@ export function LinkCard({
                   <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500 mb-0.5">
                     Destination
                   </span>
-                  <span className="text-xs text-neutral-400 font-medium truncate max-w-[200px]">
+                  <span className="text-xs text-neutral-400 font-medium truncate max-w-[200px]" title={link.destination_url}>
                     {link.destination_url}
                   </span>
                 </div>
@@ -220,7 +220,7 @@ export function LinkCard({
               </div>
             </div>
 
-            <div className="flex flex-col items-end gap-4 shrink-0">
+            <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between gap-4 shrink-0 w-full sm:w-auto">
               <div className="flex items-center gap-2">
                 <Switch
                   checked={!!link.is_active}

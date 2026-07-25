@@ -110,7 +110,8 @@ export async function PATCH(
     if (error.code === "PGRST116") {
       return Response.json({ error: "Link not found" }, { status: 404 });
     }
-    return Response.json({ error: error.message }, { status: 500 });
+    console.error("[v1/links PATCH] error:", error.message);
+    return Response.json({ error: "Internal error" }, { status: 500 });
   }
 
   return Response.json({ data });
@@ -146,7 +147,8 @@ export async function DELETE(
     .eq("id", id);
 
   if (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+    console.error("[v1/links DELETE] error:", error.message);
+    return Response.json({ error: "Internal error" }, { status: 500 });
   }
 
   await invalidateLink(supabase, {
