@@ -86,6 +86,100 @@ export async function sendAnomalyEmail({
   }
 }
 
+// Deliverability defaults shared by notification emails. A List-Unsubscribe
+// header (plus a plain-text alternative and a natural, non-shouty subject) is
+// what keeps Gmail/Yahoo from binning notification mail as spam.
+const ALERT_HEADERS = {
+  "List-Unsubscribe": `<mailto:${SUPPORT_EMAIL}?subject=unsubscribe%20alerts>, <https://tappr.me/dashboard/alerts>`,
+};
+
+type DigestAlert = {
+  severity: string;
+  title: string;
+  description: string;
+  affectedLink?: string | null;
+};
+
+// One digest per team per run — never N separate emails. This is the ONLY alert
+// email path: it fires from the detector cron on freshly-inserted alerts, so a
+// persistent condition (which the detector dedup refuses to re-insert) can't
+// re-email day after day.
+export async function sendAlertDigestEmail({
+  to,
+  teamName,
+  alerts,
+}: {
+  to: string;
+  teamName: string;
+  alerts: DigestAlert[];
+}) {
+  if (!resend) {
+    console.warn("RESEND_API_KEY not set — skipping alert digest");
+    return;
+  }
+  if (alerts.length === 0) return;
+
+  const count = alerts.length;
+  const top = alerts[0];
+  // Natural subject, no "[HIGH]" bracket-caps (a classic spam signal).
+  const subject =
+    count === 1 ? `${top.title} — ${teamName}` : `${count} new alerts for ${teamName}`;
+
+  const rows = alerts
+    .map((a) => {
+      const color =
+        a.severity === "high" ? "#ef4444" : a.severity === "medium" ? "#f59e0b" : "#6b7280";
+      return `
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-left: 3px solid ${color}; border-radius: 8px; padding: 14px 16px; margin-bottom: 10px;">
+          <p style="font-size: 15px; font-weight: 800; color: #fff; margin: 0 0 4px;">${escapeHtml(a.title)}</p>
+          <p style="font-size: 13px; color: #999; line-height: 1.6; margin: 0;">${escapeHtml(a.description)}</p>
+          ${a.affectedLink ? `<p style="font-size: 12px; color: #666; margin: 6px 0 0; font-family: ui-monospace, monospace;">${escapeHtml(a.affectedLink)}</p>` : ""}
+        </div>`;
+    })
+    .join("");
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; background: #000; color: #fff; border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);">
+      <div style="padding: 24px 24px 16px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+        <span style="font-size: 20px; font-weight: 900; color: #fff;">Ta<span style="color: #00D26A;">ppr</span></span>
+        <p style="font-size: 11px; color: #666; margin: 6px 0 0; text-transform: uppercase; letter-spacing: 0.15em; font-weight: 700;">${count === 1 ? "New alert" : `${count} new alerts`} · ${escapeHtml(teamName)}</p>
+      </div>
+      <div style="padding: 20px 24px;">${rows}</div>
+      <div style="padding: 8px 24px 20px; text-align: center;">
+        <a href="https://tappr.me/dashboard/alerts" style="display: inline-block; background: #00D26A; color: #000; font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em; padding: 10px 24px; border-radius: 8px; text-decoration: none;">View in dashboard</a>
+      </div>
+      <div style="padding: 12px 24px; text-align: center; border-top: 1px solid rgba(255,255,255,0.05);">
+        <p style="font-size: 10px; color: #444; margin: 0;">You get these because alerts are on for ${escapeHtml(teamName)}. Manage them in your <a href="https://tappr.me/dashboard/alerts" style="color:#666;">alert settings</a>.</p>
+      </div>
+    </div>`;
+
+  const text = [
+    `${count === 1 ? "New alert" : `${count} new alerts`} for ${teamName}`,
+    "",
+    ...alerts.map(
+      (a) =>
+        `• [${a.severity.toUpperCase()}] ${a.title}\n  ${a.description}${a.affectedLink ? `\n  ${a.affectedLink}` : ""}`
+    ),
+    "",
+    "View in dashboard: https://tappr.me/dashboard/alerts",
+    "Manage alert settings: https://tappr.me/dashboard/alerts",
+  ].join("\n");
+
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to,
+      replyTo: SUPPORT_EMAIL,
+      subject,
+      html,
+      text,
+      headers: ALERT_HEADERS,
+    });
+  } catch (err) {
+    console.error("Failed to send alert digest:", err);
+  }
+}
+
 export async function sendABWinnerEmail({
   to,
   teamName,

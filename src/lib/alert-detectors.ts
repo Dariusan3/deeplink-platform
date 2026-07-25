@@ -798,7 +798,7 @@ export async function persistDetections(
   supabase: SupabaseClient,
   teamIds: string[],
   run: DetectorRun
-): Promise<{ inserted: number; closed: number }> {
+): Promise<{ inserted: number; closed: number; insertedAlerts: DetectedAlert[] }> {
   const detectedKeys = new Set(run.alerts.map((a) => `${a.team_id}:${a.dedup_key}`));
   const resolvedKeys = new Set(run.resolved);
   const ranTypes = new Set(run.ran);
@@ -877,6 +877,7 @@ export async function persistDetections(
 
   // ── 4. Insert ────────────────────────────────────────────────────────
   let inserted = 0;
+  const insertedAlerts: DetectedAlert[] = [];
   for (const a of run.alerts) {
     const key = `${a.team_id}:${a.dedup_key}`;
     if (suppressed.has(key)) continue;
@@ -892,7 +893,7 @@ export async function persistDetections(
     });
     // Add to the set on success so two detectors (or a retry) can't double-
     // insert the same key within a single run.
-    if (!error) { inserted++; suppressed.add(key); }
+    if (!error) { inserted++; suppressed.add(key); insertedAlerts.push(a); }
   }
-  return { inserted, closed: toClose.length + (expired?.length ?? 0) };
+  return { inserted, closed: toClose.length + (expired?.length ?? 0), insertedAlerts };
 }

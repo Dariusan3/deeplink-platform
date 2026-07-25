@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import Groq from "groq-sdk";
-import { sendAnomalyEmail, sendPartnerMonthlyReportEmail } from "@/lib/email";
+import { sendPartnerMonthlyReportEmail } from "@/lib/email";
 import { finalizeABWinnerIfReady } from "@/lib/ab-testing";
 import { pruneClickLogs } from "@/lib/prune-click-logs";
-import { hasFeature } from "@/lib/entitlements";
 
 // Uses the service-role key — this route is hit by a cron scheduler, not a
 // browser. Created lazily on first request rather than at module scope:
@@ -366,49 +365,10 @@ Reply with only the JSON, no other text.`;
     if (error) {
       console.error("Failed to insert anomaly alerts:", error.message);
     }
-
-    // Send email for high-severity anomalies
-    const highSeverity = insertAnomalies.filter((a) => a.severity === "high");
-    for (const alert of highSeverity) {
-      // Get team owner's email
-      const { data: members } = await supabase
-        .from("team_members")
-        .select("user_id")
-        .eq("team_id", alert.team_id)
-        .eq("role", "owner");
-
-      const { data: teamData } = await supabase
-        .from("teams")
-        .select("name, plan")
-        .eq("id", alert.team_id)
-        .single();
-
-      // Email alerts are a paid feature (Starter and above). Lower plans still
-      // get the alert in-app; they just don't receive the email.
-      if (teamData && !hasFeature(teamData.plan, "emailAlerts")) continue;
-
-      if (members && teamData) {
-        for (const member of members) {
-          const { data: userData } = await supabase
-            .from("users")
-            .select("email")
-            .eq("id", member.user_id)
-            .single();
-
-          if (userData?.email) {
-            await sendAnomalyEmail({
-              to: userData.email,
-              teamName: teamData.name,
-              severity: alert.severity,
-              title: alert.title,
-              description: alert.description,
-              rootCause: alert.root_cause,
-              action: alert.action,
-            });
-          }
-        }
-      }
-    }
+    // NOTE: alert EMAILS are no longer sent from here. They now come solely from
+    // the detector system (/api/cron/tier1-alerts → sendAlertDigestEmail), which
+    // has proper per-condition dedup/cooldown. This route still writes in-app
+    // anomalies but never emails — that removed the daily-repeat spam.
   }
 
   // Finalize A/B test winners that already met the threshold but never had
