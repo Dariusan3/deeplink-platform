@@ -89,7 +89,11 @@ export function useSettings() {
 
       if (error) {
         console.error("Error updating settings:", error.message);
-        toast.error("Failed to save settings");
+        toast.error(
+          error.message?.includes("PLAN_LIMIT:")
+            ? error.message.replace(/^.*PLAN_LIMIT:\s*/, "")
+            : "Failed to save settings"
+        );
         throw error;
       }
 

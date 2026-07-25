@@ -55,7 +55,7 @@ const TIERS: Tier[] = [
     features: [
       "250,000 clicks / month · 5,000 links",
       "Advanced routing (geo·device·time·days)",
-      "Remove branding + custom domain",
+      "Remove Tappr branding",
       "Developer API + keys",
     ],
     cta: "Try Growth",
@@ -70,7 +70,7 @@ const TIERS: Tier[] = [
     features: [
       "Unlimited clicks · links · team members",
       "Everything in Growth, unmetered",
-      "Unlimited QR codes + collections",
+      "Unlimited collections",
       "Priority support — 4h response",
     ],
     cta: "Try Agency",

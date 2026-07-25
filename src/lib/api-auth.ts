@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { hasFeature } from "@/lib/entitlements";
 
 interface ApiAuthResult {
   teamId: string;
@@ -50,6 +51,21 @@ export async function authenticateApiKey(
 
   if (apiKey.expires_at && new Date(apiKey.expires_at) < new Date()) {
     return Response.json({ error: "API key has expired" }, { status: 401 });
+  }
+
+  // Plan gate: the Developer API is a paid feature (Growth and above). A key
+  // minted while on a higher plan must stop working after a downgrade, so this
+  // is checked on every request, not just at key creation.
+  const { data: team } = await supabase
+    .from("teams")
+    .select("plan")
+    .eq("id", apiKey.team_id)
+    .single();
+  if (!hasFeature(team?.plan, "developerApi")) {
+    return Response.json(
+      { error: "The Developer API is available on the Growth plan and above. Upgrade to use it." },
+      { status: 403 }
+    );
   }
 
   // Update last_used_at (fire and forget)

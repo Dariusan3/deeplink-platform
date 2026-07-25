@@ -6,6 +6,7 @@ import { useUser } from "@/hooks/use-user";
 import { useTeam } from "@/hooks/use-team";
 import { revalidateSlugCache } from "@/lib/revalidate-slug";
 import { toast } from "sonner";
+import { hasFeature } from "@/lib/entitlements";
 import type { Database } from "@/types/database";
 
 export type ABTest = Database["public"]["Tables"]["ab_tests"]["Row"];
@@ -62,6 +63,12 @@ export function useABTests() {
   const createTest = useCallback(
     async (payload: { name: string; slug: string; variant_a_url: string; variant_b_url: string; variant_a_name?: string; variant_b_name?: string; auto_optimize?: boolean; min_conversions?: number; threshold_percent?: number; cost_per_click?: number }) => {
       if (!activeTeam?.id || !user?.id) return;
+
+      // Traffic rotator / split testing is a paid feature (Starter and above).
+      if (!hasFeature(activeTeam.plan, "trafficRotator")) {
+        toast.error("Split testing is available on Starter and above. Upgrade to create A/B tests.");
+        return;
+      }
 
       const { error } = await supabase.from("ab_tests").insert({
         team_id: activeTeam.id,

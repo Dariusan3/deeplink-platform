@@ -89,9 +89,17 @@ export async function POST(request: NextRequest) {
   // Smart-routing rules are optional. Previously this endpoint silently
   // dropped them: the field was not read, so a request carrying rules returned
   // 201 and created a link with none.
+  const supabase = await createClient();
+
   let redirectRules: RedirectRule[] | null = null;
   if (body.redirect_rules !== undefined && body.redirect_rules !== null) {
-    const parsed = parseRedirectRules(body.redirect_rules, request.nextUrl.hostname);
+    // Gate routing condition types by the team's plan.
+    const { data: team } = await supabase
+      .from("teams")
+      .select("plan")
+      .eq("id", auth.teamId)
+      .single();
+    const parsed = parseRedirectRules(body.redirect_rules, request.nextUrl.hostname, team?.plan ?? "free");
     if ("error" in parsed) {
       return Response.json({ error: parsed.error }, { status: 400 });
     }
@@ -100,8 +108,6 @@ export async function POST(request: NextRequest) {
 
   const slug =
     body.slug || Math.random().toString(36).substring(2, 8);
-
-  const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("links")

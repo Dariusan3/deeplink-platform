@@ -69,15 +69,12 @@ const GROUPS: Group[] = [
     rows: [
       { label: "Role-based access (owner · editor · analyst · viewer)", free: false, starter: true, growth: true, agency: true },
       { label: "Collections (folders · tree · canvas view)", free: "5", starter: "Unlimited", growth: "Unlimited", agency: "Unlimited" },
-      { label: "Dynamic QR codes", free: "3", starter: "25", growth: "250", agency: "Unlimited" },
     ],
   },
   {
     category: "Branding, Developer & Support",
     rows: [
       { label: "Remove Tappr branding", free: false, starter: false, growth: true, agency: true },
-      { label: "Custom domain", free: false, starter: false, growth: true, agency: true },
-      { label: "Instagram integration", free: false, starter: true, growth: true, agency: true },
       { label: "Developer API + keys", free: false, starter: false, growth: true, agency: true },
       { label: "Support", free: "Community", starter: "Email", growth: "Priority email", agency: "Priority · 4h response" },
     ],

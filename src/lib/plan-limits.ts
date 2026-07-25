@@ -1,10 +1,15 @@
+// AI Brain monthly chat limits. Derived from the central entitlements map so
+// this can never drift from the pricing page.
+//   free: 10 · starter/growth/agency: Unlimited
+import { entitlements } from "./entitlements";
+
 export const BRAIN_CHAT_LIMITS: Record<string, number> = {
-  free:    5,
-  starter: 20,
-  growth:  50,
-  agency:  Infinity,
+  free: entitlements("free").brainChats,
+  starter: entitlements("starter").brainChats,
+  growth: entitlements("growth").brainChats,
+  agency: entitlements("agency").brainChats,
 };
 
 export function getBrainChatLimit(plan: string): number {
-  return BRAIN_CHAT_LIMITS[plan] ?? BRAIN_CHAT_LIMITS.free;
+  return entitlements(plan).brainChats;
 }

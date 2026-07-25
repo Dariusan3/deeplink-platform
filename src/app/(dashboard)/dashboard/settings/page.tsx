@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useSettings } from "@/hooks/use-settings";
 import { useUser } from "@/hooks/use-user";
+import { useTeam } from "@/hooks/use-team";
+import { hasFeature } from "@/lib/entitlements";
 import {
   Dialog,
   DialogContent,
@@ -102,6 +104,8 @@ function Toggle({
 export default function SettingsPage() {
   const { settings, loading, updateSettings } = useSettings();
   const { user, profile, refreshProfile } = useUser();
+  const { activeTeam } = useTeam();
+  const canRemoveBranding = hasFeature(activeTeam?.plan, "removeBranding");
   const supabase = useMemo(() => createClient(), []);
   const [activeTab, setActiveTab] = useState<SettingsTab>("link-settings");
   const [saving, setSaving] = useState(false);
@@ -114,6 +118,7 @@ export default function SettingsPage() {
   // Local form state
   const [fullName, setFullName] = useState("");
   const [showConfirmation, setShowConfirmation] = useState(true);
+  const [removeBranding, setRemoveBranding] = useState(false);
   const [timezone, setTimezone] = useState("UTC");
   const [defaultDomain, setDefaultDomain] = useState("");
 
@@ -121,6 +126,7 @@ export default function SettingsPage() {
   useEffect(() => {
     if (settings) {
       setShowConfirmation(settings.show_link_creation_confirmation);
+      setRemoveBranding(settings.show_branding === false);
       setTimezone(settings.timezone);
       setDefaultDomain(settings.default_domain);
     }
@@ -154,6 +160,9 @@ export default function SettingsPage() {
     try {
       await updateSettings({
         show_link_creation_confirmation: showConfirmation,
+        // show_branding=false means "Powered by Tappr" is hidden. Only send a
+        // hide when the plan allows it; the DB trigger rejects it otherwise.
+        show_branding: canRemoveBranding ? !removeBranding : true,
         timezone,
       });
     } catch {}
@@ -287,6 +296,24 @@ export default function SettingsPage() {
                             </p>
                           </div>
                           <Toggle checked={showConfirmation} onChange={setShowConfirmation} />
+                        </div>
+
+                        <div className="flex items-center justify-between group p-4 rounded-xl bg-white/[0.01] border border-white/5">
+                          <div className="space-y-1">
+                            <p className="font-bold text-white text-sm">
+                              Remove Tappr Branding
+                            </p>
+                            <p className="text-xs text-neutral-500 font-medium">
+                              Hide the &quot;Powered by Tappr&quot; badge on interstitial pages.
+                              {!canRemoveBranding && " Available on Growth and above."}
+                            </p>
+                          </div>
+                          <Toggle
+                            checked={canRemoveBranding && removeBranding}
+                            onChange={setRemoveBranding}
+                            premium={!canRemoveBranding}
+                            disabled={!canRemoveBranding}
+                          />
                         </div>
 
                         <div className="p-4 rounded-xl bg-white/[0.01] border border-white/5 space-y-3">

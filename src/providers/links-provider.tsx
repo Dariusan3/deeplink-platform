@@ -16,6 +16,7 @@ import { useTeam } from "@/hooks/use-team";
 import { emit, subscribe } from "@/lib/refresh-bus";
 import { revalidateSlugCache } from "@/lib/revalidate-slug";
 import { toast } from "sonner";
+import { planLimit, isUnlimited } from "@/lib/entitlements";
 import { Link, LinkInsert } from "@/types/links";
 
 // Single source of truth for the team's links. Previously every `useLinks()`
@@ -199,6 +200,15 @@ export function LinksProvider({
   const createLink = useCallback(async (payload: Omit<LinkInsert, "id" | "created_at" | "updated_at" | "created_by" | "team_id">) => {
     if (!user || !activeTeam) throw new Error("Authentication required");
 
+    // Plan cap (friendly pre-check; the DB trigger in migration 026 is the
+    // real, non-bypassable ceiling — this just avoids the raw error round-trip).
+    const cap = planLimit(activeTeam.plan, "links");
+    if (!isUnlimited(cap) && links.length >= cap) {
+      const msg = `You've reached your ${activeTeam.plan ?? "free"} plan limit of ${cap} links. Upgrade to add more.`;
+      toast.error(msg);
+      throw new Error(msg);
+    }
+
     const { data, error } = await supabase
       .from("links")
       .insert({
@@ -210,6 +220,10 @@ export function LinksProvider({
       .single();
 
     if (error) {
+      const friendly = error.message?.includes("PLAN_LIMIT:")
+        ? error.message.replace(/^.*PLAN_LIMIT:\s*/, "")
+        : null;
+      if (friendly) toast.error(friendly);
       console.error("Error creating link:", error.message || error);
       throw error;
     }
@@ -222,7 +236,7 @@ export function LinksProvider({
     // negative entry would keep 404ing the brand-new link until it aged out.
     revalidateSlugCache({ slugs: [data.slug], collectionIds: [data.collection_id] });
     return data;
-  }, [user, activeTeam, supabase]);
+  }, [user, activeTeam, supabase, links.length]);
 
   const updateLink = useCallback(async (id: string, payload: Partial<LinkInsert>) => {
     // Capture the pre-update row: an edit can move the link to a different slug
@@ -239,6 +253,9 @@ export function LinksProvider({
       .single();
 
     if (error) {
+      if (error.message?.includes("PLAN_LIMIT:")) {
+        toast.error(error.message.replace(/^.*PLAN_LIMIT:\s*/, ""));
+      }
       console.error("Error updating link:", error.message || error);
       throw error;
     }

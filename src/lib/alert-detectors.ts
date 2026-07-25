@@ -13,7 +13,9 @@ import {
   type AlertSeverity,
   dedupKey,
   planClickCap,
+  ALERT_TIERS,
 } from "./alerts";
+import { entitlements } from "./entitlements";
 
 export type DetectedAlert = {
   team_id: string;
@@ -734,11 +736,20 @@ export async function runAllDetectors(
     out.ran.push(`${team.id}:destination_broken`);
   }
 
-  const results = await Promise.allSettled(specs.map((s) => s.run()));
+  // Anomaly-alert entitlement: pricing sells free as "Basic" (Tier-1 only,
+  // the "losing money right now" alerts) and paid plans as "All 12 types".
+  // destination_broken (Tier 1) already ran above, so it's unaffected.
+  const anomalyLevel = entitlements(plan).anomalyAlerts;
+  const activeSpecs =
+    anomalyLevel === "all"
+      ? specs
+      : specs.filter((s) => s.types.every((t) => ALERT_TIERS[t] === 1));
+
+  const results = await Promise.allSettled(activeSpecs.map((s) => s.run()));
   results.forEach((r, i) => {
     if (r.status === "fulfilled") {
       out.alerts.push(...r.value);
-      for (const t of specs[i].types) out.ran.push(`${team.id}:${t}`);
+      for (const t of activeSpecs[i].types) out.ran.push(`${team.id}:${t}`);
     } else {
       console.error("[alerts] detector failed:", r.reason);
     }

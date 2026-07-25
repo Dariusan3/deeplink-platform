@@ -7,6 +7,7 @@ import { useUser } from "./use-user";
 import { useTeam } from "./use-team";
 import { emit, subscribe } from "@/lib/refresh-bus";
 import { readSwrCache, writeSwrCache } from "@/lib/swr-cache";
+import { hasFeature } from "@/lib/entitlements";
 import { toast } from "sonner";
 
 type ApiKey = Database["public"]["Tables"]["api_keys"]["Row"];
@@ -56,6 +57,13 @@ export function useApiKeys() {
 
   const generateApiKey = useCallback(async (name?: string) => {
     if (!user || !activeTeam) throw new Error("Authentication required");
+
+    // Developer API is a paid feature (Growth+). DB trigger backstops this.
+    if (!hasFeature(activeTeam.plan, "developerApi")) {
+      const msg = "The Developer API is available on Growth and above. Upgrade to create API keys.";
+      toast.error(msg);
+      throw new Error(msg);
+    }
 
     // Generate a random API key: dl_<32 random chars>
     const randomBytes = crypto.getRandomValues(new Uint8Array(24));

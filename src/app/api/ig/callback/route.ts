@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { hasFeature } from "@/lib/entitlements";
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
@@ -40,6 +41,16 @@ export async function GET(request: NextRequest) {
 
   if (!membership) {
     return NextResponse.redirect(new URL("/dashboard/settings?ig_error=no_team", request.url));
+  }
+
+  // Instagram integration is a paid feature (Starter and above).
+  const { data: team } = await supabase
+    .from("teams")
+    .select("plan")
+    .eq("id", membership.team_id)
+    .single();
+  if (!hasFeature(team?.plan, "instagram")) {
+    return NextResponse.redirect(new URL("/dashboard/settings?ig_error=plan", request.url));
   }
 
   try {

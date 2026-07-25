@@ -2,6 +2,8 @@
 // src/lib/alert-detectors.ts and are consumed by both the cron route and
 // the manual `/api/alerts/check` endpoint.
 
+import { entitlements } from "./entitlements";
+
 export type AlertType =
   // ── Tier 1 — "I'm losing money right now" ───────────────────
   | "destination_broken"
@@ -31,14 +33,14 @@ export type AlertTier = 1 | 2 | 3 | 4;
 // "consider upgrading" — to a plan that doesn't exist. Callers must therefore
 // handle a non-finite cap (see `hasClickCap`).
 export const PLAN_CLICK_CAPS: Record<string, number> = {
-  free:    500,
-  starter: 50_000,
-  growth:  250_000,
-  agency:  Infinity,
+  free:    entitlements("free").clicksPerMonth,
+  starter: entitlements("starter").clicksPerMonth,
+  growth:  entitlements("growth").clicksPerMonth,
+  agency:  entitlements("agency").clicksPerMonth,
 };
 
 export function planClickCap(plan: string | null | undefined): number {
-  return PLAN_CLICK_CAPS[plan || "free"] ?? PLAN_CLICK_CAPS.free;
+  return entitlements(plan).clicksPerMonth;
 }
 
 // True when the plan actually has a ceiling worth measuring against. Guard any

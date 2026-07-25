@@ -4,6 +4,7 @@ import Groq from "groq-sdk";
 import { sendAnomalyEmail, sendPartnerMonthlyReportEmail } from "@/lib/email";
 import { finalizeABWinnerIfReady } from "@/lib/ab-testing";
 import { pruneClickLogs } from "@/lib/prune-click-logs";
+import { hasFeature } from "@/lib/entitlements";
 
 // Uses the service-role key — this route is hit by a cron scheduler, not a
 // browser. Created lazily on first request rather than at module scope:
@@ -378,9 +379,13 @@ Reply with only the JSON, no other text.`;
 
       const { data: teamData } = await supabase
         .from("teams")
-        .select("name")
+        .select("name, plan")
         .eq("id", alert.team_id)
         .single();
+
+      // Email alerts are a paid feature (Starter and above). Lower plans still
+      // get the alert in-app; they just don't receive the email.
+      if (teamData && !hasFeature(teamData.plan, "emailAlerts")) continue;
 
       if (members && teamData) {
         for (const member of members) {

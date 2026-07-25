@@ -7,6 +7,7 @@ import { useTeam } from "./use-team";
 import { emit, subscribe } from "@/lib/refresh-bus";
 import { revalidateSlugCache } from "@/lib/revalidate-slug";
 import { toast } from "sonner";
+import { planLimit, isUnlimited, hasFeature } from "@/lib/entitlements";
 import { Database } from "@/types/database";
 
 export type Collection = Database["public"]["Tables"]["collections"]["Row"] & {
@@ -160,6 +161,21 @@ export function useCollections() {
     async (name: string, description?: string, color?: string, clickGoal?: number, clickGoalPeriod?: string, isRotator?: boolean, isStarred?: boolean, parentId?: string | null) => {
       if (!user || !activeTeam) throw new Error("Authentication required");
 
+      // Plan cap (friendly pre-check; DB trigger in migration 026 is the real ceiling).
+      const cap = planLimit(activeTeam.plan, "collections");
+      if (!isUnlimited(cap) && collections.length >= cap) {
+        const msg = `You've reached your ${activeTeam.plan ?? "free"} plan limit of ${cap} collections. Upgrade to add more.`;
+        toast.error(msg);
+        throw new Error(msg);
+      }
+
+      // A rotator collection is the "traffic rotator" paid feature (Starter+).
+      if (isRotator && !hasFeature(activeTeam.plan, "trafficRotator")) {
+        const msg = "Traffic rotator is available on Starter and above. Upgrade to use it.";
+        toast.error(msg);
+        throw new Error(msg);
+      }
+
       const rotatorSlug = isRotator ? `r-${Math.random().toString(36).substring(2, 8)}` : null;
 
       const { data, error } = await supabase
@@ -181,7 +197,10 @@ export function useCollections() {
         .single();
 
       if (error) {
-        toast.error(error.message || "Failed to create collection");
+        const msg = error.message?.includes("PLAN_LIMIT:")
+          ? error.message.replace(/^.*PLAN_LIMIT:\s*/, "")
+          : error.message || "Failed to create collection";
+        toast.error(msg);
         throw error;
       }
 
@@ -199,7 +218,7 @@ export function useCollections() {
       revalidateSlugCache({ slugs: [rotatorSlug] });
       return data;
     },
-    [user, activeTeam, supabase]
+    [user, activeTeam, supabase, collections.length]
   );
 
   const deleteCollection = useCallback(
@@ -228,13 +247,28 @@ export function useCollections() {
       // have to be purged.
       const previousRotatorSlug = collections.find((c) => c.id === id)?.rotator_slug;
 
+      // Turning an existing collection INTO a rotator is the same paid feature
+      // as creating one (Starter+). Without this, the create-time gate is
+      // trivially bypassed by making a normal collection then editing it.
+      if (updates.is_rotator === true && !hasFeature(activeTeam?.plan, "trafficRotator")) {
+        const msg = "Traffic rotator is available on Starter and above. Upgrade to use it.";
+        if (!opts?.silent) toast.error(msg);
+        throw new Error(msg);
+      }
+
       const { error } = await supabase
         .from("collections")
         .update(updates)
         .eq("id", id);
 
       if (error) {
-        if (!opts?.silent) toast.error("Failed to update collection");
+        if (!opts?.silent) {
+          toast.error(
+            error.message?.includes("PLAN_LIMIT:")
+              ? error.message.replace(/^.*PLAN_LIMIT:\s*/, "")
+              : "Failed to update collection"
+          );
+        }
         throw error;
       }
 
@@ -254,7 +288,7 @@ export function useCollections() {
       if (updatedRow) emit("collections", { kind: "update", row: updatedRow });
       if (!opts?.silent) toast.success("Collection updated");
     },
-    [supabase, collections]
+    [supabase, collections, activeTeam?.plan]
   );
 
   // Reparent + optional positions. Wraps updateCollection but uses silent

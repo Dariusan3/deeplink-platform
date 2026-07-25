@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useTeam } from "./use-team";
 import { useUser } from "./use-user";
 import { readSwrCache, writeSwrCache } from "@/lib/swr-cache";
+import { planLimit, isUnlimited } from "@/lib/entitlements";
 import { toast } from "sonner";
 
 const TEAM_MEMBERS_CACHE_PREFIX = "tappr_team_members_cache_";
@@ -114,6 +115,16 @@ export function useTeamMembers() {
     async (email: string, role: TeamRole) => {
       if (!activeTeam || !user) throw new Error("Authentication required");
 
+      // Seat cap (friendly pre-check; DB trigger in migration 026 is the real ceiling).
+      const cap = planLimit(activeTeam.plan, "teamMembers");
+      if (!isUnlimited(cap) && members.length >= cap) {
+        const msg = cap === 1
+          ? `Your ${activeTeam.plan ?? "free"} plan is single-seat. Upgrade to invite team members.`
+          : `You've reached your ${activeTeam.plan ?? "free"} plan limit of ${cap} team members. Upgrade to add more.`;
+        toast.error(msg);
+        throw new Error(msg);
+      }
+
       // Look up user by email
       const { data: targetUser, error: lookupError } = await supabase
         .from("users")
@@ -140,7 +151,10 @@ export function useTeamMembers() {
       });
 
       if (error) {
-        toast.error(error.message || "Failed to invite member");
+        const msg = error.message?.includes("PLAN_LIMIT:")
+          ? error.message.replace(/^.*PLAN_LIMIT:\s*/, "")
+          : error.message || "Failed to invite member";
+        toast.error(msg);
         throw error;
       }
 

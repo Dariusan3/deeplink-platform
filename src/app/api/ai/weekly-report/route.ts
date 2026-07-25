@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Groq from "groq-sdk";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { hasFeature } from "@/lib/entitlements";
 
 export async function POST(request: NextRequest) {
   const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -26,6 +27,19 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { teamId, analyticsData } = await request.json();
+
+  // Plan gate: AI weekly intelligence report is a paid feature (starter+).
+  const { data: team } = await supabase
+    .from("teams")
+    .select("plan")
+    .eq("id", teamId)
+    .single();
+  if (!hasFeature(team?.plan, "weeklyReport")) {
+    return NextResponse.json(
+      { error: "The AI weekly report is available on Starter and above. Upgrade to unlock it." },
+      { status: 403 }
+    );
+  }
 
   const now = new Date();
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);

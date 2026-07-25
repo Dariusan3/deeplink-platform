@@ -1,5 +1,6 @@
 import { normalizeDestinationUrl } from "@/lib/url-normalize";
 import { getHourInTimezone, getDayOfWeekInTimezone } from "@/lib/format-date";
+import { routingConditionAllowed } from "@/lib/entitlements";
 import type { RedirectRule } from "@/types/links";
 
 const DEVICE_TYPES = new Set(["mobile", "tablet", "desktop"]);
@@ -87,7 +88,8 @@ export function evaluateConditions(
  */
 export function parseRedirectRules(
   raw: unknown,
-  platformHost: string
+  platformHost: string,
+  plan?: string | null
 ): { rules: RedirectRule[] } | { error: string } {
   if (!Array.isArray(raw)) return { error: "redirect_rules must be an array" };
   if (raw.length > MAX_RULES) {
@@ -130,6 +132,9 @@ export function parseRedirectRules(
     const conditions: RedirectRule["conditions"] = {};
 
     if (c.geo !== undefined) {
+      if (plan !== undefined && !routingConditionAllowed(plan, "geo")) {
+        return { error: `${at}.conditions.geo: smart routing is not available on your plan. Upgrade to Starter or above.` };
+      }
       const countries = c.geo?.countries;
       if (!Array.isArray(countries) || countries.some((x) => typeof x !== "string")) {
         return { error: `${at}.conditions.geo.countries must be an array of ISO country codes` };
@@ -138,6 +143,9 @@ export function parseRedirectRules(
     }
 
     if (c.device !== undefined) {
+      if (plan !== undefined && !routingConditionAllowed(plan, "device")) {
+        return { error: `${at}.conditions.device: device routing is not available on your plan. Upgrade to Starter or above.` };
+      }
       const types = c.device?.types;
       if (!Array.isArray(types) || types.length === 0 || types.some((t) => !DEVICE_TYPES.has(t))) {
         return {
@@ -148,6 +156,10 @@ export function parseRedirectRules(
     }
 
     if (c.time !== undefined) {
+      // Time & day-of-week routing is the "All conditions" tier (Growth+).
+      if (plan !== undefined && !routingConditionAllowed(plan, "time")) {
+        return { error: `${at}.conditions.time: time & day routing is available on Growth and above. Upgrade to unlock it.` };
+      }
       const t = c.time;
       if (typeof t !== "object" || t === null || Array.isArray(t)) {
         return { error: `${at}.conditions.time must be an object` };
