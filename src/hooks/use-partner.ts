@@ -108,7 +108,7 @@ export function usePartner() {
             const oldRow = payload.old as PartnerReferral;
             if (oldRow.status !== "active" && newRow.status === "active") {
               toast.success(
-                `Referral converted! +€${newRow.monthly_value * (profile.commission_rate || 0.25)}/mo`
+                `Referral converted! +€${newRow.monthly_value * (profile.commission_rate || 0.5)}/mo`
               );
             }
           }
@@ -181,7 +181,7 @@ export function usePartner() {
   const activeReferrals = referrals.filter((r) => r.status === "active");
   const churnedReferrals = referrals.filter((r) => r.status === "churned");
   const monthlyMrr = activeReferrals.reduce((sum, r) => sum + Number(r.monthly_value), 0);
-  const monthlyCommission = monthlyMrr * (profile?.commission_rate ?? 0.25);
+  const monthlyCommission = monthlyMrr * (profile?.commission_rate ?? 0.5);
 
   const conversionRate = referrals.length > 0
     ? activeReferrals.length / referrals.length
@@ -189,7 +189,10 @@ export function usePartner() {
 
   const referralUrl = useMemo(() => {
     if (!profile?.referral_code) return "";
-    return `${getDisplayOrigin()}/?ref=${profile.referral_code}`;
+    // Clean, path-based referral link: /signup/@CODE. It renders the signup
+    // page directly (no redirect, no ?ref= in the URL) and records the click —
+    // see src/app/(auth)/signup/[code]/page.tsx.
+    return `${getDisplayOrigin()}/signup/@${profile.referral_code}`;
   }, [profile?.referral_code]);
 
   return {

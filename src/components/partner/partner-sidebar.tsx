@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/hooks/use-user";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { PARTNER_COMMISSION_RATE } from "@/lib/partner-config";
 import {
   LayoutDashboard,
   Link2,
@@ -58,7 +59,7 @@ export function PartnerSidebar() {
           <span className="font-black text-sm text-white tracking-tight">
             Ta<span className="text-[#A855F7]">ppr</span> Partner
           </span>
-          <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[#A855F7]">25% Commission</span>
+          <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[#A855F7]">{Math.round(PARTNER_COMMISSION_RATE * 100)}% Commission</span>
         </div>
       </div>
 

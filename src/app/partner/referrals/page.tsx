@@ -62,7 +62,7 @@ export default function PartnerReferralsPage() {
           <div className="text-right">
             <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Your Cut</p>
             <p className="text-xl font-black text-white">
-              €{(monthlyMrr * (profile?.commission_rate ?? 0.25)).toFixed(2)}/mo
+              €{(monthlyMrr * (profile?.commission_rate ?? 0.5)).toFixed(2)}/mo
             </p>
           </div>
         </CardContent>
@@ -153,7 +153,7 @@ export default function PartnerReferralsPage() {
                       </td>
                       <td className="py-3 px-2 text-xs text-right font-black text-[#A855F7]">
                         {r.status === "active" && r.monthly_value > 0
-                          ? `€${(Number(r.monthly_value) * (profile?.commission_rate ?? 0.25)).toFixed(2)}`
+                          ? `€${(Number(r.monthly_value) * (profile?.commission_rate ?? 0.5)).toFixed(2)}`
                           : "—"}
                       </td>
                       <td className="py-3 px-2 text-[10px] text-neutral-500">

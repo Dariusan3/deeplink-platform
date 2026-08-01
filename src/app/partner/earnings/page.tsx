@@ -97,7 +97,7 @@ export default function PartnerEarningsPage() {
           <CardContent className="p-5">
             <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Active Referrals</p>
             <p className="text-3xl font-black text-white mt-1">{activeReferrals.length}</p>
-            <p className="text-[10px] text-neutral-500 mt-1">{(profile?.commission_rate ?? 0.25) * 100}% recurring</p>
+            <p className="text-[10px] text-neutral-500 mt-1">{(profile?.commission_rate ?? 0.5) * 100}% recurring</p>
           </CardContent>
         </Card>
       </div>

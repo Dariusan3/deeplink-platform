@@ -5,4 +5,4 @@
 // Euros. A partner must accrue this much pending commission before a payout
 // can be requested.
 export const PARTNER_MIN_PAYOUT = 500;
-export const PARTNER_COMMISSION_RATE = 0.25;
+export const PARTNER_COMMISSION_RATE = 0.5;

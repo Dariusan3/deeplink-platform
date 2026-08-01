@@ -7,6 +7,7 @@ import { Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { PARTNER_COMMISSION_RATE } from "@/lib/partner-config";
 import { TapprMark } from "@/components/brand/logo";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -340,7 +341,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
             {!collapsed && (
               <>
                 <span>Partner</span>
-                <span className="ml-auto text-[8px] font-black px-1.5 py-0.5 rounded-md bg-[#00D26A] text-black tracking-widest">25%</span>
+                <span className="ml-auto text-[8px] font-black px-1.5 py-0.5 rounded-md bg-[#00D26A] text-black tracking-widest">{Math.round(PARTNER_COMMISSION_RATE * 100)}%</span>
               </>
             )}
           </Link>

@@ -70,15 +70,15 @@ export default function PartnerLinkPage() {
             <div className="grid grid-cols-3 gap-3">
               <div className="p-3 rounded-lg bg-white/[0.02] border border-white/5">
                 <p className="text-[9px] font-black uppercase tracking-widest text-neutral-500">Total Clicks (14d)</p>
-                <p className="text-2xl font-black text-white mt-1">{stats?.totalClicks ?? 0}</p>
+                <p className="text-xl sm:text-2xl font-black text-white mt-1">{stats?.totalClicks ?? 0}</p>
               </div>
               <div className="p-3 rounded-lg bg-white/[0.02] border border-white/5">
                 <p className="text-[9px] font-black uppercase tracking-widest text-neutral-500">Today</p>
-                <p className="text-2xl font-black text-white mt-1">{clicksToday}</p>
+                <p className="text-xl sm:text-2xl font-black text-white mt-1">{clicksToday}</p>
               </div>
               <div className="p-3 rounded-lg bg-white/[0.02] border border-white/5">
                 <p className="text-[9px] font-black uppercase tracking-widest text-neutral-500">This Week</p>
-                <p className="text-2xl font-black text-white mt-1">{clicksThisWeek}</p>
+                <p className="text-xl sm:text-2xl font-black text-white mt-1">{clicksThisWeek}</p>
               </div>
             </div>
 

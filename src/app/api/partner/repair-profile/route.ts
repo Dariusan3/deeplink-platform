@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createSsr } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
+import { PARTNER_COMMISSION_RATE } from "@/lib/partner-config";
 
 // POST /api/partner/repair-profile
 //
@@ -66,7 +67,7 @@ export async function POST() {
     .insert({
       user_id: userId,
       referral_code: referralCode,
-      commission_rate: 0.25,
+      commission_rate: PARTNER_COMMISSION_RATE,
       activated_at: now,
     })
     .select()

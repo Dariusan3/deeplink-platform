@@ -67,10 +67,14 @@ function getGoalPeriodEnd(period: string, ref: Date): Date {
 }
 
 export async function GET(request: NextRequest) {
-  // Verify cron secret to prevent unauthorized access
+  // Verify cron secret to prevent unauthorized access. Fail closed: an unset
+  // secret must block, never wave the request through (would be public in prod).
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!cronSecret) {
+    return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
+  }
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

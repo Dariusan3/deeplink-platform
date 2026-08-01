@@ -711,13 +711,13 @@ export async function runAllDetectors(
     { types: ["plan_limit"],            run: () => detectPlanLimit(supabase, team.id, plan) },
     { types: ["ab_winner"],             run: () => detectABWinner(supabase, team.id) },
     { types: ["goal_hit"],              run: () => detectGoalHit(supabase, team.id) },
-    { types: ["traffic_spike"],         run: () => detectTrafficSpike(supabase, team.id) },
-    // detectPeakHourShift — disabled: peak-hour naturally flaps day to day,
-    // so this fired constantly with almost no actionable value. It was the
-    // 2nd-noisiest alert in production. Kept the function in case we want a
-    // much stricter version later.
-    { types: ["country_shift"],         run: () => detectCountryShift(supabase, team.id) },
-    { types: ["device_shift"],          run: () => detectDeviceShift(supabase, team.id) },
+    // Disabled as noise (2026-07-26): high-frequency, low-action alerts that
+    // cluttered the page without prompting any decision. Detector functions are
+    // kept below in case we want a much stricter version later.
+    //   traffic_spike   — "traffic 3× normal this hour", transient by nature
+    //   country_shift   — trend FYI, not a decision
+    //   device_shift    — trend FYI, not a decision
+    //   peak_hour_shift — peak hour naturally flaps day to day (off earlier)
     { types: ["stale_links"],           run: () => detectStaleLinks(supabase, team.id) },
     { types: ["subscription_expiring"], run: () => detectSubscriptionExpiring(supabase, team.id) },
   ];

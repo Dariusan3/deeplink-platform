@@ -1,5 +1,5 @@
 import { Resend } from "resend";
-import { PARTNER_MIN_PAYOUT } from "@/lib/partner-config";
+import { PARTNER_MIN_PAYOUT, PARTNER_COMMISSION_RATE } from "@/lib/partner-config";
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
@@ -424,9 +424,10 @@ export async function sendPartnerWelcomeEmail({
   if (!resend) return;
   const safeName = escapeHtml(name);
   const safeUrl = escapeHtml(referralUrl);
+  const partnerPct = Math.round(PARTNER_COMMISSION_RATE * 100);
   const html = partnerEmailShell(`
     <h2 style="font-size: 18px; font-weight: 900; color: #fff; margin: 0 0 8px;">Welcome to the Tappr Partner Program, ${safeName}</h2>
-    <p style="font-size: 14px; color: #999; line-height: 1.6; margin: 0 0 20px;">Your account is now activated. You earn <strong style="color:#00D26A">25% recurring</strong> on every paying customer you refer — for as long as they stay subscribed.</p>
+    <p style="font-size: 14px; color: #999; line-height: 1.6; margin: 0 0 20px;">Your account is now activated. You earn <strong style="color:#00D26A">${partnerPct}% recurring</strong> on every paying customer you refer — for as long as they stay subscribed.</p>
     <div style="background: rgba(0,210,106,0.05); border: 1px solid rgba(0,210,106,0.15); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
       <p style="font-size: 10px; color: #00D26A; text-transform: uppercase; letter-spacing: 0.15em; font-weight: 800; margin: 0 0 6px;">Your referral link</p>
       <p style="font-size: 13px; color: #fff; margin: 0; font-family: ui-monospace, monospace; word-break: break-all;">${safeUrl}</p>
@@ -437,7 +438,7 @@ export async function sendPartnerWelcomeEmail({
     await resend.emails.send({
       from: FROM_EMAIL,
       to,
-      subject: "You're now a Tappr Partner — start earning 25%",
+      subject: `You're now a Tappr Partner — start earning ${partnerPct}%`,
       html,
     });
   } catch (err) {

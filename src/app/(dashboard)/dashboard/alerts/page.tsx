@@ -74,11 +74,16 @@ type AlertRow = {
 
 // The only three colours on the page. high = red, medium = amber, low = green.
 // Everything that shows colour reads from here.
+// `bar` is the left accent border that carries a row's urgency at a glance.
+// low is deliberately NEUTRAL, not green: a green row reads as "good/resolved",
+// and mixing it into a red/amber urgency scale is exactly what made the list
+// hard to triage. The positive framing of low-tier items ("Opportunities") is
+// carried by the section header instead, where green means what it should.
 type Sev = "high" | "medium" | "low";
-const SEVERITY_STYLES: Record<Sev, { dot: string; tint: string; text: string; border: string }> = {
-  high:   { dot: "bg-red-500",     tint: "bg-red-500/10",     text: "text-red-400",   border: "border-red-500/25"   },
-  medium: { dot: "bg-amber-400",   tint: "bg-amber-500/10",   text: "text-amber-400", border: "border-amber-500/25" },
-  low:    { dot: "bg-[#00D26A]",   tint: "bg-[#00D26A]/10",   text: "text-[#00D26A]", border: "border-[#00D26A]/25" },
+const SEVERITY_STYLES: Record<Sev, { dot: string; tint: string; text: string; border: string; bar: string }> = {
+  high:   { dot: "bg-red-500",     tint: "bg-red-500/10",     text: "text-red-400",     border: "border-red-500/25",   bar: "border-l-red-500"    },
+  medium: { dot: "bg-amber-400",   tint: "bg-amber-500/10",   text: "text-amber-400",   border: "border-amber-500/25", bar: "border-l-amber-400"  },
+  low:    { dot: "bg-neutral-500", tint: "bg-white/[0.05]",   text: "text-neutral-300", border: "border-white/15",     bar: "border-l-white/15"   },
 };
 function sevStyle(severity: string) {
   return SEVERITY_STYLES[(severity as Sev)] ?? SEVERITY_STYLES.medium;
@@ -88,6 +93,21 @@ const TIER_ORDER: AlertTier[] = [1, 2, 3, 4];
 // Sort weight within a row's tier. Urgency used to be carried by which section
 // an alert sat in; in a flat list it has to be carried by the sort.
 const SEV_WEIGHT: Record<string, number> = { high: 0, medium: 1, low: 2 };
+
+// Age-out rule. Alerts older than this drop off the page UNLESS they're tier-1
+// (Critical). A still-open critical — a broken destination, a hit plan cap — is
+// "losing money right now" no matter when it first fired, so it never ages out.
+// Everything else (opportunities, trends, housekeeping) is noise once it's a
+// week old: an A/B winner or a goal you hit three weeks ago isn't a to-do.
+// The schema has no per-alert "last re-confirmed" timestamp, so we gate on
+// created_at + tier rather than on staleness of the underlying condition.
+const STALE_AFTER_DAYS = 7;
+function isStaleAlert(a: AlertRow): boolean {
+  const tier = a.alert_type ? ALERT_TIERS[a.alert_type] ?? 4 : 4;
+  if (tier === 1) return false; // criticals never age out
+  const ageMs = Date.now() - new Date(a.created_at).getTime();
+  return ageMs > STALE_AFTER_DAYS * 24 * 60 * 60 * 1000;
+}
 
 // Per-team alerts cache (stale-while-revalidate) so the list paints
 // instantly on repeat visits instead of waiting on the query.
@@ -167,7 +187,9 @@ export default function AlertsPage() {
       .order("created_at", { ascending: false });
 
     if (!error) {
-      const rows = (data || []) as AlertRow[];
+      // Drop aged-out non-critical alerts before they ever reach state, so the
+      // list, the tier counts and the empty state all agree on what's "open".
+      const rows = ((data || []) as AlertRow[]).filter((r) => !isStaleAlert(r));
       setAlerts(rows);
       writeAlertsCache(activeTeam.id, rows);
     }
@@ -502,31 +524,55 @@ export default function AlertsPage() {
           </div>
         )}
 
-        {/* The list. One border, hairline dividers, no nesting. */}
+        {/* The list, grouped into labelled tier sections. The flat list read as
+            one undifferentiated wall — a header per tier ("Critical",
+            "Opportunities", …) gives the eye an anchor so you can find WHICH
+            alert you care about without reading every row. Within a section the
+            rows stay urgency-sorted. Nulls/unknown types fall into tier 4. */}
         {!loading && filtered.length > 0 && (
-          <div className="rounded-2xl border border-white/[0.06] divide-y divide-white/[0.05] overflow-hidden">
-            <AnimatePresence initial={false}>
-              {filtered.map((a) => (
-                <motion.div
-                  key={a.id}
-                  layout
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.15, ease: "easeOut" }}
-                >
-                  <AlertRowItem
-                    alert={a}
-                    selected={selected.has(a.id)}
-                    selectionActive={selected.size > 0}
-                    expanded={expanded === a.id}
-                    onToggleExpand={() => setExpanded((id) => (id === a.id ? null : a.id))}
-                    onToggleSelect={toggleSelect}
-                    onRequestDelete={setDeleteCandidate}
-                  />
-                </motion.div>
-              ))}
-            </AnimatePresence>
+          <div className="space-y-5">
+            {TIER_ORDER.map((tier) => {
+              const rows = filtered.filter(
+                (a) => (a.alert_type ? ALERT_TIERS[a.alert_type] ?? 4 : 4) === tier
+              );
+              if (rows.length === 0) return null;
+              const meta = TIER_META[tier];
+              return (
+                <div key={tier} className="space-y-1.5">
+                  <div className="flex items-baseline gap-2 px-1">
+                    <span className={cn("text-[11px] font-black uppercase tracking-widest", meta.accent)}>
+                      {meta.title}
+                    </span>
+                    <span className="text-[10px] font-bold text-neutral-600 tabular-nums">{rows.length}</span>
+                    <span className="text-[10px] text-neutral-600 truncate hidden sm:block">· {meta.subtitle}</span>
+                  </div>
+                  <div className="rounded-2xl border border-white/[0.06] divide-y divide-white/[0.05] overflow-hidden">
+                    <AnimatePresence initial={false}>
+                      {rows.map((a) => (
+                        <motion.div
+                          key={a.id}
+                          layout
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.15, ease: "easeOut" }}
+                        >
+                          <AlertRowItem
+                            alert={a}
+                            selected={selected.has(a.id)}
+                            selectionActive={selected.size > 0}
+                            expanded={expanded === a.id}
+                            onToggleExpand={() => setExpanded((id) => (id === a.id ? null : a.id))}
+                            onToggleSelect={toggleSelect}
+                            onRequestDelete={setDeleteCandidate}
+                          />
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -711,17 +757,18 @@ function AlertRowItem({
   return (
     <div
       className={cn(
-        "group relative transition-colors",
+        "group relative border-l-2 transition-colors",
+        style.bar,
         selected ? "bg-red-500/[0.06]" : "hover:bg-white/[0.02]"
       )}
     >
       <div
         onClick={onToggleExpand}
-        className="flex items-center gap-3 px-3 py-2.5 cursor-pointer"
+        className="flex items-start gap-3 px-3 py-2.5 cursor-pointer"
       >
         {/* Leading slot: severity dot at rest, checkbox on hover or while a
-            selection is open. One glyph, two jobs. */}
-        <div className="relative w-5 h-5 shrink-0 flex items-center justify-center">
+            selection is open. One glyph, two jobs. Pinned to the first line. */}
+        <div className="relative w-5 h-5 shrink-0 flex items-center justify-center mt-0.5">
           <span
             className={cn(
               "w-2 h-2 rounded-full transition-opacity",
@@ -745,53 +792,58 @@ function AlertRowItem({
           </button>
         </div>
 
-        {/* Short code chip — "404", "-62%", "97%". Reads out of the detector's
-            metadata, so it says the one number the alert is actually about. */}
-        <span
-          title={categoryLabel}
-          className={cn(
-            "shrink-0 inline-flex items-center gap-1.5 h-6 px-2 rounded-md border text-[10px] font-black uppercase tracking-wider tabular-nums",
-            style.tint, style.text, style.border
-          )}
-        >
-          <Icon className="w-3 h-3" />
-          {badge}
-        </span>
-
-        {/* Subject + gist. On a wide row they sit side by side; the gist is the
-            first thing to get clipped, which is correct — the subject is what
-            you scan for. */}
-        <div className="flex-1 min-w-0 flex items-baseline gap-2">
-          <span className="text-sm font-bold text-white truncate shrink-0 max-w-[55%]">
-            {subject}
-          </span>
-          <span className="text-xs text-neutral-500 truncate hidden sm:block">
-            {summary}
-          </span>
+        {/* Two lines. Line 1 = the subject (what you scan for) + the one number
+            the alert is about ("404", "-62%"). Line 2 = the alert category +
+            a one-line gist. Keeping the bold subject on its own line, never
+            sharing horizontal space with the detail, is what makes a long list
+            actually scannable — the previous single-line row clipped the subject
+            at 55% so titles were cut off mid-word. */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-white truncate">{subject}</span>
+            {badge && (
+              <span
+                className={cn(
+                  "shrink-0 inline-flex items-center h-5 px-1.5 rounded text-[10px] font-black uppercase tracking-wider tabular-nums",
+                  style.tint, style.text
+                )}
+              >
+                {badge}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 mt-1 min-w-0">
+            <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+              <Icon className="w-3 h-3" />
+              {categoryLabel}
+            </span>
+            <span className="text-xs text-neutral-500 truncate">{summary}</span>
+          </div>
         </div>
 
-        <span
-          className="shrink-0 text-[10px] text-neutral-600 font-medium tabular-nums cursor-help hidden sm:block"
-          title={formatAbsolute(alert.created_at)}
-        >
-          {formatRelative(alert.created_at)}
-        </span>
-
-        <button
-          onClick={(e) => { e.stopPropagation(); onRequestDelete(alert); }}
-          className="shrink-0 w-7 h-7 rounded-md flex items-center justify-center text-neutral-600 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all cursor-pointer"
-          title="Dismiss this alert"
-          aria-label="Dismiss this alert"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
-
-        <ChevronDown
-          className={cn(
-            "shrink-0 w-4 h-4 text-neutral-600 transition-transform",
-            expanded && "rotate-180"
-          )}
-        />
+        {/* Trailing controls, pinned to the first line. */}
+        <div className="flex items-center gap-1 shrink-0 mt-0.5">
+          <span
+            className="text-[10px] text-neutral-600 font-medium tabular-nums cursor-help hidden sm:block"
+            title={formatAbsolute(alert.created_at)}
+          >
+            {formatRelative(alert.created_at)}
+          </span>
+          <button
+            onClick={(e) => { e.stopPropagation(); onRequestDelete(alert); }}
+            className="w-7 h-7 rounded-md flex items-center justify-center text-neutral-600 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all cursor-pointer"
+            title="Dismiss this alert"
+            aria-label="Dismiss this alert"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+          <ChevronDown
+            className={cn(
+              "w-4 h-4 text-neutral-600 transition-transform",
+              expanded && "rotate-180"
+            )}
+          />
+        </div>
       </div>
 
       {/* Expanded detail */}

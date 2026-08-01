@@ -99,7 +99,7 @@ export default function PartnerOverviewPage() {
               <Wallet className="w-5 h-5 text-[#A855F7]" />
             </div>
             <div>
-              <p className="text-2xl font-black text-[#A855F7]">€{earnedThisMonth.toFixed(0)}</p>
+              <p className="text-xl sm:text-2xl font-black text-[#A855F7]">€{earnedThisMonth.toFixed(0)}</p>
               <p className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">This Month</p>
             </div>
           </CardContent>
@@ -110,7 +110,7 @@ export default function PartnerOverviewPage() {
               <TrendingUp className="w-5 h-5 text-emerald-400" />
             </div>
             <div>
-              <p className="text-2xl font-black text-white">€{Number(profile.total_earned).toFixed(0)}</p>
+              <p className="text-xl sm:text-2xl font-black text-white">€{Number(profile.total_earned).toFixed(0)}</p>
               <p className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">All-Time</p>
             </div>
           </CardContent>
@@ -121,7 +121,7 @@ export default function PartnerOverviewPage() {
               <Users className="w-5 h-5 text-blue-400" />
             </div>
             <div>
-              <p className="text-2xl font-black text-white">{activeReferrals.length}</p>
+              <p className="text-xl sm:text-2xl font-black text-white">{activeReferrals.length}</p>
               <p className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Active Referrals</p>
             </div>
           </CardContent>
@@ -132,7 +132,7 @@ export default function PartnerOverviewPage() {
               <Target className="w-5 h-5 text-amber-400" />
             </div>
             <div>
-              <p className="text-2xl font-black text-white">{(conversionRate * 100).toFixed(1)}%</p>
+              <p className="text-xl sm:text-2xl font-black text-white">{(conversionRate * 100).toFixed(1)}%</p>
               <p className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Conversion</p>
             </div>
           </CardContent>

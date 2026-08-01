@@ -61,7 +61,7 @@ export default function PartnerSettingsPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           <Row label="Referral Code" value={profile?.referral_code ?? "—"} mono />
-          <Row label="Commission Rate" value={`${((profile?.commission_rate ?? 0.25) * 100).toFixed(0)}% recurring`} />
+          <Row label="Commission Rate" value={`${((profile?.commission_rate ?? 0.5) * 100).toFixed(0)}% recurring`} />
           <Row
             label="Activated"
             value={profile?.activated_at ? new Date(profile.activated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}

@@ -32,7 +32,12 @@ function getSupabase(): SupabaseClient {
 
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && request.headers.get("authorization") !== `Bearer ${cronSecret}`) {
+  // Fail closed: a missing secret must BLOCK, never wave the request through —
+  // otherwise an unset CRON_SECRET in prod leaves this endpoint fully public.
+  if (!cronSecret) {
+    return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
+  }
+  if (request.headers.get("authorization") !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

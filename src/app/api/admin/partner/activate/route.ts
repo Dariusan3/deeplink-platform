@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSsr } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendPartnerWelcomeEmail } from "@/lib/email";
+import { PARTNER_COMMISSION_RATE } from "@/lib/partner-config";
 
 // Admin-only: turns is_partner=true on a user, creates partner_profiles row
 // with a fresh referral code, sends Welcome email. Idempotent.
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
       .insert({
         user_id,
         referral_code: referralCode,
-        commission_rate: 0.25,
+        commission_rate: PARTNER_COMMISSION_RATE,
         activated_at: now,
       })
       .select()
