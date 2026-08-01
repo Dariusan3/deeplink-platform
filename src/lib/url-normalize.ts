@@ -26,17 +26,30 @@ export function normalizeDestinationUrl(input: string | null | undefined): strin
 // Returns the current host stripped of any leading "www." — used everywhere
 // we display a short URL (`tappr.me/slug` not `www.tappr.me/slug`). Falls
 // back to "tappr.me" during SSR.
+// Derived from NEXT_PUBLIC_APP_URL, which is inlined at build time and is
+// therefore IDENTICAL on the server and the client — so these never trigger a
+// hydration mismatch. The old version read `window.location` on the client but
+// returned "tappr.me" on the server, which threw a hydration error on the link
+// editor ("Will be available at …"). Falls back to the production host if the
+// env var is missing or malformed.
+function appUrl(): URL {
+  const raw = process.env.NEXT_PUBLIC_APP_URL || "https://tappr.me";
+  try {
+    return new URL(raw);
+  } catch {
+    return new URL("https://tappr.me");
+  }
+}
+
 export function getDisplayHost(): string {
-  if (typeof window === "undefined") return "tappr.me";
-  return window.location.host.replace(/^www\./i, "");
+  return appUrl().host.replace(/^www\./i, "");
 }
 
 // Same idea for full origin — used by export-dialog, partner referral URL,
 // developer API base URL display.
 export function getDisplayOrigin(): string {
-  if (typeof window === "undefined") return "https://tappr.me";
-  const proto = window.location.protocol; // keeps http on localhost dev
-  return `${proto}//${getDisplayHost()}`;
+  const u = appUrl();
+  return `${u.protocol}//${u.host.replace(/^www\./i, "")}`;
 }
 
 // Convenience: build the FULL short URL for a given slug — with `https://`

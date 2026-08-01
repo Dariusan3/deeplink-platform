@@ -36,7 +36,7 @@ const GROUPS: Group[] = [
     rows: [
       { label: "Automatic deep linking — opens the native app on mobile (100+ apps)", free: true, starter: true, growth: true, agency: true },
       { label: "Clicks / month", free: "500", starter: "50,000", growth: "250,000", agency: "Unlimited" },
-      { label: "Links included", free: "25", starter: "500", growth: "5,000", agency: "Unlimited" },
+      { label: "Links included", free: "5", starter: "500", growth: "5,000", agency: "Unlimited" },
       { label: "Team members", free: "1", starter: "3", growth: "10", agency: "Unlimited" },
     ],
   },

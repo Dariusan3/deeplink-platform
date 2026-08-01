@@ -253,11 +253,17 @@ export function LinksProvider({
       .single();
 
     if (error) {
-      if (error.message?.includes("PLAN_LIMIT:")) {
-        toast.error(error.message.replace(/^.*PLAN_LIMIT:\s*/, ""));
-      }
       console.error("Error updating link:", error.message || error);
-      throw error;
+      // Supabase errors are plain objects, not Error instances — if we rethrow
+      // them raw, the caller's `err instanceof Error` check misses and the UI
+      // falls back to a generic "Failed to save link" that hides the cause.
+      // Translate to a real Error with a human message so the toast is useful.
+      const friendly = error.message?.includes("PLAN_LIMIT:")
+        ? error.message.replace(/^.*PLAN_LIMIT:\s*/, "")
+        : error.code === "PGRST116"
+          ? "Couldn't save — you don't have permission to edit this link (only the team owner or an editor can), or it no longer exists."
+          : error.message || "Failed to save link";
+      throw new Error(friendly);
     }
 
     setLinks((prev) => prev.map((l) => (l.id === id ? { ...data, click_count: l.click_count } : l)));

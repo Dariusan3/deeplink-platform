@@ -46,7 +46,7 @@ export interface PlanEntitlements {
 export const ENTITLEMENTS: Record<PlanKey, PlanEntitlements> = {
   free: {
     clicksPerMonth: 500,
-    links: 25,
+    links: 5,
     teamMembers: 1,
     brainChats: 10,
     collections: 5,

@@ -23,7 +23,7 @@ const TIERS: Tier[] = [
     cadence: "forever",
     blurb: "For testing the routing engine and personal links.",
     features: [
-      "500 clicks / month · 25 links",
+      "500 clicks / month · 5 links",
       "Automatic deep linking (100+ apps)",
       "AI Brain — 10 chats / mo",
       "Real-time analytics",

@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { headers } from "next/headers";
-import { SignupForm } from "@/components/auth/signup-form";
+import { ReferralOnboarding } from "@/components/partner/referral-onboarding";
 
 // /signup/@CODE — the partner's clean, shareable referral link.
 //
@@ -52,5 +52,5 @@ export default async function SignupWithCodePage({
     }
   }
 
-  return <SignupForm refCode={code || null} />;
+  return <ReferralOnboarding refCode={code || null} />;
 }
