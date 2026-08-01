@@ -434,6 +434,45 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
           return linkContent;
         })}
 
+        {/* My Plan — sits right after Contact Support. Highlights like any other
+            nav item when you're on the billing page (not green all the time);
+            the plan badge on the right always tells you which plan you're on. */}
+        {(() => {
+          const planActive =
+            pathname === "/dashboard/billing" || pathname.startsWith("/dashboard/billing/");
+          return (
+            <Link
+              href="/dashboard/billing"
+              onMouseEnter={() => router.prefetch("/dashboard/billing")}
+              className={cn(
+                "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition-all duration-300",
+                planActive
+                  ? "bg-[#00D26A]/10 text-[#00D26A] shadow-[inset_0_0_12px_rgba(0,210,106,0.05)]"
+                  : "text-neutral-500 hover:text-neutral-200 hover:bg-white/[0.03]",
+                collapsed && "justify-center px-2"
+              )}
+              title={`My Plan — ${(activeTeam?.plan ?? "free").toUpperCase()}`}
+            >
+              <span className={cn(
+                "shrink-0 transition-colors duration-300",
+                planActive ? "text-[#00D26A]" : "group-hover:text-neutral-300"
+              )}>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
+                </svg>
+              </span>
+              {!collapsed && (
+                <>
+                  <span>My Plan</span>
+                  <span className="ml-auto">
+                    <PlanBadge plan={activeTeam?.plan ?? "free"} />
+                  </span>
+                </>
+              )}
+            </Link>
+          );
+        })()}
+
       </nav>
 
       <Separator className="opacity-50" />
