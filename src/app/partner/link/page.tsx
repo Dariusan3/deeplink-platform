@@ -47,7 +47,7 @@ export default function PartnerLinkPage() {
   const maxBar = Math.max(1, ...(stats?.clicksByDay.map((d) => d.count) ?? [1]));
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto pb-20">
+    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto pb-20">
       <PageHeader
         accent="purple"
         eyebrow="Partner Dashboard" title="My Link" />
