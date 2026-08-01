@@ -336,7 +336,7 @@ export default function CollectionsPage() {
     return (
       <>
         <Header title="Collections" />
-        <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
+        <div className="p-4 md:p-6 space-y-6">
           <button
             onClick={() => {
               // Prefer browser back so the user lands on whichever view
@@ -479,7 +479,7 @@ export default function CollectionsPage() {
   return (
     <>
       <Header title="Collections" />
-      <div className="p-4 md:p-6 space-y-8 max-w-7xl mx-auto">
+      <div className="p-4 md:p-6 space-y-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">

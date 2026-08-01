@@ -25,7 +25,7 @@ export default function DashboardLoading() {
         </div>
       </header>
 
-      <div className="p-4 md:p-6 space-y-8 max-w-7xl mx-auto">
+      <div className="p-4 md:p-6 space-y-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-2">
             <Skeleton className="h-9 w-56" />

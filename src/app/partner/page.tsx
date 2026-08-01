@@ -80,7 +80,7 @@ export default function PartnerOverviewPage() {
     .reduce((s, e) => s + Number(e.amount), 0);
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto pb-20">
+    <div className="p-4 md:p-6 space-y-6 lg:space-y-8 pb-20">
       <PageHeader
         accent="purple"
         eyebrow="Partner Dashboard" title="Overview" />
@@ -94,45 +94,45 @@ export default function PartnerOverviewPage() {
       {/* Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card className="glass-card border-white/5">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-[#A855F7]/10 border border-[#A855F7]/20">
-              <Wallet className="w-5 h-5 text-[#A855F7]" />
+          <CardContent className="p-5 lg:p-7 flex items-center gap-3 lg:gap-4">
+            <div className="p-2.5 lg:p-3.5 rounded-xl bg-[#A855F7]/10 border border-[#A855F7]/20">
+              <Wallet className="w-5 h-5 lg:w-7 lg:h-7 text-[#A855F7]" />
             </div>
             <div>
-              <p className="text-xl sm:text-2xl font-black text-[#A855F7]">€{earnedThisMonth.toFixed(0)}</p>
+              <p className="text-2xl lg:text-4xl font-black text-[#A855F7]">€{earnedThisMonth.toFixed(0)}</p>
               <p className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">This Month</p>
             </div>
           </CardContent>
         </Card>
         <Card className="glass-card border-white/5">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-              <TrendingUp className="w-5 h-5 text-emerald-400" />
+          <CardContent className="p-5 lg:p-7 flex items-center gap-3 lg:gap-4">
+            <div className="p-2.5 lg:p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+              <TrendingUp className="w-5 h-5 lg:w-7 lg:h-7 text-emerald-400" />
             </div>
             <div>
-              <p className="text-xl sm:text-2xl font-black text-white">€{Number(profile.total_earned).toFixed(0)}</p>
+              <p className="text-2xl lg:text-4xl font-black text-white">€{Number(profile.total_earned).toFixed(0)}</p>
               <p className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">All-Time</p>
             </div>
           </CardContent>
         </Card>
         <Card className="glass-card border-white/5">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-blue-500/10 border border-blue-500/20">
-              <Users className="w-5 h-5 text-blue-400" />
+          <CardContent className="p-5 lg:p-7 flex items-center gap-3 lg:gap-4">
+            <div className="p-2.5 lg:p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20">
+              <Users className="w-5 h-5 lg:w-7 lg:h-7 text-blue-400" />
             </div>
             <div>
-              <p className="text-xl sm:text-2xl font-black text-white">{activeReferrals.length}</p>
+              <p className="text-2xl lg:text-4xl font-black text-white">{activeReferrals.length}</p>
               <p className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Active Referrals</p>
             </div>
           </CardContent>
         </Card>
         <Card className="glass-card border-white/5">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
-              <Target className="w-5 h-5 text-amber-400" />
+          <CardContent className="p-5 lg:p-7 flex items-center gap-3 lg:gap-4">
+            <div className="p-2.5 lg:p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20">
+              <Target className="w-5 h-5 lg:w-7 lg:h-7 text-amber-400" />
             </div>
             <div>
-              <p className="text-xl sm:text-2xl font-black text-white">{(conversionRate * 100).toFixed(1)}%</p>
+              <p className="text-2xl lg:text-4xl font-black text-white">{(conversionRate * 100).toFixed(1)}%</p>
               <p className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Conversion</p>
             </div>
           </CardContent>

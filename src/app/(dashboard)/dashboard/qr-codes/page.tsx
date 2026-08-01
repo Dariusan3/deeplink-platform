@@ -82,7 +82,7 @@ export default function QrCodesPage() {
   return (
     <>
       <Header title="QR Codes" />
-      <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
+      <div className="p-4 md:p-6 space-y-6">
         <div className="space-y-1">
           <h2 className="text-3xl font-black tracking-tighter text-white uppercase italic">
             QR Codes

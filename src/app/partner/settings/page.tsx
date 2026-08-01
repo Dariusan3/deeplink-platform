@@ -47,7 +47,7 @@ export default function PartnerSettingsPage() {
   };
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-3xl mx-auto pb-20">
+    <div className="p-4 md:p-6 space-y-6 pb-20">
       <PageHeader
         accent="purple"
         eyebrow="Partner Dashboard" title="Settings" />

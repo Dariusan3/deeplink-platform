@@ -170,7 +170,7 @@ export default function LinkEditPage() {
   return (
     <>
       <Header title="Edit Link" />
-      <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto pb-20">
+      <div className="p-4 md:p-6 space-y-6 pb-20">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <button
             onClick={() => router.push("/dashboard/links")}
