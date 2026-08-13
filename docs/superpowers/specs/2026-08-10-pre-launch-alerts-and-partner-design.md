@@ -1,13 +1,20 @@
-# Pre-launch: link health, alert hygiene, partner responsiveness, custom referral codes
+# Pre-launch: link health, alert hygiene, partner surface, referral codes and gate
 
-Date: 2026-08-10 (Part D added 2026-08-13)
+Date: 2026-08-10 (Parts D and E added 2026-08-13)
 Status: approved design, not yet implemented
 
-Four largely independent workstreams, agreed in one brainstorming session
-because they were raised together as pre-launch blockers. Two ordering
-constraints exist and are both soft: B reads `link_health.down_since` from A for
-one dedup key, and D edits files that C also restyles. See Sequencing at the
-end.
+Five workstreams, agreed in one brainstorming session because they were raised
+together as pre-launch blockers:
+
+- **A** — link health measured at real clicks
+- **B** — alert email and noise hygiene
+- **C** — partner surface sizing across devices
+- **D** — custom partner referral codes
+- **E** — referral-only signup gate
+
+Three ordering constraints: B reads `link_health.down_since` from A, D edits
+files C also restyles, and E calls a SQL resolver D introduces. See Sequencing
+at the end.
 
 There is no test framework in this repository — `package.json` exposes only
 `dev`, `build`, `start`, `lint`, and there are no `*.test.*` files. Verification
@@ -610,6 +617,22 @@ anchor. Nothing in this part writes to it.
 `decodeURIComponent`, strip leading `@` characters, `trim`, `toLowerCase`, then
 one lookup against `partner_codes`.
 
+Migration `028` also defines the same resolution in SQL, because Part E's
+`handle_new_user` trigger needs it and a trigger cannot call TypeScript:
+
+```sql
+create or replace function public.partner_id_for_code(p_code text)
+returns uuid language sql stable as $$
+  select partner_id from public.partner_codes
+   where code = lower(trim(ltrim(coalesce(p_code, ''), '@')));
+$$;
+```
+
+Two implementations of one rule is a duplication worth calling out. It is
+accepted because the alternative is a network round trip inside a database
+trigger. They must be changed together, and the normalisation — lowercase, trim,
+strip leading `@` — is the part that has to stay identical.
+
 Six call sites currently do `.eq("referral_code", code)` and all of them move
 onto this function:
 
@@ -721,6 +744,208 @@ The "Your Referral Link" card on `src/app/partner/page.tsx:148` and the
 
 ---
 
+## Part E — Referral-only signup
+
+### Problem and the constraint that shapes it
+
+The product should not be reachable without arriving through a partner's
+referral link.
+
+The obvious implementation — guard `/signup` — does not do that.
+`src/components/auth/signup-form.tsx:41` calls `supabase.auth.signUp` **directly
+from the browser** using `NEXT_PUBLIC_SUPABASE_ANON_KEY`, a key that is public
+by design and sits in the client bundle. `signInWithOAuth` is the same. No
+request passes through a Next.js route on the way to account creation, so a
+guard on the page blocks the *page*, not the *account*. Anyone with DevTools
+posts to the Supabase auth endpoint and has an account.
+
+Hard-blocking at insert time does not work either, because of Google.
+`signInWithOAuth` cannot carry custom user metadata, which is precisely why the
+referral code is stashed in `localStorage` and claimed *after* the fact in
+`src/app/auth/callback/route.ts:23`. A `BEFORE INSERT` trigger requiring a code
+would reject every Google signup, since at insert time the code exists nowhere
+the database can see it.
+
+### Decision taken
+
+**Gate access, not registration.** An account can be created; it just cannot do
+anything until a valid referral code is attached. That is enforceable in the
+database, is impossible to bypass from the client, and behaves identically for
+email/password and Google.
+
+The CTAs stay where they are. `/signup` without a referral renders an
+"invite code required" screen instead of the form, and the same component serves
+the quarantine screen for a signed-in but ungated account.
+
+### Data model
+
+Migration `029_referral_gate.sql`:
+
+```sql
+alter table public.users
+  add column if not exists signup_status text not null default 'ok'
+    check (signup_status in ('pending_referral', 'ok'));
+
+-- Existing rows took the 'ok' default above; only new rows are gated.
+alter table public.users alter column signup_status set default 'pending_referral';
+```
+
+The two-step default is deliberate. Adding the column with
+`default 'pending_referral'` would stamp every existing account as quarantined
+and lock everyone — including the operator — out of the product the moment the
+migration runs. Adding it as `'ok'` and *then* moving the default gates new
+signups only, with no update statement and no window where the wrong value is
+live.
+
+### Closing the self-release bypass
+
+`users_update_own` (`supabase/migrations/001_initial_schema.sql:176`) is
+`FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id)`. It restricts
+which *row* a user may update, not which *columns*. A quarantined account holds
+a valid JWT, and the anon key is public, so
+
+```
+PATCH /rest/v1/users?id=eq.<own-id>   {"signup_status":"ok"}
+```
+
+releases it from the browser console. Without the following, the entire gate is
+decorative:
+
+```sql
+create or replace function public.guard_signup_status()
+returns trigger as $$
+begin
+  if new.signup_status is distinct from old.signup_status
+     and current_setting('request.jwt.claim.role', true) is distinct from 'service_role'
+  then
+    new.signup_status := old.signup_status;
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger trg_users_guard_signup_status
+  before update on public.users
+  for each row execute function public.guard_signup_status();
+```
+
+It silently reverts rather than raising, so an unrelated profile update that
+happens to send the whole row still succeeds. Only the service-role key — which
+never reaches the browser — can move the column.
+
+### Setting the status at signup
+
+`handle_new_user` (`supabase/migrations/001_initial_schema.sql:22`) gains the
+decision:
+
+```sql
+insert into public.users (id, email, full_name, avatar_url, signup_status)
+values (
+  new.id,
+  new.email,
+  coalesce(new.raw_user_meta_data->>'full_name', ''),
+  coalesce(new.raw_user_meta_data->>'avatar_url', ''),
+  case
+    when public.partner_id_for_code(new.raw_user_meta_data->>'referral_code') is not null
+    then 'ok' else 'pending_referral'
+  end
+);
+```
+
+`partner_id_for_code(text) returns uuid` is a SQL-side resolver added by Part D's
+migration `028`, doing the same normalise-then-look-up as the TypeScript
+`resolvePartnerByCode`. Both the trigger and the API need the lookup, and the
+trigger cannot call TypeScript.
+
+**Part E therefore depends on Part D.** If E ships first, the function reads
+`partner_profiles.referral_code` instead and is rewritten when D lands.
+
+Email/password signups carry the code in metadata and land on `'ok'` directly.
+Google signups always land on `'pending_referral'` and are released by the claim
+below — which is the same post-hoc path the referral attribution already uses,
+so no new mechanism is introduced.
+
+### Releasing an account
+
+`src/app/api/partner/claim-referral/route.ts` already exists, is authenticated,
+resolves a code, and returns `{ claimed: false }` for an unknown one. It gains
+one thing: on `claimed: true`, set `signup_status = 'ok'` with the service-role
+client it already holds.
+
+Note the existing self-referral rule (line 38): a partner using their own code
+gets `claimed: false` and therefore stays quarantined. That is correct — but it
+means a partner cannot bootstrap their own account through their own link.
+Partners are activated from accounts that already exist and are already `'ok'`,
+so this is not reachable in practice; it is called out because it would be a
+confusing bug report if it ever were.
+
+### Middleware
+
+`src/middleware.ts` gains: for an authenticated user whose `signup_status` is
+`'pending_referral'`, every path except `/welcome`, `/login`, `/auth/*` and the
+public marketing pages redirects to `/welcome`.
+
+This costs one `users` row read per protected request. The existing code already
+does exactly that for `/partner` (`src/middleware.ts:100`), so the two selects
+merge into one rather than adding a second round trip.
+
+The alternative — mirroring the status into `raw_app_meta_data` so it rides in
+the JWT and costs nothing to read — is rejected here. A JWT is stale until it
+refreshes, so a user who just entered a valid code would keep being bounced back
+to the gate until their token rotated. One query is cheaper than that support
+ticket.
+
+One existing rule must be amended: `src/middleware.ts:123` redirects any
+authenticated user away from `/signup` to `/dashboard`. A quarantined user would
+be bounced to `/dashboard`, then back to `/welcome`, which is why the
+quarantine screen is a distinct route rather than a state of `/signup`.
+
+### The gate screen
+
+One component, two mount points:
+
+- `/signup` with no referral, not signed in — replaces the form. Text explains
+  Tappr is invite-only, with an input for a code someone gave them. On submit it
+  validates via the existing `/api/partner/validate-code` and, on success,
+  navigates to `/signup/<code>`, which is the normal referral path and records
+  the click.
+- `/welcome`, signed in and quarantined — same input, but submitting calls
+  `/api/partner/claim-referral`. On `claimed: true` it redirects to
+  `/dashboard`. It also offers sign-out, or the account is a dead end.
+
+`/welcome` first checks `localStorage["tappr_ref_code"]` and auto-claims. A
+Google user who arrived through a referral link never sees the input at all —
+the code is already sitting there from `ReferralTracker`
+(`src/components/partner/referral-tracker.tsx:20`). The manual input is the
+fallback for a cleared or missing value.
+
+### CTAs
+
+`Hero.tsx:56`, `Nav.tsx:53`, `FinalCta.tsx:44`, `login/page.tsx:95` and `:242`,
+`free-plan-button.tsx:35`, `upgrade-button.tsx:252` all keep pointing at
+`/signup`. They now land on the gate screen instead of the form. No change to
+any of them — that is the point of the chosen option.
+
+### Manual verification
+
+1. Visit `/signup` directly, signed out — the code screen, not the form.
+2. Enter a valid code there — lands on `/signup/<code>` with the form, and a
+   `partner_referral_clicks` row is written.
+3. Sign up with email through a referral link — `signup_status = 'ok'`, dashboard
+   reachable immediately.
+4. Sign up with Google through a referral link — briefly `pending_referral`,
+   auto-claimed from `localStorage`, dashboard reachable.
+5. Sign up with Google having cleared `localStorage` — `/welcome`, every
+   dashboard and partner path redirects there, sign-out works.
+6. From that quarantined session, run
+   `PATCH /rest/v1/users?id=eq.<own-id>` with `{"signup_status":"ok"}` using the
+   anon key. The request succeeds, the value does not change, and the account is
+   still gated. **If this test does not behave this way, the feature does not
+   work**, regardless of what the UI shows.
+7. Every pre-existing account is `'ok'` after the migration and notices nothing.
+
+---
+
 ## Sequencing
 
 1. **Part A** — new table, new state-machine function, new library, click-path
@@ -732,3 +957,12 @@ The "Your Referral Link" card on `src/app/partner/page.tsx:148` and the
    `src/app/partner/settings/page.tsx` and reads `use-partner.ts`, both of which
    Part C also touches, so running C first avoids reworking the new control's
    markup for the container and typography changes.
+5. **Part E** — depends on D for `partner_id_for_code`, the SQL-side code
+   resolver that `handle_new_user` calls. Building E before D means writing that
+   function against `partner_profiles.referral_code` and rewriting it when D
+   lands, at which point vanity codes would not open the gate.
+
+E is the only part that can lock users out of the product if it goes wrong, and
+the only one whose failure mode is silent — a decorative gate looks identical to
+a working one from the UI. Its verification step 6 (the `PATCH` bypass attempt)
+is not optional.
