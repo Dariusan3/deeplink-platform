@@ -1,12 +1,13 @@
-# Pre-launch: link health, alert hygiene, partner responsiveness
+# Pre-launch: link health, alert hygiene, partner responsiveness, custom referral codes
 
-Date: 2026-08-10
+Date: 2026-08-10 (Part D added 2026-08-13)
 Status: approved design, not yet implemented
 
-Three independent workstreams, agreed in one brainstorming session because they
-were raised together as pre-launch blockers. They share no code and can be built
-in any order, but B depends on A for one detail (the `destination_broken` dedup
-key reads `link_health.down_since`), so if both are built, A lands first.
+Four largely independent workstreams, agreed in one brainstorming session
+because they were raised together as pre-launch blockers. Two ordering
+constraints exist and are both soft: B reads `link_health.down_since` from A for
+one dedup key, and D edits files that C also restyles. See Sequencing at the
+end.
 
 There is no test framework in this repository — `package.json` exposes only
 `dev`, `build`, `start`, `lint`, and there are no `*.test.*` files. Verification
@@ -533,6 +534,193 @@ past 1600px total width.
 
 ---
 
+## Part D — Custom partner referral codes
+
+### Problem
+
+A partner's referral code is `Math.random().toString(36).slice(2, 10)` —
+eight random characters, generated at activation
+(`src/app/api/partner/repair-profile/route.ts:55`,
+`src/app/api/admin/partner/activate/route.ts:69`) and unchangeable thereafter.
+The shareable link is `/signup/@k3m9x2qp`
+(`src/hooks/use-partner.ts:195`). Nobody can say that out loud in a video, and
+it carries no signal about who is recommending the product.
+
+Partners want to choose it, and Settings currently shows it as a read-only row
+(`src/app/partner/settings/page.tsx:63`).
+
+### Decisions taken
+
+- **Alias, never rename.** A custom code is added; the auto code keeps
+  resolving forever.
+- **Changeable, with the previous code kept alive permanently.**
+- **Live immediately**, guarded by a reserved list plus a brand-substring block,
+  with no admin approval step.
+- **URL drops the `@`**: `tappr.me/signup/darius`.
+- **The control lives in partner Settings**, replacing the read-only row.
+
+### Data model
+
+Migration `028_partner_vanity_codes.sql`:
+
+```sql
+create table public.partner_codes (
+  code       text primary key,
+  partner_id uuid not null references public.partner_profiles(id) on delete cascade,
+  is_primary boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create index idx_partner_codes_partner on public.partner_codes(partner_id);
+create unique index uq_partner_codes_primary
+  on public.partner_codes(partner_id) where is_primary;
+
+insert into public.partner_codes (code, partner_id, is_primary)
+select referral_code, id, true from public.partner_profiles
+on conflict (code) do nothing;
+
+alter table public.partner_codes enable row level security;
+create policy "partner_codes_select_own" on public.partner_codes for select
+  using (partner_id in (
+    select id from public.partner_profiles where user_id = auth.uid()
+  ));
+-- Writes are service-role only, through the RPC below.
+```
+
+`code` is the primary key. That is what satisfies "two people must not be able
+to have the same link" — the database refuses the second insert, so uniqueness
+does not depend on a UI check winning a race.
+
+**No row is ever deleted and no row is ever retired.** `is_primary` only decides
+which code the UI presents as "your link"; resolution ignores the flag entirely.
+That absence of a delete *is* the whole "the old code keeps working" mechanism —
+there is no separate retired state to reason about.
+
+Codes are never released back into the pool, on purpose. If `darius` were freed
+when its owner changed it, someone else could claim it and inherit the traffic
+from every link the first partner ever posted.
+
+`partner_profiles.referral_code` stays exactly as it is, as the canonical
+anchor. Nothing in this part writes to it.
+
+### One resolution path
+
+`src/lib/partner-codes.ts` exports
+`resolvePartnerByCode(supabase, raw): Promise<{ id: string } | null>`:
+`decodeURIComponent`, strip leading `@` characters, `trim`, `toLowerCase`, then
+one lookup against `partner_codes`.
+
+Six call sites currently do `.eq("referral_code", code)` and all of them move
+onto this function:
+
+- `src/app/api/partner/track-click/route.ts:61`
+- `src/app/api/partner/claim-referral/route.ts:34`
+- `src/app/api/partner/validate-code/route.ts:22`
+- `src/app/(auth)/signup/[code]/page.tsx:39`
+- `src/lib/auth-referral.ts:21`
+- `src/hooks/use-partner.ts:191` (reads the primary code for display)
+
+Six independent copies of the lookup means an alias could work on some paths and
+not others — that is silently lost attribution in a commission system, which is
+the worst way this feature can fail.
+
+Separately, the two auto-code generators
+(`src/app/api/admin/partner/activate/route.ts:73`,
+`src/app/api/partner/repair-profile/route.ts:59`) check for collisions against
+`partner_profiles`. They must check `partner_codes` instead, or a freshly
+generated auto code can collide with an existing vanity code.
+
+### Validation
+
+`validateVanityCode(code)` in the same module. The input is lowercased **before
+any check**, so `Darius` and `darius` are one code — without that, a capital
+letter is a trivial way to squat on someone else's name.
+
+- `/^[a-z0-9][a-z0-9-]{1,22}[a-z0-9]$/` — 3 to 24 characters, no leading or
+  trailing hyphen
+- reject consecutive hyphens (`--`)
+- reject anything in the reserved set: `admin`, `administrator`, `support`,
+  `help`, `billing`, `official`, `api`, `app`, `auth`, `login`, `signin`,
+  `signup`, `dashboard`, `partner`, `partners`, `settings`, `account`,
+  `security`, `team`, `teams`, `pricing`, `contact`, `legal`, `privacy`,
+  `terms`, `blog`, `docs`, `status`, `root`, `system`, `staff`, `mod`,
+  `moderator`, `test`
+- reject anything containing the substring `tappr`
+
+The reserved list and the brand block exist because `/signup/<code>` serves a
+real signup form. `/signup/support` or `/signup/tappr-billing` would look like
+official pages while collecting credentials for a stranger's referral. A word
+list catches the obvious cases; the `tappr` substring rule catches the
+constructed ones like `tapprhelp`.
+
+### Cap on codes per partner — an addition beyond the decision
+
+The chosen option allows unlimited changes with no time throttle. Since no code
+is ever released, one partner can therefore consume the namespace indefinitely.
+
+This spec adds a hard cap of **10 codes per partner**. It is not the 30-day
+throttle that was declined — it does not limit how *often* a code changes, only
+how many accumulate, and 10 is far above any real use. Flagged explicitly so it
+can be raised or dropped; it is a judgement call, not a requirement that fell
+out of the decisions above.
+
+### API
+
+`POST /api/partner/vanity-code`, authenticated, body `{ code }`:
+
+1. resolve the caller's `partner_profiles` row; 403 if they are not a partner
+2. `validateVanityCode`; 400 with the specific reason on failure
+3. call the RPC below; 409 if the code is taken, 429 if the cap is reached
+
+The insert and the demotion of the previous primary happen inside one plpgsql
+function, `set_partner_primary_code(p_partner_id uuid, p_code text)`. Two
+separate statements can interleave against `uq_partner_codes_primary` and leave
+a partner with no primary code at all — which would blank their referral link.
+
+`GET /api/partner/vanity-code/available?code=` backs the live availability
+indicator in the UI. It needs rate limiting: without it, it is a free oracle for
+enumerating which vanity codes are taken.
+
+### UI
+
+`src/app/partner/settings/page.tsx:63` — the read-only `Row label="Referral Code"`
+becomes an editable control: a text input prefixed with a static
+`tappr.me/signup/`, a debounced availability check, and a save button.
+
+Below it, the partner's other codes are listed with a one-line explanation that
+they still work. Without that, changing a code looks like it destroyed the old
+link, and partners will not risk it.
+
+`src/hooks/use-partner.ts:189` builds `referralUrl` from the primary code and
+drops the `@`:
+
+```ts
+return `${getDisplayOrigin()}/signup/${primaryCode}`;
+```
+
+Links already shared as `/signup/@CODE` keep working untouched — the route
+strips leading `@` characters and always has
+(`src/app/(auth)/signup/[code]/page.tsx:28`). Only what is displayed and copied
+from here on changes.
+
+The "Your Referral Link" card on `src/app/partner/page.tsx:148` and the
+"Referral URL" card on `src/app/partner/link/page.tsx:58` both read
+`referralUrl`, so both pick this up with no change of their own.
+
+### Manual verification
+
+1. Set a vanity code in Settings. `/signup/<code>` renders the signup form and
+   inserts a `partner_referral_clicks` row for the right partner.
+2. The previous code still resolves to the same partner, and so does the
+   original auto code.
+3. `/signup/@<code>` — the old shape — still resolves.
+4. A second partner attempting the same code gets 409 and no row is written.
+5. `admin`, `tapprhelp`, `-darius`, `da`, `a--b` are all rejected with a reason.
+6. Complete a signup through a vanity link and confirm the referral is
+   attributed to the right partner in `partner_referrals`.
+
+---
+
 ## Sequencing
 
 1. **Part A** — new table, new state-machine function, new library, click-path
@@ -540,3 +728,7 @@ past 1600px total width.
 2. **Part B** — depends on A only for the `down_since` component of the
    `destination_broken` dedup key. Everything else in B is independent.
 3. **Part C** — touches no shared code with A or B. Can be built at any point.
+4. **Part D** — independent of A and B. It edits
+   `src/app/partner/settings/page.tsx` and reads `use-partner.ts`, both of which
+   Part C also touches, so running C first avoids reworking the new control's
+   markup for the container and typography changes.
