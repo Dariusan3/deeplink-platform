@@ -33,6 +33,15 @@ export interface PartnerProfile {
   created_at: string;
 }
 
+// One row per referral code a partner has ever held. Old codes are never
+// deleted — see supabase/migrations/028_partner_vanity_codes.sql. `is_primary`
+// only picks which one the UI shows; every row resolves.
+export interface PartnerCode {
+  code: string;
+  is_primary: boolean;
+  created_at: string;
+}
+
 export interface PartnerPayoutMethod {
   // Crypto-only payouts. Older rows may still carry paypal/bank shapes;
   // kept in the union so existing data type-checks, but the UI only

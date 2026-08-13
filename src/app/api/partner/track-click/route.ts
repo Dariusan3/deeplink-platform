@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { resolvePartnerByCode } from "@/lib/partner-codes";
 
 // Public endpoint: logs a click on a partner referral code. No auth.
 // Called by the landing page client effect when ?ref= is present.
@@ -55,11 +56,7 @@ export async function POST(request: NextRequest) {
     serviceKey
   );
 
-  const { data: partner } = await supabase
-    .from("partner_profiles")
-    .select("id")
-    .eq("referral_code", code)
-    .maybeSingle();
+  const partner = await resolvePartnerByCode(supabase, code);
 
   if (!partner) {
     // Silently succeed so we don't leak which codes are valid.

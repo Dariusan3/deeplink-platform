@@ -3,6 +3,7 @@ import { createClient as createSsr } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendPartnerWelcomeEmail } from "@/lib/email";
 import { PARTNER_COMMISSION_RATE } from "@/lib/partner-config";
+import { generateAutoCode, registerPrimaryCode } from "@/lib/partner-codes";
 
 // Admin-only: turns is_partner=true on a user, creates partner_profiles row
 // with a fresh referral code, sends Welcome email. Idempotent.
@@ -63,17 +64,7 @@ export async function POST(request: NextRequest) {
   let profile = existingProfile;
 
   if (!existingProfile) {
-    // Generate a unique 8-char referral code (retry on rare collision).
-    let referralCode = "";
-    for (let attempt = 0; attempt < 5; attempt++) {
-      referralCode = Math.random().toString(36).slice(2, 10);
-      const { data: clash } = await admin
-        .from("partner_profiles")
-        .select("id")
-        .eq("referral_code", referralCode)
-        .maybeSingle();
-      if (!clash) break;
-    }
+    const referralCode = await generateAutoCode(admin);
 
     const { data: created, error: profileErr } = await admin
       .from("partner_profiles")
@@ -89,6 +80,7 @@ export async function POST(request: NextRequest) {
     if (profileErr) {
       return NextResponse.json({ error: profileErr.message }, { status: 500 });
     }
+    await registerPrimaryCode(admin, created.id, referralCode);
     profile = created;
   }
 
@@ -107,7 +99,11 @@ export async function POST(request: NextRequest) {
     sendPartnerWelcomeEmail({
       to: target.email,
       name: target.full_name || target.email.split("@")[0],
-      referralUrl: `${origin}/?ref=${(profile as { referral_code: string }).referral_code}`,
+      // Path-based link, matching what the partner dashboard shows them.
+      // The old `/?ref=CODE` form still works, but sending one shape in the
+      // welcome email and displaying another in the app is how partners end
+      // up asking which of their two links is the real one.
+      referralUrl: `${origin}/signup/${(profile as { referral_code: string }).referral_code}`,
     }).catch((err) => console.error("Welcome email failed:", err));
   }
 

@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { headers } from "next/headers";
 import { ReferralOnboarding } from "@/components/partner/referral-onboarding";
+import { normalizeCode, resolvePartnerByCode } from "@/lib/partner-codes";
 
 // /signup/@CODE — the partner's clean, shareable referral link.
 //
@@ -24,8 +25,11 @@ export default async function SignupWithCodePage({
   params: Promise<{ code: string }>;
 }) {
   const { code: raw } = await params;
-  // Link is /signup/@CODE — strip the leading @ (tolerate its absence).
-  const code = decodeURIComponent(raw || "").replace(/^@+/, "").trim();
+  // Links are now /signup/CODE. The older /signup/@CODE shape is still in the
+  // wild on posts and bios, so normalizeCode strips leading @ characters and
+  // lowercases — a partner's code is case-insensitive, and the same
+  // normalisation runs in partner_id_for_code() on the database side.
+  const code = normalizeCode(raw || "");
 
   // Best-effort click tracking. Must never block or break rendering the form.
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -33,11 +37,7 @@ export default async function SignupWithCodePage({
     try {
       const h = await headers();
       const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey);
-      const { data: partner } = await supabase
-        .from("partner_profiles")
-        .select("id")
-        .eq("referral_code", code)
-        .maybeSingle();
+      const partner = await resolvePartnerByCode(supabase, code);
       if (partner) {
         const country = h.get("x-vercel-ip-country") || h.get("cf-ipcountry") || null;
         const device = detectDevice(h.get("user-agent") || "");

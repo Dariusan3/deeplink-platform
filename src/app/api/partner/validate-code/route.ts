@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { resolvePartnerByCode } from "@/lib/partner-codes";
 
 // GET /api/partner/validate-code?code=XXX
 // Public — used by the invite-only Free plan pop-up to check a partner
@@ -16,11 +17,7 @@ export async function GET(request: NextRequest) {
   }
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey);
 
-  const { data } = await admin
-    .from("partner_profiles")
-    .select("id")
-    .eq("referral_code", code)
-    .maybeSingle();
+  const partner = await resolvePartnerByCode(admin, code);
 
-  return NextResponse.json({ valid: !!data });
+  return NextResponse.json({ valid: !!partner });
 }

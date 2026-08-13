@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { usePartner } from "@/hooks/use-partner";
 import { PageHeader } from "@/components/ui/page-header";
+import { VanityCodeCard } from "@/components/partner/vanity-code-card";
 import { Wallet, Settings as SettingsIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -60,7 +61,8 @@ export default function PartnerSettingsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <Row label="Referral Code" value={profile?.referral_code ?? "—"} mono />
+          {/* The referral code used to be a read-only Row here. It now lives in
+              VanityCodeCard below, where it can be edited. */}
           <Row label="Commission Rate" value={`${((profile?.commission_rate ?? 0.5) * 100).toFixed(0)}% recurring`} />
           <Row
             label="Activated"
@@ -68,6 +70,9 @@ export default function PartnerSettingsPage() {
           />
         </CardContent>
       </Card>
+
+      {/* Referral link — the code is editable here; see VanityCodeCard. */}
+      <VanityCodeCard />
 
       {/* Payout method */}
       <Card className="glass-card border-white/5">

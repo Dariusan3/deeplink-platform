@@ -1,5 +1,6 @@
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { logAuditEvent } from "@/lib/audit";
+import { resolvePartnerByCode } from "@/lib/partner-codes";
 
 // Looks up the partner by referral code and inserts a partner_referrals row.
 // Idempotent: the (partner_id, referred_user_id) UNIQUE constraint prevents
@@ -15,11 +16,7 @@ export async function claimPartnerReferral(refCode: string, userId: string, emai
   );
 
   try {
-    const { data: partner } = await supabase
-      .from("partner_profiles")
-      .select("id, user_id")
-      .eq("referral_code", refCode)
-      .maybeSingle();
+    const partner = await resolvePartnerByCode(supabase, refCode);
     if (!partner) return;
 
     const { error: refErr } = await supabase.from("partner_referrals").insert({

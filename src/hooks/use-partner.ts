@@ -12,6 +12,7 @@ import type {
   PartnerEarning,
   PartnerPayout,
   PartnerPayoutMethod,
+  PartnerCode,
 } from "@/types/partner";
 
 const REFRESH_KEY = "partner-data" as const;
@@ -22,6 +23,7 @@ export function usePartner() {
   const [referrals, setReferrals] = useState<PartnerReferral[]>([]);
   const [earnings, setEarnings] = useState<PartnerEarning[]>([]);
   const [payouts, setPayouts] = useState<PartnerPayout[]>([]);
+  const [codes, setCodes] = useState<PartnerCode[]>([]);
   const [loading, setLoading] = useState(true);
 
   const supabase = useMemo(() => createClient(), []);
@@ -42,13 +44,14 @@ export function usePartner() {
       setReferrals([]);
       setEarnings([]);
       setPayouts([]);
+      setCodes([]);
       setLoading(false);
       return;
     }
 
     const partnerId = profileRow.id;
 
-    const [{ data: refs }, { data: earns }, { data: pays }] = await Promise.all([
+    const [{ data: refs }, { data: earns }, { data: pays }, { data: codeRows }] = await Promise.all([
       supabase
         .from("partner_referrals")
         .select("*")
@@ -64,12 +67,18 @@ export function usePartner() {
         .select("*")
         .eq("partner_id", partnerId)
         .order("requested_at", { ascending: false }),
+      supabase
+        .from("partner_codes")
+        .select("code, is_primary, created_at")
+        .eq("partner_id", partnerId)
+        .order("created_at", { ascending: false }),
     ]);
 
     setProfile(profileRow as PartnerProfile);
     setReferrals((refs || []) as PartnerReferral[]);
     setEarnings((earns || []) as PartnerEarning[]);
     setPayouts((pays || []) as PartnerPayout[]);
+    setCodes((codeRows || []) as PartnerCode[]);
     setLoading(false);
   }, [user?.id, supabase]);
 
@@ -158,6 +167,30 @@ export function usePartner() {
     [profile, supabase]
   );
 
+  // Set the partner's custom code. Refetches rather than patching state
+  // locally, because the server normalises the code (lowercase, trimmed) and
+  // demotes the previous primary — two changes the client shouldn't guess at.
+  const setVanityCode = useCallback(
+    async (code: string) => {
+      const res = await fetch("/api/partner/vanity-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message = data.error || "Failed to save code";
+        toast.error(message);
+        throw new Error(message);
+      }
+      await fetchAll();
+      emit(REFRESH_KEY);
+      toast.success("Referral link updated");
+      return data.code as string;
+    },
+    [fetchAll]
+  );
+
   const requestPayout = useCallback(
     async (amount: number) => {
       const res = await fetch("/api/partner/payout-request", {
@@ -187,16 +220,30 @@ export function usePartner() {
     ? activeReferrals.length / referrals.length
     : 0;
 
+  // The code shown as "your link". Falls back to partner_profiles.referral_code
+  // so the URL is never blank while partner_codes is still loading, or for a
+  // profile whose code row somehow never got written.
+  const primaryCode = useMemo(
+    () => codes.find((c) => c.is_primary)?.code ?? profile?.referral_code ?? "",
+    [codes, profile?.referral_code]
+  );
+
   const referralUrl = useMemo(() => {
-    if (!profile?.referral_code) return "";
-    // Clean, path-based referral link: /signup/@CODE. It renders the signup
+    if (!primaryCode) return "";
+    // Clean, path-based referral link: /signup/CODE. It renders the signup
     // page directly (no redirect, no ?ref= in the URL) and records the click —
     // see src/app/(auth)/signup/[code]/page.tsx.
-    return `${getDisplayOrigin()}/signup/@${profile.referral_code}`;
-  }, [profile?.referral_code]);
+    //
+    // The older /signup/@CODE shape is still live everywhere it was ever
+    // posted; that route strips leading @ characters, so nothing breaks. Only
+    // what we display and copy from here on has changed.
+    return `${getDisplayOrigin()}/signup/${primaryCode}`;
+  }, [primaryCode]);
 
   return {
     profile,
+    codes,
+    primaryCode,
     referrals,
     activeReferrals,
     churnedReferrals,
@@ -208,6 +255,7 @@ export function usePartner() {
     conversionRate,
     referralUrl,
     refresh: fetchAll,
+    setVanityCode,
     updatePayoutMethod,
     requestPayout,
   };

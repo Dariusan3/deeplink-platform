@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSsr } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
+import { resolvePartnerByCode } from "@/lib/partner-codes";
 
 // Authenticated endpoint: associates the just-signed-up user with a
 // partner referral code held in localStorage. Used as the fallback
@@ -28,11 +29,7 @@ export async function POST(request: NextRequest) {
     serviceKey
   );
 
-  const { data: partner } = await admin
-    .from("partner_profiles")
-    .select("id, user_id")
-    .eq("referral_code", code.trim())
-    .maybeSingle();
+  const partner = await resolvePartnerByCode(admin, code);
 
   if (!partner) return NextResponse.json({ ok: true, claimed: false });
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient as createSsr } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import { PARTNER_COMMISSION_RATE } from "@/lib/partner-config";
+import { generateAutoCode, registerPrimaryCode } from "@/lib/partner-codes";
 
 // POST /api/partner/repair-profile
 //
@@ -49,17 +50,7 @@ export async function POST() {
     return NextResponse.json({ ok: true, profile: existing, repaired: false });
   }
 
-  // Generate a unique 8-char referral code, retrying on collision.
-  let referralCode = "";
-  for (let attempt = 0; attempt < 5; attempt++) {
-    referralCode = Math.random().toString(36).slice(2, 10);
-    const { data: clash } = await admin
-      .from("partner_profiles")
-      .select("id")
-      .eq("referral_code", referralCode)
-      .maybeSingle();
-    if (!clash) break;
-  }
+  const referralCode = await generateAutoCode(admin);
 
   const now = new Date().toISOString();
   const { data: profile, error } = await admin
@@ -76,6 +67,8 @@ export async function POST() {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  await registerPrimaryCode(admin, profile.id, referralCode);
 
   // Also stamp partner_activated_at if it was null — keeps the audit
   // trail consistent ("when did this user become a partner").
