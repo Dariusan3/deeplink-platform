@@ -62,5 +62,14 @@ export async function POST(request: NextRequest) {
     .order("clicked_at", { ascending: false })
     .limit(1);
 
+  // Release the referral gate. This is the only path out of
+  // signup_status = 'pending_referral' for an OAuth signup, which never
+  // carries the code in user metadata. Service-role is required: the
+  // guard_signup_status trigger reverts this column for anon/authenticated.
+  await admin
+    .from("users")
+    .update({ signup_status: "ok" })
+    .eq("id", authData.user.id);
+
   return NextResponse.json({ ok: true, claimed: true });
 }

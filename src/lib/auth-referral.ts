@@ -36,6 +36,14 @@ export async function claimPartnerReferral(refCode: string, userId: string, emai
       .order("clicked_at", { ascending: false })
       .limit(1);
 
+    // Release the referral gate. handle_new_user already set 'ok' when the code
+    // rode in on user metadata (email signups); this covers the OAuth path,
+    // where the code only becomes known here, in the callback.
+    await supabase
+      .from("users")
+      .update({ signup_status: "ok" })
+      .eq("id", userId);
+
     // Audit only if the referral row was actually created (the unique
     // constraint may have skipped it if the user re-runs the flow).
     if (!refErr) {

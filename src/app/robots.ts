@@ -38,6 +38,7 @@ const DISALLOW = [
   "/api/",
   "/login",
   "/signup",
+  "/welcome",
   "/forgot-password",
   "/reset-password",
   "/paused",
