@@ -1,7 +1,7 @@
 "use client";
 
 import { TapprMark } from "@/components/brand/logo";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -14,7 +14,18 @@ import { Eye, EyeOff, CheckCircle2, Mail } from "lucide-react";
 // `refCode` is passed in by the page: /signup reads it from ?ref=, and
 // /signup/@CODE reads it from the path segment. The form itself is agnostic to
 // where the referral came from.
-export function SignupForm({ refCode }: { refCode: string | null }) {
+export function SignupForm({
+  refCode,
+  refName,
+}: {
+  refCode: string | null;
+  /**
+   * The referring partner's name. Passed down from /signup/CODE, which
+   * already resolved it server-side. When it is absent — /signup?ref=, or a
+   * code recovered from localStorage — it is fetched below.
+   */
+  refName?: string | null;
+}) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -26,6 +37,22 @@ export function SignupForm({ refCode }: { refCode: string | null }) {
   const [success, setSuccess] = useState(false);
   const router = useRouter();
   const supabase = createClient();
+
+  // Only runs when the parent could not supply the name. Nothing here blocks
+  // the form: until it resolves, the badge shows the code, which is what it
+  // used to show permanently.
+  const [fetchedName, setFetchedName] = useState<string | null>(null);
+  useEffect(() => {
+    if (!refCode || refName) return;
+    let cancelled = false;
+    fetch(`/api/partner/validate-code?code=${encodeURIComponent(refCode)}`)
+      .then((r) => r.json())
+      .then((d) => { if (!cancelled && d?.name) setFetchedName(d.name as string); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [refCode, refName]);
+
+  const referrer = refName || fetchedName || refCode;
 
   const passwordsMatch = confirmPassword === "" || password === confirmPassword;
   const passwordStrong = password.length >= 6;
@@ -159,7 +186,7 @@ export function SignupForm({ refCode }: { refCode: string | null }) {
             <div className="mb-6 px-4 py-2.5 border border-[var(--tappr-green)]/30 bg-[var(--green-soft)] rounded-sm flex items-center gap-2">
               <CheckCircle2 className="w-3.5 h-3.5 text-[var(--tappr-green)] shrink-0" />
               <span className="font-mono text-[11px] tracking-[0.06em] text-[var(--ink)]">
-                Referred by <span className="text-[var(--tappr-green)] font-semibold">{refCode}</span>
+                Referred by <span className="text-[var(--tappr-green)] font-semibold">{referrer}</span>
               </span>
             </div>
           )}

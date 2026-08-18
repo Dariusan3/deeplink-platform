@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { headers } from "next/headers";
 import { ReferralOnboarding } from "@/components/partner/referral-onboarding";
-import { normalizeCode, resolvePartnerByCode } from "@/lib/partner-codes";
+import { normalizeCode, resolvePartnerByCode, partnerDisplayName } from "@/lib/partner-codes";
 
 // /signup/@CODE — the partner's clean, shareable referral link.
 //
@@ -31,7 +31,10 @@ export default async function SignupWithCodePage({
   // normalisation runs in partner_id_for_code() on the database side.
   const code = normalizeCode(raw || "");
 
-  // Best-effort click tracking. Must never block or break rendering the form.
+  // Resolve the partner once: the same lookup feeds the click row and the
+  // "Referred by <name>" line. Doing it here, on the server, means the visitor
+  // never sees the raw code flash before a client fetch replaces it.
+  let refName: string | null = null;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (code && serviceKey) {
     try {
@@ -39,6 +42,8 @@ export default async function SignupWithCodePage({
       const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey);
       const partner = await resolvePartnerByCode(supabase, code);
       if (partner) {
+        refName = await partnerDisplayName(supabase, partner.user_id);
+
         const country = h.get("x-vercel-ip-country") || h.get("cf-ipcountry") || null;
         const device = detectDevice(h.get("user-agent") || "");
         await supabase.from("partner_referral_clicks").insert({
@@ -52,5 +57,5 @@ export default async function SignupWithCodePage({
     }
   }
 
-  return <ReferralOnboarding refCode={code || null} />;
+  return <ReferralOnboarding refCode={code || null} refName={refName} />;
 }

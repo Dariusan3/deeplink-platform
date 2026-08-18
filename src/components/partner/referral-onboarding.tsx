@@ -32,21 +32,28 @@ const TIERS: Tier[] = [
     features: [
       "500 clicks / month · 5 links",
       "Automatic deep linking (100+ apps)",
-      "AI Brain — 10 chats / mo",
+      "AI Brain · 10 chats / mo",
       "Real-time analytics",
     ],
     free: true,
   },
-  { name: "Starter", blurb: "For solo entrepreneurs starting smart.", features: ["50,000 clicks / mo · 500 links", "Smart routing — geo + device", "Unlimited AI Brain + all alerts"], free: false },
+  { name: "Starter", blurb: "For solo entrepreneurs starting smart.", features: ["50,000 clicks / mo · 500 links", "Smart routing · geo + device", "Unlimited AI Brain + all alerts"], free: false },
   { name: "Growth", blurb: "For businesses that scale.", features: ["250,000 clicks / mo · 5,000 links", "Advanced routing", "Remove Tappr branding + API"], free: false },
   { name: "Agency", blurb: "For agencies at volume.", features: ["Unlimited clicks · links · team", "Everything in Growth, unmetered", "Priority support"], free: false },
 ];
 
-export function ReferralOnboarding({ refCode }: { refCode: string | null }) {
+export function ReferralOnboarding({
+  refCode,
+  refName,
+}: {
+  refCode: string | null;
+  /** The partner's name, resolved server-side. Null when they never set one. */
+  refName?: string | null;
+}) {
   const [step, setStep] = useState<"congrats" | "pricing" | "signup">("congrats");
 
   // Final step is the real signup form — referral code flows straight through.
-  if (step === "signup") return <SignupForm refCode={refCode} />;
+  if (step === "signup") return <SignupForm refCode={refCode} refName={refName} />;
 
   return (
     <div className="landing-root min-h-screen relative overflow-hidden">
@@ -68,7 +75,7 @@ export function ReferralOnboarding({ refCode }: { refCode: string | null }) {
       </nav>
 
       {step === "congrats" ? (
-        <CongratsStep refCode={refCode} onContinue={() => setStep("pricing")} />
+        <CongratsStep refCode={refCode} refName={refName} onContinue={() => setStep("pricing")} />
       ) : (
         <PricingStep onRegister={() => setStep("signup")} />
       )}
@@ -76,7 +83,15 @@ export function ReferralOnboarding({ refCode }: { refCode: string | null }) {
   );
 }
 
-function CongratsStep({ refCode, onContinue }: { refCode: string | null; onContinue: () => void }) {
+function CongratsStep({
+  refCode,
+  refName,
+  onContinue,
+}: {
+  refCode: string | null;
+  refName?: string | null;
+  onContinue: () => void;
+}) {
   const [token, setToken] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -99,9 +114,9 @@ function CongratsStep({ refCode, onContinue }: { refCode: string | null; onConti
       });
       const data = await res.json();
       if (data.success) onContinue();
-      else { setErr("Verification failed — please try again."); setToken(null); }
+      else { setErr("Verification failed. Please try again."); setToken(null); }
     } catch {
-      setErr("Network error — please try again.");
+      setErr("Network error. Please try again.");
     } finally {
       setVerifying(false);
     }
@@ -120,7 +135,7 @@ function CongratsStep({ refCode, onContinue }: { refCode: string | null; onConti
           className="font-semibold text-[var(--ink)] tracking-[-0.04em] mb-5"
           style={{ fontSize: "clamp(38px, 5.5vw, 60px)", lineHeight: 0.98 }}
         >
-          Congratulations —<br />
+          Congratulations<br />
           <span className="text-[var(--tappr-green)]">2 weeks free.</span>
         </h1>
 
@@ -147,7 +162,10 @@ function CongratsStep({ refCode, onContinue }: { refCode: string | null; onConti
 
         {refCode && (
           <p className="mt-8 font-mono text-[11px] tracking-[0.06em] text-[var(--muted)]">
-            Invited via <span className="text-[var(--tappr-green)]">{refCode}</span>
+            {/* A name is the whole point of this line — "invited via nj493rrh"
+                tells the visitor nothing. The code is only the fallback for a
+                partner who never set a name. */}
+            Invited by <span className="text-[var(--tappr-green)]">{refName || refCode}</span>
           </p>
         )}
       </div>

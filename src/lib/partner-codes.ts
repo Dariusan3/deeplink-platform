@@ -66,6 +66,29 @@ function firstProfile(row: unknown): EmbeddedProfile | null {
 }
 
 /**
+ * The name to show a referred visitor: "Referred by Andrei", not
+ * "Referred by nj493rrh".
+ *
+ * Returns null when the partner never set a name, and the caller then falls
+ * back to the code. Deliberately never falls back to the email — this is read
+ * through a public endpoint, and a code is a string the partner chose to
+ * publish whereas their email is not.
+ */
+export async function partnerDisplayName(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<string | null> {
+  const { data } = await supabase
+    .from("users")
+    .select("full_name")
+    .eq("id", userId)
+    .maybeSingle();
+
+  const name = (data?.full_name as string | null)?.trim();
+  return name ? name : null;
+}
+
+/**
  * A fresh auto-generated code, checked for collisions against EVERY code in
  * use — not just the ones on partner_profiles. Checking only partner_profiles
  * (as both callers used to) lets a generated code collide with somebody's
