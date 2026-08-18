@@ -173,8 +173,21 @@ export async function sendAuthEmail({
   // The Resend SDK does NOT throw on API errors — it returns { data, error }.
   // Surface the error so the hook route returns 500 (and Supabase retries)
   // instead of silently reporting success while nothing was delivered.
-  const { error } = await resend.emails.send({ from: AUTH_FROM_EMAIL, to, subject, html });
+  const { data, error } = await resend.emails.send({ from: AUTH_FROM_EMAIL, to, subject, html });
   if (error) {
     throw new Error(`Resend send failed: ${error.message ?? JSON.stringify(error)}`);
   }
+
+  // Accepted is not delivered. If the address is on the account's suppression
+  // list (Resend adds one automatically after a hard bounce or a spam report),
+  // this call still returns 200 with an id and no error — the mail simply never
+  // leaves. Supabase then records confirmation_sent_at and everything, at every
+  // layer, reports success while the user waits for a mail that does not exist.
+  //
+  // Nothing in the synchronous response distinguishes the two, so the least we
+  // can do is leave the id in the logs: it is the only handle that ties a
+  // "no email arrived" report to a row in the Resend dashboard. Making this
+  // visible without an investigation needs a Resend webhook for
+  // email.bounced / email.delivery_delayed.
+  console.info(`[auth-email] ${type} accepted by Resend id=${data?.id ?? "unknown"} to=${to}`);
 }
