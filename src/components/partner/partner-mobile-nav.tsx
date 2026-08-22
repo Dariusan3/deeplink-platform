@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { PartnerSidebar } from "@/components/partner/partner-sidebar";
-import { Trophy, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
+import { TapprMark } from "@/components/brand/logo";
 
 // Mobile-only nav: a fixed top bar with a hamburger that opens the
 // PartnerSidebar as a slide-over drawer. The desktop sidebar stays as-is
@@ -39,11 +40,12 @@ export function PartnerMobileNav() {
       {/* Top bar — mobile only */}
       <header className="md:hidden sticky top-0 z-30 h-14 flex items-center justify-between px-4 border-b border-sidebar-border bg-black/80 backdrop-blur-md">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-[#A855F7]/10 border border-[#A855F7]/20 flex items-center justify-center">
-            <Trophy className="w-4 h-4 text-[#A855F7]" />
-          </div>
-          <span className="font-black text-sm text-white tracking-tight">
-            Ta<span className="text-[#A855F7]">ppr</span> Partner
+          <TapprMark className="w-7 h-7 text-[#A855F7] shrink-0" />
+          <span className="font-black text-lg text-white tracking-tighter">
+            Ta<span className="text-[#A855F7]">ppr</span>
+          </span>
+          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#A855F7]">
+            Partner
           </span>
         </div>
         <button

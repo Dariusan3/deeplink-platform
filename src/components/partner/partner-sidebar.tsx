@@ -7,13 +7,13 @@ import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/hooks/use-user";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { TapprMark } from "@/components/brand/logo";
 import { PARTNER_COMMISSION_RATE } from "@/lib/partner-config";
 import {
   LayoutDashboard,
   Link2,
   Users,
   Wallet,
-  Trophy,
   Megaphone,
   Settings,
   ArrowLeft,
@@ -84,14 +84,17 @@ export function PartnerSidebar() {
       )}>
         {!collapsed && (
           <>
-            <div className="w-9 h-9 rounded-xl bg-[#A855F7]/10 border border-[#A855F7]/20 flex items-center justify-center shadow-[0_0_20px_rgba(168,85,247,0.1)] shrink-0">
-              <Trophy className="w-5 h-5 text-[#A855F7]" />
-            </div>
+            {/* Same mark and same scale as the main sidebar — only the accent
+                colour differs, which is what marks this as the Partner area.
+                A separate Trophy glyph here read as a different product. */}
+            <TapprMark className="w-8 h-8 text-[#A855F7] shrink-0" />
             <div className="flex flex-col min-w-0">
-              <span className="font-black text-sm text-white tracking-tight truncate">
-                Ta<span className="text-[#A855F7]">ppr</span> Partner
+              <span className="font-black text-xl text-white tracking-tighter leading-none">
+                Ta<span className="text-[#A855F7]">ppr</span>
               </span>
-              <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[#A855F7]">{Math.round(PARTNER_COMMISSION_RATE * 100)}% Commission</span>
+              <span className="mt-1 text-[10px] font-black uppercase tracking-[0.2em] text-[#A855F7] leading-none truncate">
+                Partner · {Math.round(PARTNER_COMMISSION_RATE * 100)}%
+              </span>
             </div>
           </>
         )}
@@ -160,8 +163,8 @@ export function PartnerSidebar() {
           </Avatar>
           {!collapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-white truncate">{displayName}</p>
-              <p className="text-[10px] text-neutral-500 truncate">{displayEmail}</p>
+              <p className="text-sm font-medium text-white truncate">{displayName}</p>
+              <p className="text-xs text-muted-foreground truncate">{displayEmail}</p>
             </div>
           )}
         </div>
