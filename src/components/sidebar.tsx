@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Plus } from "lucide-react";
@@ -8,8 +8,8 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { PARTNER_COMMISSION_RATE } from "@/lib/partner-config";
-import { TapprMark } from "@/components/brand/logo";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { SidebarFrame, SidebarHeader } from "@/components/nav/sidebar-chrome";
+import { buttonVariants } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -198,48 +198,8 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   };
 
   return (
-    <div
-      className={cn(
-        "flex flex-col h-full bg-sidebar border-r border-sidebar-border transition-all duration-300",
-        collapsed ? "w-[68px]" : "w-64"
-      )}
-    >
-      {/* Header */}
-      <div className={cn(
-        "flex items-center h-16 border-b border-sidebar-border transition-all duration-300",
-        collapsed ? "justify-center px-0" : "px-4 gap-3"
-      )}>
-        {!collapsed && (
-          <div className="flex items-center gap-3 overflow-hidden animate-in fade-in slide-in-from-left-2 duration-300">
-            <TapprMark className="w-8 h-8 text-[#00D26A] shrink-0" />
-            <span className="font-black text-xl text-white tracking-tighter">
-              Ta<span className="text-[#00D26A]">ppr</span>
-            </span>
-          </div>
-        )}
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn(
-            "transition-all duration-300 hover:bg-[#00D26A]/10 hover:text-[#00D26A]",
-            collapsed 
-              ? "w-10 h-10 rounded-xl bg-[#00D26A]/5 text-[#00D26A] hover:scale-110 active:scale-95" 
-              : "ml-auto w-8 h-8 text-neutral-500 hover:text-white"
-          )}
-          onClick={onToggle}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {collapsed ? (
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-            </svg>
-          ) : (
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-            </svg>
-          )}
-        </Button>
-      </div>
+    <SidebarFrame collapsed={collapsed}>
+      <SidebarHeader collapsed={collapsed} onToggle={onToggle} accent="green" />
 
       {/* Team Switcher */}
       <div className="px-3 py-4 border-b border-sidebar-border">
@@ -533,7 +493,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-    </div>
+    </SidebarFrame>
   );
 }
 

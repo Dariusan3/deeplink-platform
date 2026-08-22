@@ -7,8 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/hooks/use-user";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { TapprMark } from "@/components/brand/logo";
-import { PARTNER_COMMISSION_RATE } from "@/lib/partner-config";
+import { SidebarFrame, SidebarHeader } from "@/components/nav/sidebar-chrome";
 import {
   LayoutDashboard,
   Link2,
@@ -18,8 +17,6 @@ import {
   Settings,
   ArrowLeft,
   LogOut,
-  Menu,
-  ChevronRight,
 } from "lucide-react";
 
 const NAV = [
@@ -71,46 +68,14 @@ export function PartnerSidebar() {
   };
 
   return (
-    <div
-      className={cn(
-        "flex flex-col h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300",
-        collapsed ? "w-[68px]" : "w-64"
-      )}
-    >
-      {/* Header — Tappr logo + partner badge, with a collapse toggle. */}
-      <div className={cn(
-        "flex items-center h-16 border-b border-sidebar-border transition-all duration-300",
-        collapsed ? "justify-center px-0" : "px-4 gap-3"
-      )}>
-        {!collapsed && (
-          <>
-            {/* Same mark and same scale as the main sidebar — only the accent
-                colour differs, which is what marks this as the Partner area.
-                A separate Trophy glyph here read as a different product. */}
-            <TapprMark className="w-8 h-8 text-[#A855F7] shrink-0" />
-            <div className="flex flex-col min-w-0">
-              <span className="font-black text-xl text-white tracking-tighter leading-none">
-                Ta<span className="text-[#A855F7]">ppr</span>
-              </span>
-              <span className="mt-1 text-[10px] font-black uppercase tracking-[0.2em] text-[#A855F7] leading-none truncate">
-                Partner · {Math.round(PARTNER_COMMISSION_RATE * 100)}%
-              </span>
-            </div>
-          </>
-        )}
-        <button
-          onClick={toggle}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className={cn(
-            "flex items-center justify-center transition-all hover:bg-[#A855F7]/10 hover:text-[#A855F7] cursor-pointer",
-            collapsed
-              ? "w-10 h-10 rounded-xl bg-[#A855F7]/5 text-[#A855F7] hover:scale-110 active:scale-95"
-              : "ml-auto w-8 h-8 rounded-lg text-neutral-500 hover:text-white"
-          )}
-        >
-          {collapsed ? <ChevronRight className="w-5 h-5" /> : <Menu className="w-4 h-4" />}
-        </button>
-      </div>
+    <SidebarFrame collapsed={collapsed}>
+      {/* Exactly the main sidebar's header — same component, purple accent. */}
+      <SidebarHeader
+        collapsed={collapsed}
+        onToggle={toggle}
+        accent="purple"
+        label="Partner"
+      />
 
       {/* Back to dashboard */}
       <div className="px-3 pt-3">
@@ -180,6 +145,6 @@ export function PartnerSidebar() {
           {!collapsed && "Sign out"}
         </button>
       </div>
-    </div>
+    </SidebarFrame>
   );
 }
