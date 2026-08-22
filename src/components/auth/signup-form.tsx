@@ -66,7 +66,15 @@ export function SignupForm({
     setLoading(true);
     setError(null);
 
-    const { error } = await supabase.auth.signUp({
+    // Stash the code before the call, not after. If email confirmation is off
+    // the browser navigates away immediately, and if it is on the user may
+    // confirm in a different tab — either way localStorage is the only carrier
+    // that survives, and ReferralClaim in the dashboard shell picks it up.
+    if (refCode) {
+      try { localStorage.setItem("tappr_ref_code", refCode); } catch {}
+    }
+
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -78,10 +86,39 @@ export function SignupForm({
     if (error) {
       setError(error.message);
       setLoading(false);
-    } else {
-      setSuccess(true);
-      setLoading(false);
+      return;
     }
+
+    // Supabase returns a session here ONLY when email confirmation is disabled.
+    // With it enabled, session is null and the account cannot sign in until the
+    // link is clicked — which is why an unconfirmed account gets the misleading
+    // "Invalid login credentials" instead of anything about email.
+    //
+    // Branching on the session rather than on a build-time flag means this works
+    // in both configurations, and keeps working if the project setting changes.
+    if (data.session) {
+      // The referral is normally claimed in /auth/confirm or /auth/callback.
+      // With confirmation off, neither runs for an email signup, so the claim
+      // has to happen here or the partner never gets credited. Failure is not
+      // fatal: the code is still in localStorage and ReferralClaim retries on
+      // the dashboard.
+      if (refCode) {
+        try {
+          await fetch("/api/partner/claim-referral", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code: refCode }),
+          });
+        } catch {}
+      }
+      // Full navigation, not router.push: the middleware has to re-read the
+      // session and signup_status for the dashboard to let us through.
+      window.location.href = "/dashboard";
+      return;
+    }
+
+    setSuccess(true);
+    setLoading(false);
   };
 
   const handleGoogleLogin = async () => {
