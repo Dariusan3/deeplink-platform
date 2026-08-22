@@ -18,9 +18,12 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Set when Supabase rejects a login because the email isn't verified —
-  // drives the "resend confirmation" affordance instead of a dead-end error.
-  const [needsConfirm, setNeedsConfirm] = useState(false);
+  // Drives the "resend confirmation" affordance instead of a dead-end error.
+  //   "certain" — Supabase said the email is unverified.
+  //   "maybe"   — Supabase said "Invalid login credentials", which it returns
+  //               for a wrong password AND for an unconfirmed account. We
+  //               cannot tell them apart, so we say so rather than guess.
+  const [confirmHint, setConfirmHint] = useState<null | "certain" | "maybe">(null);
   const [resending, setResending] = useState(false);
   const [resent, setResent] = useState(false);
   const router = useRouter();
@@ -30,17 +33,25 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    setNeedsConfirm(false);
+    setConfirmHint(null);
     setResent(false);
 
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      // Supabase blocks unverified accounts with "Email not confirmed" when
-      // "Confirm email" is enabled. Surface a friendly path to re-send it.
-      if (/not confirmed|not verified/i.test(error.message)) {
-        setNeedsConfirm(true);
-        setError("Please confirm your email before signing in.");
+      const code = (error as { code?: string }).code;
+
+      if (code === "email_not_confirmed" || /not confirmed|not verified/i.test(error.message)) {
+        setConfirmHint("certain");
+      } else if (code === "invalid_credentials" || /invalid login credentials/i.test(error.message)) {
+        // The one message Supabase returns for BOTH a wrong password and an
+        // account that was never confirmed — deliberately vague so it does not
+        // reveal whether an address is registered. That vagueness left the user
+        // with nothing to do, and the resend button below never appeared for
+        // the exact case it was built for, because it only matched on the
+        // "not confirmed" wording that never arrives here.
+        setConfirmHint("maybe");
+        setError("Invalid email or password.");
       } else {
         setError(error.message);
       }
@@ -195,13 +206,13 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {error && !needsConfirm && (
+            {error && confirmHint !== "certain" && (
               <div className="text-[12px] font-medium text-red-400 bg-red-400/5 border border-red-400/20 rounded-sm px-3 py-2.5">
                 {error}
               </div>
             )}
 
-            {needsConfirm && (
+            {confirmHint && (
               <div className="text-[12px] font-medium rounded-sm px-3 py-2.5 border border-[var(--tappr-green)]/25 bg-[var(--tappr-green)]/5 text-[var(--ink-2)]">
                 {resent ? (
                   <span className="text-[var(--tappr-green)]">
@@ -209,7 +220,11 @@ export default function LoginPage() {
                   </span>
                 ) : (
                   <div className="flex flex-col gap-2">
-                    <span>Please confirm your email before signing in.</span>
+                    <span>
+                      {confirmHint === "certain"
+                        ? "Please confirm your email before signing in."
+                        : "Just signed up? The account may still need its email confirmed."}
+                    </span>
                     <button
                       type="button"
                       onClick={handleResendConfirmation}
