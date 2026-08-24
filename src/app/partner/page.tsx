@@ -6,10 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { PartnerCalculator } from "@/components/partner/partner-calculator";
+import { VanityCodeEditor } from "@/components/partner/vanity-code-editor";
 import { usePartner } from "@/hooks/use-partner";
 import { partnerStatusLabel } from "@/types/partner";
 import {
-  TrendingUp, Users, Wallet, Target, Copy, Check, ArrowRight, Sparkles, Trophy,
+  TrendingUp, Users, Wallet, Target, Copy, Check, ArrowRight, Sparkles, Trophy, Pencil, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PARTNER_MIN_PAYOUT } from "@/lib/partner-config";
@@ -20,6 +21,7 @@ export default function PartnerOverviewPage() {
     monthlyCommission, conversionRate, referralUrl,
   } = usePartner();
   const [copied, setCopied] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   const copyLink = () => {
     if (!referralUrl) return;
@@ -143,9 +145,20 @@ export default function PartnerOverviewPage() {
         {/* Referral link quick-copy */}
         <Card className="glass-card border-white/5 lg:col-span-2">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-black flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[#A855F7]" />
-              Your Referral Link
+            <CardTitle className="text-sm font-black flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-[#A855F7]" />
+                Your Referral Link
+              </span>
+              {/* The code was editable only from Settings, which nobody found.
+                  Same editor component, revealed in place. */}
+              <button
+                onClick={() => setEditing((v) => !v)}
+                className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-neutral-500 hover:text-[#A855F7] transition-colors"
+              >
+                {editing ? <X className="w-3 h-3" /> : <Pencil className="w-3 h-3" />}
+                {editing ? "Cancel" : "Edit"}
+              </button>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -160,6 +173,12 @@ export default function PartnerOverviewPage() {
                 {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
               </Button>
             </div>
+            {editing && (
+              <div className="mt-4 pt-4 border-t border-white/5">
+                <VanityCodeEditor onSaved={() => setEditing(false)} />
+              </div>
+            )}
+
             <p className="text-[10px] text-neutral-500 mt-3">
               Earn <span className="text-[#A855F7] font-black">{(profile.commission_rate * 100).toFixed(0)}%</span> recurring on every paying customer.
               Projected income from active referrals: <span className="text-white font-black">€{monthlyCommission.toFixed(2)}/mo</span>
