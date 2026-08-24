@@ -132,13 +132,13 @@ export function QuickCreate() {
   return (
     <Card className="glass-card bg-white/[0.01] border-white/5 relative overflow-hidden">
       <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[#00D26A]/20 to-transparent" />
-      <CardHeader className="pt-8 px-8 pb-4">
-        <CardTitle className="text-xl font-black tracking-tight text-white flex items-center gap-2">
-          <LinkIcon className="w-5 h-5 text-[#00D26A]" />
+      <CardHeader className="pt-8 px-6 md:px-8 pb-4">
+        <CardTitle className="text-2xl font-black tracking-tight text-white flex items-center gap-2.5">
+          <LinkIcon className="w-6 h-6 text-[#00D26A]" />
           Create App Link
         </CardTitle>
       </CardHeader>
-      <CardContent className="px-8 pb-8">
+      <CardContent className="px-6 md:px-8 pb-8">
         {createdSlug ? (
           <div className="flex items-center gap-3 p-4 rounded-xl bg-[#00D26A]/5 border border-[#00D26A]/20">
             <div className="flex-1 min-w-0">
@@ -156,13 +156,27 @@ export function QuickCreate() {
             </Button>
           </div>
         ) : (
-          <form onSubmit={handleCreate} className="flex items-center gap-3">
-            <div className="flex-1 relative">
+          // Pasting a link is the one thing this product is for, so the field
+          // is the tallest thing on the page rather than a search box tucked
+          // under the stat cards. Everything else here scales to sit beside it.
+          <form onSubmit={handleCreate} className="flex flex-col md:flex-row md:items-center gap-3">
+            <div
+              className={cn(
+                "flex-1 relative rounded-xl transition-all duration-300",
+                // The glow reacts to focus anywhere in the field, so the whole
+                // hero lights up rather than a one-pixel border.
+                "focus-within:shadow-[0_0_30px_rgba(0,210,106,0.12)]"
+              )}
+            >
               <Input
-                placeholder="Paste your URLs here"
+                // Singular: the field takes one URL — isValidUrl / new URL()
+                // both operate on a single value, and the old "URLs" promised
+                // a batch paste that submitting would have rejected.
+                placeholder="Paste a link"
+                aria-label="Link to shorten"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-                className="bg-white/[0.03] border-white/10 focus:border-[#00D26A]/50 rounded-xl h-12 pr-10 text-sm font-medium"
+                className="bg-white/[0.03] border-white/10 focus:border-[#00D26A]/50 rounded-xl h-16 md:h-20 pl-5 pr-28 text-base md:text-lg font-medium"
               />
               <button
                 type="button"
@@ -172,33 +186,35 @@ export function QuickCreate() {
                     toast.success("Pasted from clipboard");
                   });
                 }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-[#00D26A] transition-colors"
-                title="Paste from clipboard"
+                className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 h-9 px-3 rounded-lg bg-white/[0.04] border border-white/10 text-[10px] font-black uppercase tracking-widest text-neutral-400 hover:text-[#00D26A] hover:border-[#00D26A]/30 transition-colors"
               >
-                <Copy className="w-4 h-4" />
+                <Copy className="w-3.5 h-3.5" />
+                Paste
               </button>
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              className={cn(
-                "shrink-0 h-12 w-12 rounded-xl border transition-all",
-                showAdvanced
-                  ? "bg-[#00D26A]/10 border-[#00D26A]/20 text-[#00D26A]"
-                  : "bg-white/[0.03] border-white/10 text-neutral-400 hover:text-white hover:bg-white/[0.06]"
-              )}
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              title="Advanced options"
-            >
-              {showAdvanced ? <ChevronUp className="w-5 h-5" /> : <Settings2 className="w-5 h-5" />}
-            </Button>
-            <Button
-              type="submit"
-              disabled={loading || !activeTeam}
-              className="shrink-0 h-12 px-6 rounded-xl btn-primary-pulse font-black uppercase text-xs tracking-widest"
-            >
-              {loading ? "Creating..." : "Create Link"}
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button
+                type="button"
+                variant="ghost"
+                className={cn(
+                  "shrink-0 h-16 md:h-20 w-16 md:w-20 rounded-xl border transition-all",
+                  showAdvanced
+                    ? "bg-[#00D26A]/10 border-[#00D26A]/20 text-[#00D26A]"
+                    : "bg-white/[0.03] border-white/10 text-neutral-400 hover:text-white hover:bg-white/[0.06]"
+                )}
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                title="Advanced options"
+              >
+                {showAdvanced ? <ChevronUp className="w-6 h-6" /> : <Settings2 className="w-6 h-6" />}
+              </Button>
+              <Button
+                type="submit"
+                disabled={loading || !activeTeam}
+                className="flex-1 md:flex-none md:shrink-0 h-16 md:h-20 px-8 rounded-xl btn-primary-pulse font-black uppercase text-sm tracking-widest"
+              >
+                {loading ? "Creating..." : "Create Link"}
+              </Button>
+            </div>
           </form>
         )}
 
