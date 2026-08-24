@@ -13,6 +13,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useTeam } from "@/hooks/use-team";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { createClient } from "@/lib/supabase/client";
 import {
   ALERT_LABELS,
@@ -42,6 +43,7 @@ import {
   Search,
   BarChart3,
   ExternalLink,
+  Info,
 } from "lucide-react";
 import { ALERT_ICONS as CATEGORY_ICONS } from "@/lib/alert-icons";
 
@@ -981,7 +983,50 @@ function StatusStrip({
             {allClear ? <ShieldCheck className="w-4.5 h-4.5" /> : <ShieldAlert className="w-4.5 h-4.5" />}
           </div>
           <div>
-            <p className="text-base font-black tracking-tight text-white leading-none">{headline}</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-base font-black tracking-tight text-white leading-none">{headline}</p>
+              {/* The page shows verdicts without ever saying what is being
+                  judged. This is the one place every visit passes through, so
+                  the explanation lives here rather than as a banner that would
+                  cost height on every load. */}
+              <Tooltip>
+                {/* The icon has to live INSIDE `render`. base-ui replaces the
+                    trigger with the element given there, so a child passed to
+                    TooltipTrigger separately is dropped and the button renders
+                    empty — which is why nothing showed up. Same shape as the
+                    sidebar's `<TooltipTrigger render={linkContent} />`. */}
+                <TooltipTrigger
+                  id="alerts-explainer-trigger"
+                  render={
+                    <button
+                      type="button"
+                      aria-label="What alerts do"
+                      className="inline-flex items-center justify-center text-neutral-500 hover:text-[#00D26A] transition-colors cursor-help"
+                    >
+                      <Info className="w-4 h-4" />
+                    </button>
+                  }
+                />
+                {/* The stock tooltip is a white box with black text — shadcn's
+                    default, and the opposite of everything else on this page.
+                    Dark ground, green hairline and the app's own micro-label
+                    for the heading, so it reads as part of Tappr. */}
+                <TooltipContent
+                  side="bottom"
+                  className="block max-w-[290px] rounded-xl border border-[#00D26A]/20 bg-black/95 px-3.5 py-3 backdrop-blur-xl shadow-[0_8px_30px_rgba(0,0,0,0.55)]"
+                  arrowClassName="bg-black fill-black"
+                >
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#00D26A] mb-1.5">
+                    What alerts do
+                  </p>
+                  <p className="text-[11px] font-medium leading-relaxed text-neutral-300">
+                    Tappr scans your links and flags what needs attention: broken
+                    destinations, traffic drops, click bursts that look like bots,
+                    and plan limits. The urgent ones also reach your email.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
             {/* Cadence must match vercel.json. The crons run once a day — a Vercel
                 Hobby limit, not something we can quietly bump, so the copy has to
                 be honest about it and point at "Check now". */}

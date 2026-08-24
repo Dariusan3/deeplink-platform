@@ -56,7 +56,7 @@ export default function DashboardPage() {
   return (
     <>
       <Header title="Intelligence Hub" />
-      <div className="p-4 md:p-6 space-y-6">
+      <div className="p-4 md:p-6 space-y-6 md:space-y-8">
         {/* Stats grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {stats.map((stat) => (
@@ -67,16 +67,16 @@ export default function DashboardPage() {
               {/* Card Accent */}
               <div className="absolute top-0 left-0 w-1 h-full bg-[#00D26A]/20 group-hover:bg-[#00D26A] transition-all duration-500" />
 
-              <CardHeader className="flex flex-row items-center justify-between pb-2 pt-6">
-                <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500">
+              <CardHeader className="flex flex-row items-center justify-between pb-3 pt-7 md:pt-8">
+                <CardTitle className="text-[11px] font-black uppercase tracking-[0.2em] text-neutral-500">
                   {stat.title}
                 </CardTitle>
-                <div className="p-2 rounded-xl bg-[#00D26A]/10 text-[#00D26A] shadow-[0_0_15px_rgba(0,210,106,0.1)] group-hover:scale-110 transition-transform duration-500">
+                <div className="p-2.5 md:p-3 rounded-xl bg-[#00D26A]/10 text-[#00D26A] shadow-[0_0_15px_rgba(0,210,106,0.1)] group-hover:scale-110 transition-transform duration-500">
                   {stat.icon}
                 </div>
               </CardHeader>
-              <CardContent className="pb-6">
-                <div className="text-4xl font-black tracking-tight text-white mb-1">
+              <CardContent className="pb-7 md:pb-8">
+                <div className="text-4xl md:text-5xl font-black tracking-tight text-white mb-1.5">
                   {stat.value}
                 </div>
                 {stat.change ? (

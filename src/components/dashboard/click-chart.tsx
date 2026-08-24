@@ -27,8 +27,8 @@ export function ClickChart({ dailyCounts, loading }: ClickChartProps) {
     <Card className="glass-card bg-white/[0.01] border-white/5 relative overflow-hidden">
       <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[#00D26A]/20 to-transparent" />
       <CardHeader className="pt-8 px-8 pb-4">
-        <CardTitle className="text-xl font-black tracking-tight text-white flex items-center gap-2">
-          <BarChart3 className="w-5 h-5 text-[#00D26A]" />
+        <CardTitle className="text-2xl font-black tracking-tight text-white flex items-center gap-2.5">
+          <BarChart3 className="w-6 h-6 text-[#00D26A]" />
           Recent Clicks
         </CardTitle>
         <p className="text-sm text-neutral-500 font-medium">

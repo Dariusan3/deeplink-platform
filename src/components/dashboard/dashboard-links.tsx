@@ -21,8 +21,8 @@ export function DashboardLinks({ links, loading }: DashboardLinksProps) {
       <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[#00D26A]/20 to-transparent" />
       <CardHeader className="pt-8 px-8 pb-4">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-xl font-black tracking-tight text-white flex items-center gap-2">
-            <List className="w-5 h-5 text-[#00D26A]" />
+          <CardTitle className="text-2xl font-black tracking-tight text-white flex items-center gap-2.5">
+            <List className="w-6 h-6 text-[#00D26A]" />
             Your Links
           </CardTitle>
           <Link

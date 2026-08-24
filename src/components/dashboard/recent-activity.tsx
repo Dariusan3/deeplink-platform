@@ -90,8 +90,8 @@ export function RecentActivity({ recentClicks, loading }: RecentActivityProps) {
       <CardHeader className="pt-8 px-8 pb-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <CardTitle className="text-xl font-black tracking-tight text-white flex items-center gap-2">
-              <Activity className="w-5 h-5 text-[#00D26A]" />
+            <CardTitle className="text-2xl font-black tracking-tight text-white flex items-center gap-2.5">
+              <Activity className="w-6 h-6 text-[#00D26A]" />
               Recent Click Activity
             </CardTitle>
             <p className="text-sm text-neutral-500 font-medium mt-1">
