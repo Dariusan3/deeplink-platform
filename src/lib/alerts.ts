@@ -115,6 +115,22 @@ export function dedupKey(
   }
 }
 
+// Which alert types are allowed to send email. Everything else is in-app only.
+//
+// This replaced `tier === 1 || severity === "high"`. That heuristic meant any
+// new type marked high started mailing people without anyone deciding it
+// should — and it is the kind of rule that quietly grows into an inbox nobody
+// reads. An explicit list has to be edited on purpose.
+//
+// click_drop is deliberately ABSENT. It is useful in the app but it is a
+// judgement about a partial day, and a judgement is not worth an interruption.
+export const EMAIL_TYPES: ReadonlySet<AlertType> = new Set<AlertType>([
+  "destination_broken",
+  "click_spam",
+  "plan_limit",
+  "subscription_expiring",
+]);
+
 // Tier classification — drives both the visual section in the UI and the
 // urgency of email notifications.
 export const ALERT_TIERS: Record<AlertType, AlertTier> = {

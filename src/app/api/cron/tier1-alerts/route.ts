@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { runAllDetectors, persistDetections, mergeRuns, type DetectorRun } from "@/lib/alert-detectors";
-import { ALERT_TIERS } from "@/lib/alerts";
+import { EMAIL_TYPES, type AlertType } from "@/lib/alerts";
 import { hasFeature } from "@/lib/entitlements";
 import { sendAlertDigestEmail } from "@/lib/email";
 
-// Only the "losing money right now" alerts are worth an email: Tier-1 types
-// (broken destination, click drop/spam, plan limit) plus anything high-severity.
-// Everything else lives in-app only, which is what stops the inbox flooding.
-const EMAIL_WORTHY = (a: { alert_type: string; severity: string }) =>
-  ALERT_TIERS[a.alert_type as keyof typeof ALERT_TIERS] === 1 || a.severity === "high";
+// Only the types on the explicit allowlist are worth an email; see
+// EMAIL_TYPES in src/lib/alerts.ts for why it is a list and not a rule.
+const EMAIL_WORTHY = (a: { alert_type: string }) =>
+  EMAIL_TYPES.has(a.alert_type as AlertType);
 const MAX_ALERTS_PER_DIGEST = 8;
 
 // Vercel cron: scans every team on a 3-hour cadence and inserts alerts +

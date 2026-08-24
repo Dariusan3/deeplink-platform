@@ -160,8 +160,12 @@ export async function detectDestinationBroken(supabase: SupabaseClient, teamId: 
 }
 
 export async function detectClickDrop(supabase: SupabaseClient, teamId: string): Promise<DetectedAlert[]> {
-  const today = startOfDay();
+  const now = new Date();
+  const today = startOfDay(now);
   const sevenDaysAgo = new Date(today.getTime() - 7 * 86_400_000);
+  // How much of today has actually happened. Everything below compares
+  // like with like against this same slice of the previous seven days.
+  const elapsedMs = now.getTime() - today.getTime();
 
   // Pull links with slug + title so we can name the affected one in the
   // alert. Previously this detector was team-wide and only ever said
@@ -185,7 +189,7 @@ export async function detectClickDrop(supabase: SupabaseClient, teamId: string):
       .gte("clicked_at", today.toISOString()),
     supabase
       .from("link_clicks")
-      .select("link_id")
+      .select("link_id, clicked_at")
       .in("link_id", linkIds)
       .gte("clicked_at", sevenDaysAgo.toISOString())
       .lt("clicked_at", today.toISOString()),
@@ -195,37 +199,74 @@ export async function detectClickDrop(supabase: SupabaseClient, teamId: string):
   for (const r of (todayRes.data ?? []) as { link_id: string }[]) {
     todayByLink.set(r.link_id, (todayByLink.get(r.link_id) ?? 0) + 1);
   }
+
+  // Two baselines per link:
+  //   weekByLink    — clicks over the whole of the previous seven days
+  //   soFarByLink   — clicks in the SAME part of the day, on those seven days
+  //
+  // The second one is the one the comparison uses, and its absence was a bug
+  // that made this detector fire almost every morning. The cron runs at 09:00
+  // UTC, so "today" is nine hours old, and the old code held that nine-hour
+  // count against a full 24-hour average. A link with perfectly steady traffic
+  // reaches ~37% of its daily average by 09:00, and the alert threshold is
+  // "below 40%" — so a healthy link tripped it daily, and the mail said it was
+  // "down 63%" when it was exactly on pace.
+  //
+  // Bucketing the baseline by time-of-day also respects diurnal shape, which
+  // scaling a flat average by elapsed hours would not: traffic is not spread
+  // evenly across the day.
   const weekByLink = new Map<string, number>();
-  for (const r of (weekRes.data ?? []) as { link_id: string }[]) {
+  const soFarByLink = new Map<string, number>();
+  for (const r of (weekRes.data ?? []) as { link_id: string; clicked_at: string }[]) {
     weekByLink.set(r.link_id, (weekByLink.get(r.link_id) ?? 0) + 1);
+
+    const t = new Date(r.clicked_at);
+    if (t.getTime() - startOfDay(t).getTime() < elapsedMs) {
+      soFarByLink.set(r.link_id, (soFarByLink.get(r.link_id) ?? 0) + 1);
+    }
   }
 
   // Thresholds tuned per-link (vs. team-wide): a link needs at least 10
   // clicks/day on average to be worth alerting on — quieter links would
-  // flap from one slow day. Drop must be >=60% (today below 40% of avg).
+  // flap from one slow day. Drop must be >=60% (today below 40% of expected).
   const MIN_AVG_PER_DAY = 10;
+  // And enough traffic must normally have arrived BY NOW to judge at all.
+  // Without this, a run early in the day compares against an expectation of
+  // one or two clicks, where a single missing visitor reads as a 100% collapse.
+  const MIN_EXPECTED_SO_FAR = 5;
   const out: DetectedAlert[] = [];
   for (const link of links) {
     const todayCount = todayByLink.get(link.id) ?? 0;
     const weekCount  = weekByLink.get(link.id) ?? 0;
     const avg = weekCount / 7;
     if (avg < MIN_AVG_PER_DAY) continue;
-    if (todayCount >= avg * 0.4) continue;
 
-    const dropPct = Math.round(((avg - todayCount) / avg) * 100);
+    // Expected by this hour of the day, not by midnight tonight.
+    const expected = (soFarByLink.get(link.id) ?? 0) / 7;
+    if (expected < MIN_EXPECTED_SO_FAR) continue;
+    if (todayCount >= expected * 0.4) continue;
+
+    const dropPct = Math.round(((expected - todayCount) / expected) * 100);
     const label = link.title || link.slug;
     out.push({
       team_id: teamId,
       alert_type: "click_drop",
       severity: dropPct >= 80 ? "high" : "medium",
       title: `Traffic on "${label}" is down ${dropPct}% today`,
-      description: `"${label}" averaged ${Math.round(avg)} clicks/day this past week but only ${todayCount} so far today. Check if the destination broke, an ad set paused, or a traffic source got bannered.`,
+      description: `"${label}" usually has about ${Math.round(expected)} clicks by this time of day, but has ${todayCount}. Check if the destination broke, an ad set paused, or a traffic source got bannered.`,
       affected_link: link.slug,
       // dedup_key includes the link id so each link gets its own alert
       // row — without this, the second link's drop would silently
       // overwrite the first's.
       dedup_key: dedupKey("click_drop", { id: link.id }),
-      metadata: { today: todayCount, avg7d: avg, drop_pct: dropPct, link_id: link.id, slug: link.slug },
+      metadata: {
+        today: todayCount,
+        expected_by_now: Math.round(expected),
+        avg7d: avg,
+        drop_pct: dropPct,
+        link_id: link.id,
+        slug: link.slug,
+      },
     });
   }
   return out;
