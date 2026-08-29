@@ -52,11 +52,18 @@ export function Hero() {
 
           <Reveal delay={180}>
             <div className="mt-8 flex flex-wrap items-center gap-3">
+              {/* Was "Start free — no card". Signup is referral-gated now
+                  (see supabase/migrations/029_referral_gate.sql) — a cold
+                  visitor hitting /signup gets an invite-code screen, not an
+                  account, so promising "free" and "no card" here overclaimed.
+                  Still routes to /signup: a visitor arriving with a stored
+                  referral code (?ref=, or one left in localStorage by
+                  ReferralTracker) goes straight to the real form. */}
               <Link
                 href="/signup"
                 className="btn-lift inline-flex items-center gap-2 bg-white text-black font-medium px-5 py-3 rounded-sm hover:bg-[var(--ink)]"
               >
-                Start free — no card
+                Get started
               </Link>
               {/* Existing users — a clear CTA button right beside "Start free",
                   green-accented so it reads as an action, not a nav link. */}
@@ -78,7 +85,6 @@ export function Hero() {
           <Reveal delay={240}>
             <ul className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-2 text-[12px] text-[var(--muted)] font-mono">
               {[
-                "No credit card",
                 "500 clicks/mo, free forever",
                 "Up in 60 seconds",
               ].map((t) => (

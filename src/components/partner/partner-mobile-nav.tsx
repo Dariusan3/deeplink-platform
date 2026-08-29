@@ -40,7 +40,9 @@ export function PartnerMobileNav() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
             </svg>
           </SheetTrigger>
-          <SheetContent side="left" className="p-0 w-64">
+          {/* No close button — matches desktop, where there's no floating X
+              either. Tapping the backdrop or a nav link already closes it. */}
+          <SheetContent side="left" className="p-0 w-64" showCloseButton={false}>
             <PartnerSidebar />
           </SheetContent>
         </Sheet>
