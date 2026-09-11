@@ -6,6 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useCollections } from "@/hooks/use-collections";
 import { useLinks } from "@/hooks/use-links";
+import { useTeam } from "@/hooks/use-team";
+import { hasFeature } from "@/lib/entitlements";
 import { CreateCollectionDialog } from "@/components/collections/create-collection-dialog";
 import { CreateLinkDialog } from "@/components/links/create-link-dialog";
 import { AddLinkToCollectionDialog } from "@/components/collections/add-link-to-collection-dialog";
@@ -58,11 +60,13 @@ function CollectionGoalEditor({
   serverGoal,
   serverPeriod,
   onSave,
+  canUseClickGoals,
 }: {
   collectionId: string;
   serverGoal: number | null;
   serverPeriod: string | null;
   onSave: (goal: number | null, period: string | null) => Promise<void>;
+  canUseClickGoals: boolean;
 }) {
   const [draftGoal, setDraftGoal] = useState<string>(serverGoal != null ? String(serverGoal) : "");
   const [draftPeriod, setDraftPeriod] = useState<string>(serverPeriod || "daily");
@@ -82,6 +86,7 @@ function CollectionGoalEditor({
     draftPeriod !== (serverPeriod || "daily");
 
   const handleConfirmSave = async () => {
+    if (!canUseClickGoals) return; // disabled inputs should prevent this anyway
     if (parsedDraftGoal !== null && (Number.isNaN(parsedDraftGoal) || parsedDraftGoal < 0)) {
       toast.error("Enter a valid positive number");
       return;
@@ -114,34 +119,44 @@ function CollectionGoalEditor({
           placeholder="Target clicks"
           value={draftGoal}
           onChange={(e) => setDraftGoal(e.target.value)}
-          className="w-32 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm font-bold placeholder:text-neutral-600 focus:outline-none focus:border-[#00D26A]/50"
+          disabled={!canUseClickGoals}
+          className="w-32 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm font-bold placeholder:text-neutral-600 focus:outline-none focus:border-[#00D26A]/50 disabled:opacity-50"
         />
         <select
           value={draftPeriod}
           onChange={(e) => setDraftPeriod(e.target.value)}
-          className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm font-bold focus:outline-none focus:border-[#00D26A]/50 [&>option]:bg-black"
+          disabled={!canUseClickGoals}
+          className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm font-bold focus:outline-none focus:border-[#00D26A]/50 disabled:opacity-50 [&>option]:bg-black"
         >
           <option value="daily">Daily</option>
           <option value="weekly">Weekly</option>
           <option value="monthly">Monthly</option>
         </select>
-        {isDirty && (
-          <Button
-            onClick={() => setConfirmOpen(true)}
-            disabled={saving}
-            className="bg-[#00D26A] hover:bg-[#00D26A]/90 text-black font-black uppercase text-[10px] tracking-widest rounded-lg h-9 px-4"
-          >
-            Save Goal
-          </Button>
-        )}
-        {serverGoal != null && serverGoal > 0 && !isDirty && (
-          <button
-            onClick={handleRemove}
-            disabled={saving}
-            className="text-xs font-bold text-neutral-500 hover:text-red-400 transition-colors disabled:opacity-50"
-          >
-            Remove goal
-          </button>
+        {!canUseClickGoals ? (
+          <span className="text-xs font-bold text-neutral-500">
+            Available on Starter and above.
+          </span>
+        ) : (
+          <>
+            {isDirty && (
+              <Button
+                onClick={() => setConfirmOpen(true)}
+                disabled={saving}
+                className="bg-[#00D26A] hover:bg-[#00D26A]/90 text-black font-black uppercase text-[10px] tracking-widest rounded-lg h-9 px-4"
+              >
+                Save Goal
+              </Button>
+            )}
+            {serverGoal != null && serverGoal > 0 && !isDirty && (
+              <button
+                onClick={handleRemove}
+                disabled={saving}
+                className="text-xs font-bold text-neutral-500 hover:text-red-400 transition-colors disabled:opacity-50"
+              >
+                Remove goal
+              </button>
+            )}
+          </>
         )}
       </div>
 
@@ -188,6 +203,8 @@ export default function CollectionsPage() {
   const { collections, loading, deleteCollection, updateCollection, reparentCollection, saveCollectionPosition, moveLinksToCollection } =
     useCollections();
   const { links } = useLinks();
+  const { activeTeam } = useTeam();
+  const canUseClickGoals = hasFeature(activeTeam?.plan, "clickGoals");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
 
@@ -397,6 +414,7 @@ export default function CollectionsPage() {
                 collectionId={activeCollection.id}
                 serverGoal={activeCollection.click_goal}
                 serverPeriod={activeCollection.click_goal_period}
+                canUseClickGoals={canUseClickGoals}
                 onSave={(goal, period) =>
                   updateCollection(activeCollection.id, {
                     click_goal: goal,

@@ -127,7 +127,7 @@ export default function BillingPage() {
                   <h2 className={cn("text-2xl font-black tracking-tighter", style.text)}>{style.label}</h2>
                   <p className="text-sm text-neutral-400 mt-1">
                     {plan === "free"
-                      ? "500 clicks/month, all routing rules, limited AI."
+                      ? "100 clicks/month, no smart routing, 1-hour AI Brain session/day."
                       : `€${monthlyPrice}/month · billed monthly`}
                   </p>
                 </div>

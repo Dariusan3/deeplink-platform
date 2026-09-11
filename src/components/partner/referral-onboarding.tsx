@@ -30,15 +30,15 @@ const TIERS: Tier[] = [
     name: "Free Trial",
     blurb: "Full access for 2 weeks, then free forever.",
     features: [
-      "500 clicks / month · 5 links",
+      "100 clicks / month · 5 links",
       "Automatic deep linking (100+ apps)",
-      "AI Brain · 10 chats / mo",
+      "AI Brain · 1-hour session / day",
       "Real-time analytics",
     ],
     free: true,
   },
-  { name: "Starter", blurb: "For solo entrepreneurs starting smart.", features: ["50,000 clicks / mo · 500 links", "Smart routing · geo + device", "Unlimited AI Brain + all alerts"], free: false },
-  { name: "Growth", blurb: "For businesses that scale.", features: ["250,000 clicks / mo · 5,000 links", "Advanced routing", "Remove Tappr branding + API"], free: false },
+  { name: "Starter", blurb: "For solo entrepreneurs starting smart.", features: ["5,000 clicks / mo · 50 links", "Smart routing · geo + device", "AI Brain · 1 conversation / day"], free: false },
+  { name: "Growth", blurb: "For businesses that scale.", features: ["50,000 clicks / mo · 150 links", "Advanced routing", "AI Brain · 10 conversations / day"], free: false },
   { name: "Agency", blurb: "For agencies at volume.", features: ["Unlimited clicks · links · team", "Everything in Growth, unmetered", "Priority support"], free: false },
 ];
 

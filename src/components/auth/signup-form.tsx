@@ -216,7 +216,7 @@ export function SignupForm({
           </h1>
 
           <p className="text-[var(--ink-2)] text-[15px] leading-[1.55] mb-8">
-            500 clicks/month, no credit card. Set up in 60 seconds.
+            100 clicks/month, no credit card. Set up in 60 seconds.
           </p>
 
           {refCode && (
@@ -402,7 +402,7 @@ export function SignupForm({
 
           {/* Trust line — matches the hero checklist */}
           <ul className="mt-10 flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] text-[var(--muted)] font-mono">
-            {["No credit card", "500 clicks/mo free", "60-second setup"].map((t) => (
+            {["No credit card", "100 clicks/mo free", "60-second setup"].map((t) => (
               <li key={t} className="flex items-center gap-1.5">
                 <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden>
                   <path d="M2 6.5L5 9.5L10 3.5" stroke="var(--tappr-green)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />

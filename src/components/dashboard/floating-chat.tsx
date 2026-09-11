@@ -111,6 +111,14 @@ export function FloatingChat() {
         }),
       });
 
+      if (res.status === 429) {
+        // Plan-limit response — one JSON body, not the NDJSON stream. A real,
+        // expected outcome, so it's handled before the generic error below.
+        const data = await res.json().catch(() => null);
+        throw new Error(
+          (data?.message as string) || "You've hit today's AI Brain limit for your plan."
+        );
+      }
       if (!res.ok) throw new Error("API error");
 
       const reader = res.body?.getReader();
@@ -171,7 +179,11 @@ export function FloatingChat() {
           const updated = [...prev];
           updated[assistantIndex] = {
             role: "assistant",
-            content: "Couldn't connect to AI. Check your API key.",
+            // A plan-limit rejection carries its own explanation (thrown
+            // above) and should show verbatim, not be relabelled.
+            content: err.message === "API error"
+              ? "Couldn't connect to AI. Check your API key."
+              : err.message,
           };
           return updated;
         });

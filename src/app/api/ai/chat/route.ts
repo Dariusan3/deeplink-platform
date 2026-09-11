@@ -1,8 +1,81 @@
 import { NextRequest } from "next/server";
 import Groq from "groq-sdk";
 import { createServerClient } from "@supabase/ssr";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { TOOLS, runTool } from "@/lib/ai-tools";
+import { getBrainSessionHours } from "@/lib/plan-limits";
+
+// Lazy, service-role: brain_session_started_at is a system-maintained rate
+// -limit cursor, not user data, and any team member (not just the owner)
+// needs to be able to advance it. teams' own RLS (owner-only UPDATE) would
+// block a non-owner editor from ever starting a session, so this
+// deliberately bypasses RLS for this one narrow field. Lazy init because
+// `next build` loads this module for page-data collection, before the
+// service key exists in that environment.
+let _serviceClient: ReturnType<typeof createServiceClient> | null = null;
+function getServiceClient() {
+  if (!_serviceClient) {
+    _serviceClient = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+  }
+  return _serviceClient;
+}
+
+const HOUR_MS = 60 * 60 * 1000;
+
+// Free-plan gate: a real 1-hour session per UTC day, checked before every
+// message (not just new conversations) since this is what stands between a
+// free user and unmetered Groq spend. Returns null when the message may
+// proceed; otherwise the JSON body + status to send back instead of streaming.
+async function checkBrainSession(teamId: string): Promise<{ body: unknown; status: number } | null> {
+  const svc = getServiceClient();
+  const { data } = await svc
+    .from("teams")
+    .select("plan, brain_session_started_at")
+    .eq("id", teamId)
+    .single();
+  // The untyped service-role client (no Database generic — same convention
+  // as the other ad-hoc service queries in this codebase) infers `never` for
+  // row shapes, so this is asserted rather than inferred.
+  const team = data as { plan: string | null; brain_session_started_at: string | null } | null;
+
+  const sessionHours = getBrainSessionHours(team?.plan ?? "free");
+  if (sessionHours === null) return null; // this plan isn't time-boxed
+
+  const now = new Date();
+  const startedAt = team?.brain_session_started_at
+    ? new Date(team.brain_session_started_at)
+    : null;
+  const sameUtcDay =
+    startedAt && startedAt.toISOString().slice(0, 10) === now.toISOString().slice(0, 10);
+
+  if (!sameUtcDay) {
+    // First message of a new UTC day — open today's session and let it through.
+    await svc
+      .from("teams")
+      .update({ brain_session_started_at: now.toISOString() } as never)
+      .eq("id", teamId);
+    return null;
+  }
+
+  const elapsedMs = now.getTime() - startedAt!.getTime();
+  if (elapsedMs <= sessionHours * HOUR_MS) return null; // still inside today's window
+
+  const nextResetAt = new Date(Date.UTC(
+    now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1
+  ));
+  return {
+    status: 429,
+    body: {
+      error: "brain_session_limit",
+      message: `Your free AI Brain session for today has ended (${sessionHours}h/day). It resets at midnight UTC — or upgrade for unlimited daily conversations.`,
+      resetAt: nextResetAt.toISOString(),
+    },
+  };
+}
 
 // Streaming protocol — NDJSON. Each line is a self-contained JSON object:
 //   {"type":"text","value":"...delta..."}
@@ -35,6 +108,16 @@ export async function POST(request: NextRequest) {
   }
 
   const { messages, teamId, analyticsContext } = await request.json();
+
+  if (teamId) {
+    const blocked = await checkBrainSession(teamId);
+    if (blocked) {
+      return new Response(JSON.stringify(blocked.body), {
+        status: blocked.status,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+  }
 
   const systemPrompt = `You are the AI Brain — an active assistant for the Tappr smart link platform.
 

@@ -96,6 +96,7 @@ export default function BrainPage() {
     deleteChat,
     canCreateChat,
     chatLimit,
+    chatsToday,
   } = useBrainChats();
 
   // Scroll to bottom on new messages
@@ -242,6 +243,16 @@ export default function BrainPage() {
         }),
       });
 
+      if (res.status === 429) {
+        // Plan-limit response (free session hour, or a future daily cap) —
+        // a real, expected outcome, not a connection failure. It comes back
+        // as one JSON body, not the NDJSON stream, so it's handled before
+        // the generic !res.ok branch reads it as "API error".
+        const data = await res.json().catch(() => null);
+        throw new Error(
+          (data?.message as string) || "You've hit today's AI Brain limit for your plan."
+        );
+      }
       if (!res.ok) throw new Error("API error");
 
       const reader = res.body?.getReader();
@@ -291,7 +302,12 @@ export default function BrainPage() {
       if (err instanceof Error && err.name !== "AbortError") {
         if (rafId !== null) cancelAnimationFrame(rafId);
         rafId = null;
-        target = "Sorry, I couldn't connect to the AI. Make sure your API key is set.";
+        // A plan-limit rejection carries its own explanation (thrown above as
+        // `new Error(data.message)`) and should show verbatim, not be
+        // relabelled as a connection problem.
+        target = err.message === "API error"
+          ? "Sorry, I couldn't connect to the AI. Make sure your API key is set."
+          : err.message;
         writeMessage(target);
         displayed = target;
       }
@@ -459,7 +475,7 @@ export default function BrainPage() {
     return html;
   };
 
-  const showLimitBadge = chatLimit !== Infinity && chats.length >= chatLimit * 0.8;
+  const showLimitBadge = chatLimit !== Infinity && chatsToday >= chatLimit * 0.8;
 
   return (
     <>
@@ -481,7 +497,7 @@ export default function BrainPage() {
               <button
                 onClick={handleNewChat}
                 disabled={!canCreateChat}
-                title={canCreateChat ? "New chat" : `Limit reached (${chats.length}/${chatLimit}). Upgrade to save more.`}
+                title={canCreateChat ? "New chat" : `Reached today's limit (${chatsToday}/${chatLimit}). Resets at midnight UTC.`}
                 className="w-6 h-6 rounded-lg flex items-center justify-center bg-white/5 border border-white/10 text-neutral-400 hover:text-white hover:bg-[#00D26A]/10 hover:border-[#00D26A]/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <PenSquare className="w-3 h-3" />
@@ -536,30 +552,33 @@ export default function BrainPage() {
               )}
             </div>
 
-            {/* Plan limit badge */}
+            {/* Plan limit badge — daily, not lifetime: the cap resets at
+                midnight UTC (migration 031 enforces the same window server
+                -side), so the copy says "today" rather than implying a
+                permanent ceiling. */}
             {showLimitBadge && (
               <div className="px-3 py-2.5 border-t border-white/5 shrink-0">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-neutral-500">Chats Used</span>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-neutral-500">Started Today</span>
                   <span className={cn(
                     "text-[9px] font-black",
-                    chats.length >= chatLimit ? "text-red-400" : "text-amber-400"
+                    chatsToday >= chatLimit ? "text-red-400" : "text-amber-400"
                   )}>
-                    {chats.length}/{chatLimit}
+                    {chatsToday}/{chatLimit}
                   </span>
                 </div>
                 <div className="h-1 rounded-full bg-white/5 overflow-hidden">
                   <div
                     className={cn(
                       "h-full rounded-full transition-all",
-                      chats.length >= chatLimit ? "bg-red-500" : "bg-amber-400"
+                      chatsToday >= chatLimit ? "bg-red-500" : "bg-amber-400"
                     )}
-                    style={{ width: `${Math.min((chats.length / chatLimit) * 100, 100)}%` }}
+                    style={{ width: `${Math.min((chatsToday / chatLimit) * 100, 100)}%` }}
                   />
                 </div>
-                {chats.length >= chatLimit && (
+                {chatsToday >= chatLimit && (
                   <p className="text-[9px] text-neutral-600 mt-1.5">
-                    <a href="/pricing" className="text-[#00D26A] hover:underline">Upgrade</a> to save more chats
+                    Resets at midnight UTC, or <a href="/pricing" className="text-[#00D26A] hover:underline">upgrade</a> for more
                   </p>
                 )}
               </div>
@@ -601,7 +620,7 @@ export default function BrainPage() {
                 <button
                   onClick={handleNewChat}
                   disabled={!canCreateChat}
-                  title={canCreateChat ? "New chat" : `Limit reached (${chats.length}/${chatLimit}). Upgrade to save more.`}
+                  title={canCreateChat ? "New chat" : `Reached today's limit (${chatsToday}/${chatLimit}). Resets at midnight UTC.`}
                   className="h-8 px-3 inline-flex items-center gap-2 rounded-md text-[10px] font-black uppercase tracking-widest text-neutral-500 hover:text-white hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   <RotateCcw className="w-3 h-3" />

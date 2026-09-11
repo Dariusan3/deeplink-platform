@@ -27,9 +27,20 @@ export function useBrainChats() {
     [activeTeam?.plan]
   );
 
+  // How many NEW conversations this team has started today (UTC) — the same
+  // window brain_daily_chat_cap() checks server-side (migration 031), so this
+  // button disables at exactly the moment the real insert would be rejected.
+  // Free is unaffected: its brainChats is Infinity (it's gated by
+  // brainSessionHours, at message-send time, not here) — see entitlements.ts.
+  const chatsToday = useMemo(() => {
+    const startOfUtcDay = new Date();
+    startOfUtcDay.setUTCHours(0, 0, 0, 0);
+    return chats.filter((c) => new Date(c.created_at) >= startOfUtcDay).length;
+  }, [chats]);
+
   const canCreateChat = useMemo(
-    () => chats.length < chatLimit,
-    [chats.length, chatLimit]
+    () => chatsToday < chatLimit,
+    [chatsToday, chatLimit]
   );
 
   const fetchChats = useCallback(async () => {
@@ -66,11 +77,11 @@ export function useBrainChats() {
   const createChat = useCallback(async (): Promise<BrainChat | null> => {
     if (!activeTeam) return null;
 
-    if (chats.length >= chatLimit) {
+    if (chatsToday >= chatLimit) {
       toast.error(
         chatLimit === Infinity
           ? "Could not create chat"
-          : `Chat limit reached (${chats.length}/${chatLimit}). Upgrade your plan to save more chats.`
+          : `You've started ${chatsToday}/${chatLimit} new conversations today. Resets at midnight UTC, or upgrade for more.`
       );
       return null;
     }
@@ -82,6 +93,11 @@ export function useBrainChats() {
       .single();
 
     if (error) {
+      // The client-side check above should have already caught a plan-limit
+      // hit, but RLS is the real enforcement (migration 031) — a race between
+      // two tabs, or a stale `chats` list, can still get here. Postgres RLS
+      // rejections don't carry a distinguishable code from other insert
+      // failures, so the message stays generic rather than guessing wrong.
       toast.error("Failed to create chat");
       return null;
     }
@@ -90,7 +106,7 @@ export function useBrainChats() {
     setActiveChatId(data.id);
     emit("brain-chats");
     return data;
-  }, [activeTeam, chats.length, chatLimit, supabase]);
+  }, [activeTeam, chatsToday, chatLimit, supabase]);
 
   const updateChat = useCallback(
     async (id: string, messages: ChatMessage[], title?: string) => {
@@ -158,5 +174,6 @@ export function useBrainChats() {
     deleteChat,
     canCreateChat,
     chatLimit,
+    chatsToday,
   };
 }

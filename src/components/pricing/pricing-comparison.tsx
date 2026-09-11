@@ -35,9 +35,9 @@ const GROUPS: Group[] = [
     category: "Core",
     rows: [
       { label: "Automatic deep linking — opens the native app on mobile (100+ apps)", free: true, starter: true, growth: true, agency: true },
-      { label: "Clicks / month", free: "500", starter: "50,000", growth: "250,000", agency: "Unlimited" },
-      { label: "Links included", free: "5", starter: "500", growth: "5,000", agency: "Unlimited" },
-      { label: "Team members", free: "1", starter: "3", growth: "10", agency: "Unlimited" },
+      { label: "Clicks / month", free: "100", starter: "5,000", growth: "50,000", agency: "Unlimited" },
+      { label: "Links included", free: "5", starter: "50", growth: "150", agency: "Unlimited" },
+      { label: "Team members", free: "1", starter: "2", growth: "5", agency: "Unlimited" },
     ],
   },
   {
@@ -45,13 +45,13 @@ const GROUPS: Group[] = [
     rows: [
       { label: "Smart routing conditions", free: false, starter: "Geo + Device", growth: "All (geo·device·time·days)", agency: "All (geo·device·time·days)" },
       { label: "Traffic rotator / split testing", free: false, starter: true, growth: true, agency: true },
-      { label: "Click goals + tracking per link", free: true, starter: true, growth: true, agency: true },
+      { label: "Click goals + tracking per link", free: false, starter: true, growth: true, agency: true },
     ],
   },
   {
     category: "AI & Real-Time Intelligence",
     rows: [
-      { label: "AI Brain — chat about your stats", free: "10 chats / mo", starter: "Unlimited", growth: "Unlimited", agency: "Unlimited" },
+      { label: "AI Brain — chat about your stats", free: "1-hour session / day", starter: "1 conversation / day", growth: "10 conversations / day", agency: "Unlimited" },
       { label: "Proactive anomaly alerts (broken links, traffic drops, click fraud)", free: "Basic", starter: "All 12 types", growth: "All 12 types", agency: "All 12 types" },
       { label: "AI weekly intelligence report", free: false, starter: true, growth: true, agency: true },
       { label: "Email alerts", free: false, starter: true, growth: true, agency: true },

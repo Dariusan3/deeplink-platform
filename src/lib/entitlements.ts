@@ -27,7 +27,17 @@ export interface PlanEntitlements {
   clicksPerMonth: number;
   links: number;
   teamMembers: number;
-  brainChats: number; // AI Brain chats per month
+  // New conversations an AI Brain user may START per UTC day. Only meaningful
+  // when `brainSessionHours` is null — see that field.
+  brainChats: number;
+  // When set, this plan is time-boxed instead of count-boxed: N hours of AI
+  // Brain access per UTC day (enforced at message-send time, in every
+  // conversation, not just new ones), and `brainChats` above is irrelevant.
+  // null = no session timer; use the `brainChats`-per-day model instead.
+  // Mirrored in SQL as brain_daily_chat_cap() — see migration 031 — for the
+  // count-based plans; the timer itself lives in
+  // src/app/api/ai/chat/route.ts, since it has to run before every Groq call.
+  brainSessionHours: number | null;
   collections: number;
   qrCodes: number;
   // ── Feature flags ────────────────────────────────────────────
@@ -41,14 +51,16 @@ export interface PlanEntitlements {
   customDomain: boolean;
   instagram: boolean; // Instagram integration
   developerApi: boolean; // Developer API + keys
+  clickGoals: boolean; // set a click target + period on a link or collection
 }
 
 export const ENTITLEMENTS: Record<PlanKey, PlanEntitlements> = {
   free: {
-    clicksPerMonth: 500,
+    clicksPerMonth: 100,
     links: 5,
     teamMembers: 1,
-    brainChats: 10,
+    brainChats: Infinity, // irrelevant — brainSessionHours applies instead
+    brainSessionHours: 1,
     collections: 5,
     qrCodes: 3,
     routing: "none",
@@ -61,12 +73,14 @@ export const ENTITLEMENTS: Record<PlanKey, PlanEntitlements> = {
     customDomain: false,
     instagram: false,
     developerApi: false,
+    clickGoals: false,
   },
   starter: {
-    clicksPerMonth: 50_000,
-    links: 500,
-    teamMembers: 3,
-    brainChats: Infinity,
+    clicksPerMonth: 5_000,
+    links: 50,
+    teamMembers: 2,
+    brainChats: 1,
+    brainSessionHours: null,
     collections: Infinity,
     qrCodes: 25,
     routing: "geo_device",
@@ -79,12 +93,14 @@ export const ENTITLEMENTS: Record<PlanKey, PlanEntitlements> = {
     customDomain: false,
     instagram: true,
     developerApi: false,
+    clickGoals: true,
   },
   growth: {
-    clicksPerMonth: 250_000,
-    links: 5_000,
-    teamMembers: 10,
-    brainChats: Infinity,
+    clicksPerMonth: 50_000,
+    links: 150,
+    teamMembers: 5,
+    brainChats: 10,
+    brainSessionHours: null,
     collections: Infinity,
     qrCodes: 250,
     routing: "all",
@@ -97,12 +113,14 @@ export const ENTITLEMENTS: Record<PlanKey, PlanEntitlements> = {
     customDomain: true,
     instagram: true,
     developerApi: true,
+    clickGoals: true,
   },
   agency: {
     clicksPerMonth: Infinity,
     links: Infinity,
     teamMembers: Infinity,
     brainChats: Infinity,
+    brainSessionHours: null,
     collections: Infinity,
     qrCodes: Infinity,
     routing: "all",
@@ -115,6 +133,7 @@ export const ENTITLEMENTS: Record<PlanKey, PlanEntitlements> = {
     customDomain: true,
     instagram: true,
     developerApi: true,
+    clickGoals: true,
   },
 };
 
@@ -148,6 +167,7 @@ export function hasFeature(
     | "customDomain"
     | "instagram"
     | "developerApi"
+    | "clickGoals"
 ): boolean {
   return entitlements(plan)[key];
 }

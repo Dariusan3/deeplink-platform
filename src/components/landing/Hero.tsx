@@ -85,7 +85,7 @@ export function Hero() {
           <Reveal delay={240}>
             <ul className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-2 text-[12px] text-[var(--muted)] font-mono">
               {[
-                "500 clicks/mo, free forever",
+                "100 clicks/mo, free forever",
                 "Up in 60 seconds",
               ].map((t) => (
                 <li key={t} className="flex items-center gap-1.5">

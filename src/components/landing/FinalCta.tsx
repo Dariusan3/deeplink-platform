@@ -35,7 +35,7 @@ export function FinalCta() {
 
         <Reveal delay={60}>
           <p className="mt-6 text-[16px] lg:text-[18px] text-[var(--ink-2)] max-w-[560px] mx-auto leading-[1.55]">
-            Free plan. No credit card. 500 clicks per month, forever.
+            Free plan. No credit card. 100 clicks per month, forever.
           </p>
         </Reveal>
 

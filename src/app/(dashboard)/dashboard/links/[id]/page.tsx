@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/dialog";
 import { useLinks } from "@/hooks/use-links";
 import { useCollections } from "@/hooks/use-collections";
+import { useTeam } from "@/hooks/use-team";
+import { hasFeature } from "@/lib/entitlements";
 import { RulesDialog } from "@/components/links/rules-dialog";
 import { QrDialog } from "@/components/qr/qr-dialog";
 import { LinkAnalyticsDialog } from "@/components/links/link-analytics-dialog";
@@ -45,6 +47,8 @@ export default function LinkEditPage() {
 
   const { links, updateLink, deleteLink } = useLinks();
   const { collections } = useCollections();
+  const { activeTeam } = useTeam();
+  const canUseClickGoals = hasFeature(activeTeam?.plan, "clickGoals");
 
   const link = useMemo<LinkType | undefined>(
     () => links.find((l) => l.id === linkId),
@@ -130,7 +134,9 @@ export default function LinkEditPage() {
 
     setSaving(true);
     try {
-      const goalValue = clickGoal.trim() === "" ? null : Number(clickGoal);
+      // Not just a disabled input: a value typed before a downgrade, or a
+      // stale render of this page, must not slip a goal through on save.
+      const goalValue = !canUseClickGoals || clickGoal.trim() === "" ? null : Number(clickGoal);
       if (goalValue !== null && (Number.isNaN(goalValue) || goalValue < 0)) {
         toast.error("Click goal must be a positive number");
         return;
@@ -295,6 +301,7 @@ export default function LinkEditPage() {
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">
                     Click Goal
+                    {!canUseClickGoals && " — Available on Starter and above."}
                   </Label>
                   <div className="flex items-center gap-3">
                     <Input
@@ -303,13 +310,14 @@ export default function LinkEditPage() {
                       value={clickGoal}
                       onChange={(e) => setClickGoal(e.target.value)}
                       placeholder="Target clicks"
-                      className="bg-white/[0.03] border-white/10 rounded-xl h-11 w-36"
+                      disabled={!canUseClickGoals}
+                      className="bg-white/[0.03] border-white/10 rounded-xl h-11 w-36 disabled:opacity-50"
                     />
                     <span className="text-xs text-neutral-500 font-bold">per</span>
                     <select
                       value={clickGoalPeriod}
                       onChange={(e) => setClickGoalPeriod(e.target.value)}
-                      disabled={clickGoal.trim() === ""}
+                      disabled={!canUseClickGoals || clickGoal.trim() === ""}
                       className="h-11 px-3 rounded-xl bg-white/[0.03] border border-white/10 text-white text-sm font-medium outline-none focus:border-[#00D26A]/50 cursor-pointer disabled:opacity-50 [&>option]:bg-black"
                     >
                       <option value="daily">Day</option>
