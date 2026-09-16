@@ -26,6 +26,7 @@ import {
   KeyRound,
   Copy,
   RefreshCw,
+  UserPlus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -52,6 +53,22 @@ interface GrantSubForm {
   notes: string;
 }
 
+interface CreateUserForm {
+  fullName: string;
+  email: string;
+  password: string;
+  plan: "free" | "starter" | "growth" | "agency";
+  makePartner: boolean;
+}
+
+const EMPTY_CREATE_FORM: CreateUserForm = {
+  fullName: "",
+  email: "",
+  password: "",
+  plan: "agency",
+  makePartner: false,
+};
+
 const PLAN_PRICES: Record<string, number> = {
   starter: 97,
   growth: 297,
@@ -66,6 +83,8 @@ export default function AdminUsersPage() {
   const [granting, setGranting] = useState(false);
   const [pwForm, setPwForm] = useState<{ userId: string; email: string; password: string } | null>(null);
   const [settingPw, setSettingPw] = useState(false);
+  const [createForm, setCreateForm] = useState<CreateUserForm | null>(null);
+  const [creatingUser, setCreatingUser] = useState(false);
   const supabase = useMemo(() => createClient(), []);
 
   const fetchUsers = useCallback(async () => {
@@ -208,6 +227,46 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleCreateUser = async () => {
+    if (!createForm) return;
+    if (!createForm.email.trim() || !createForm.email.includes("@")) {
+      toast.error("Enter a valid email");
+      return;
+    }
+    if (createForm.password.length < 8) {
+      toast.error("Password must be at least 8 characters.");
+      return;
+    }
+    setCreatingUser(true);
+    try {
+      const res = await fetch("/api/admin/users/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: createForm.email.trim(),
+          password: createForm.password,
+          full_name: createForm.fullName.trim() || undefined,
+          plan: createForm.plan,
+          make_partner: createForm.makePartner,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(json.error || "Failed to create account");
+        return;
+      }
+      toast.success(
+        `Account created for ${createForm.email} — ${createForm.plan}${createForm.makePartner ? " · partner" : ""}`
+      );
+      setCreateForm(null);
+      fetchUsers();
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setCreatingUser(false);
+    }
+  };
+
   const handleCancelSubscription = async (teamId: string) => {
     const { error } = await supabase
       .from("subscriptions")
@@ -231,15 +290,24 @@ export default function AdminUsersPage() {
         subtitle={`${users.length} total users · Search, manage subscriptions, grant plans`}
       />
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
-        <Input
-          placeholder="Search by email or name..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9 h-10 bg-white/[0.03] border-white/10 focus:border-red-500/50 rounded-xl"
-        />
+      {/* Search + create */}
+      <div className="flex items-center gap-3">
+        <div className="relative max-w-md flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+          <Input
+            placeholder="Search by email or name..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 h-10 bg-white/[0.03] border-white/10 focus:border-red-500/50 rounded-xl"
+          />
+        </div>
+        <Button
+          onClick={() => setCreateForm({ ...EMPTY_CREATE_FORM })}
+          className="h-10 px-4 text-xs font-black uppercase tracking-widest bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 shrink-0"
+        >
+          <UserPlus className="w-3.5 h-3.5 mr-1.5" />
+          Create User
+        </Button>
       </div>
 
       {/* Users List */}
@@ -571,6 +639,142 @@ export default function AdminUsersPage() {
               className="bg-amber-500 hover:bg-amber-600 text-black font-black disabled:opacity-40"
             >
               {settingPw ? "Saving..." : "Set Password"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create User Dialog */}
+      <Dialog open={!!createForm} onOpenChange={(open) => !open && !creatingUser && setCreateForm(null)}>
+        <DialogContent className="glass-card bg-black/95 border-white/5 text-white sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black flex items-center gap-2">
+              <UserPlus className="w-5 h-5 text-red-400" />
+              Create User
+            </DialogTitle>
+          </DialogHeader>
+
+          {createForm && (
+            <div className="space-y-4 py-4">
+              <p className="text-[11px] text-neutral-500 leading-relaxed">
+                Creates a working account outside the invite-only signup flow —
+                own team, a plan already active, no confirmation email needed.
+              </p>
+
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Full name</Label>
+                <Input
+                  value={createForm.fullName}
+                  onChange={(e) => setCreateForm({ ...createForm, fullName: e.target.value })}
+                  placeholder="Jane Doe"
+                  className="h-10 bg-white/[0.02] border-white/5 text-sm"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Email</Label>
+                <Input
+                  type="email"
+                  value={createForm.email}
+                  onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
+                  placeholder="jane@example.com"
+                  className="h-10 bg-white/[0.02] border-white/5 text-sm"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Password</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={createForm.password}
+                    onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+                    placeholder="At least 8 characters"
+                    className="h-10 bg-white/[0.02] border-white/10 text-sm font-mono flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setCreateForm({ ...createForm, password: generatePassword() })}
+                    className="h-10 px-3 text-[10px] font-black uppercase tracking-widest border border-white/10 hover:border-amber-500/30 hover:text-amber-400"
+                    title="Generate a strong password"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      if (!createForm.password) return;
+                      navigator.clipboard?.writeText(createForm.password);
+                      toast.success("Password copied");
+                    }}
+                    className="h-10 px-3 border border-white/10 hover:border-amber-500/30 hover:text-amber-400"
+                    title="Copy to clipboard"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+                <p className="text-[10px] text-neutral-600">
+                  Not emailed anywhere — copy it and share it with them yourself.
+                </p>
+              </div>
+
+              {/* Plan selection */}
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Plan</Label>
+                <div className="grid grid-cols-4 gap-2">
+                  {(["free", "starter", "growth", "agency"] as const).map((plan) => (
+                    <button
+                      key={plan}
+                      onClick={() => setCreateForm({ ...createForm, plan })}
+                      className={cn(
+                        "p-2.5 rounded-xl border text-center transition-all",
+                        createForm.plan === plan
+                          ? "bg-red-500/10 border-red-500/20"
+                          : "border-white/5 hover:border-white/10"
+                      )}
+                    >
+                      <p className="text-xs font-black text-white capitalize">{plan}</p>
+                    </button>
+                  ))}
+                </div>
+                {createForm.plan !== "free" && (
+                  <p className="text-[10px] text-neutral-600">
+                    Granted open-ended (no expiry), gifted — same as Grant Plan.
+                  </p>
+                )}
+              </div>
+
+              {/* Partner toggle */}
+              <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5">
+                <div>
+                  <p className="text-sm font-bold text-white">Activate as partner</p>
+                  <p className="text-[10px] text-neutral-500">Referral code generated, welcome email sent</p>
+                </div>
+                <button
+                  onClick={() => setCreateForm({ ...createForm, makePartner: !createForm.makePartner })}
+                  className={cn(
+                    "w-10 h-5 rounded-full transition-all shrink-0",
+                    createForm.makePartner ? "bg-[#00D26A]" : "bg-white/10"
+                  )}
+                >
+                  <div className={cn(
+                    "w-4 h-4 rounded-full bg-white transition-all mx-0.5",
+                    createForm.makePartner ? "translate-x-5" : "translate-x-0"
+                  )} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setCreateForm(null)} disabled={creatingUser}>Cancel</Button>
+            <Button
+              onClick={handleCreateUser}
+              disabled={creatingUser || !createForm || !createForm.email.trim() || createForm.password.length < 8}
+              className="bg-red-500 hover:bg-red-600 text-white font-black disabled:opacity-40"
+            >
+              {creatingUser ? "Creating..." : "Create Account"}
             </Button>
           </DialogFooter>
         </DialogContent>
