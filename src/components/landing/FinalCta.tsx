@@ -34,17 +34,22 @@ export function FinalCta() {
         </Reveal>
 
         <Reveal delay={60}>
+          {/* Matches Pricing.tsx's Free-tier blurb — same claim, said
+              wherever "free" is the headline, not only on the pricing card. */}
           <p className="mt-6 text-[16px] lg:text-[18px] text-[var(--ink-2)] max-w-[560px] mx-auto leading-[1.55]">
-            Free plan. No credit card. 100 clicks per month, forever.
+            Invite-only. No credit card. Full access for 2 weeks, then free forever.
           </p>
         </Reveal>
 
         <Reveal delay={120}>
+          {/* Was "Start free — no card" — overclaimed open enrollment. Still
+              routes to /signup, which shows the invite-code screen to anyone
+              without a stored referral (see supabase/migrations/029). */}
           <Link
             href="/signup"
             className="btn-lift mt-10 inline-flex items-center gap-2 bg-white text-black font-medium px-7 py-4 rounded-sm hover:bg-[var(--ink)]"
           >
-            Start free — no card
+            Get started
           </Link>
         </Reveal>
 

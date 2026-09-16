@@ -14,7 +14,7 @@ export const SITE = {
   title: "Tappr — Smart Link Management with AI Traffic Analytics",
   tagline: "Smart routing, bot detection, and an AI that explains your traffic.",
   description:
-    "Tappr is a link management platform that routes clicks by geo, device, and time, flags bot traffic in real time, and uses AI to explain what's driving your numbers. Free for 100 clicks/month.",
+    "Tappr is a link management platform that routes clicks by geo, device, and time, flags bot traffic in real time, and uses AI to explain what's driving your numbers. Invite-only, free for 2 weeks.",
   locale: "en_US",
   twitter: "@tappr",
   email: "hello@tappr.me",
@@ -56,7 +56,7 @@ export const FAQ: { question: string; answer: string }[] = [
   {
     question: "Is Tappr free?",
     answer:
-      "Yes. The free plan covers 100 clicks per month, forever, with no credit card required. Setup takes under 60 seconds. Paid plans add higher click volumes, more team seats, and API access.",
+      "Tappr is invite-only. Once you're in — via a partner's invite link — you get full access for 2 weeks, then a free plan forever at 100 clicks per month, no credit card required. Setup takes under 60 seconds. Paid plans add higher click volumes, more team seats, and API access.",
   },
   {
     question: "Does Tappr have an API?",

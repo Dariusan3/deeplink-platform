@@ -23,8 +23,8 @@ interface Group {
   rows: Row[];
 }
 
-const PLANS: { key: string; name: string; price: string; popular?: boolean }[] = [
-  { key: "free", name: "Free", price: "€0" },
+const PLANS: { key: string; name: string; price: string; popular?: boolean; note?: string }[] = [
+  { key: "free", name: "Free", price: "€0", note: "Invite only" },
   { key: "starter", name: "Starter", price: "€97" },
   { key: "growth", name: "Growth", price: "€297", popular: true },
   { key: "agency", name: "Agency", price: "€997" },
@@ -122,6 +122,11 @@ export function PricingComparison() {
                   {p.popular && (
                     <span className="inline-block text-[8px] font-black uppercase tracking-widest text-[#00D26A] mb-1">
                       Most Popular
+                    </span>
+                  )}
+                  {p.note && (
+                    <span className="inline-block text-[8px] font-black uppercase tracking-widest text-neutral-500 mb-1">
+                      {p.note}
                     </span>
                   )}
                   <div className={cn("text-sm font-black uppercase tracking-wide", p.popular ? "text-[#00D26A]" : "text-white")}>

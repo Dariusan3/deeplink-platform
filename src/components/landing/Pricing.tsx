@@ -1,4 +1,4 @@
-import { Star } from "lucide-react";
+import { Star, Ticket } from "lucide-react";
 import { Reveal } from "./Reveal";
 import { PricingComparison } from "@/components/pricing/pricing-comparison";
 import { FreePlanButton } from "@/components/pricing/free-plan-button";
@@ -14,6 +14,12 @@ type Tier = {
   cta: string;
   plan: TapprPlan | null; // null = the free plan (no checkout)
   accent: boolean;
+  // A short label in the same corner slot "Most Popular" uses. Free's
+  // "invite is invite-only" was previously only said inside FreePlanButton's
+  // click-triggered dialog (src/components/pricing/free-plan-button.tsx) —
+  // true, but invisible until someone clicks. This puts it on the card
+  // itself, where "free" is what a visitor is actually scanning for.
+  badge?: string;
 };
 
 const TIERS: Tier[] = [
@@ -21,7 +27,11 @@ const TIERS: Tier[] = [
     name: "Free",
     price: "€0",
     cadence: "forever",
-    blurb: "For testing the routing engine and personal links.",
+    // Matches the wording already used once someone IS in the funnel — see
+    // "Full access for 2 weeks, then free forever" in
+    // src/components/partner/referral-onboarding.tsx. Same claim, said here
+    // too, so it isn't a surprise sprung on someone only after they click.
+    blurb: "Invite-only. Full access for 2 weeks, then free forever.",
     features: [
       "100 clicks / month · 5 links",
       "Automatic deep linking (100+ apps)",
@@ -30,6 +40,7 @@ const TIERS: Tier[] = [
     ],
     cta: "Get started",
     plan: null,
+    badge: "Invite Only",
     accent: false,
   },
   {
@@ -91,7 +102,7 @@ export function Pricing() {
             className="mt-5 font-semibold text-[var(--ink)] tracking-[-0.04em] max-w-[820px]"
             style={{ fontSize: "clamp(36px, 5vw, 64px)", lineHeight: 0.98 }}
           >
-            Start free.{" "}
+            Get invited.{" "}
             <span className="text-[var(--ink-2)] font-light">Upgrade when you outgrow it.</span>
           </h2>
         </Reveal>
@@ -107,6 +118,11 @@ export function Pricing() {
                 {t.accent && (
                   <span className="absolute top-6 right-6 inline-flex items-center gap-1 font-mono text-[10px] tracking-[0.14em] uppercase bg-[var(--green-soft)] text-[var(--tappr-green)] border border-[var(--tappr-green)]/40 rounded-sm px-2 py-0.5">
                     <Star className="w-3 h-3 fill-current" /> Most Popular
+                  </span>
+                )}
+                {t.badge && (
+                  <span className="absolute top-6 right-6 inline-flex items-center gap-1 font-mono text-[10px] tracking-[0.14em] uppercase bg-white/[0.04] text-[var(--ink-2)] border border-[var(--line-2)] rounded-sm px-2 py-0.5">
+                    <Ticket className="w-3 h-3" /> {t.badge}
                   </span>
                 )}
                 <h3 className="text-[18px] font-semibold text-[var(--ink)]">{t.name}</h3>

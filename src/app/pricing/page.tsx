@@ -8,14 +8,14 @@ import { JsonLd } from "@/components/seo/json-ld";
 import { SITE, softwareApplicationSchema } from "@/lib/seo";
 
 export const metadata: Metadata = {
-  title: "Pricing — Free for 100 clicks/month",
+  title: "Pricing — Invite-only, free for 2 weeks",
   description:
-    "Tappr pricing. Start free with 100 clicks per month, no credit card required. Paid plans add higher click volume, team seats, and API access.",
+    "Tappr pricing. Invite-only: 2 weeks full access, then free forever at 100 clicks per month, no credit card required. Paid plans add higher click volume, team seats, and API access.",
   alternates: { canonical: "/pricing" },
   openGraph: {
     title: `Pricing — ${SITE.name}`,
     description:
-      "Start free with 100 clicks per month, no credit card. Paid plans add volume, team seats, and API access.",
+      "Invite-only: 2 weeks full access, then free forever. No credit card. Paid plans add volume, team seats, and API access.",
     url: `${SITE.url}/pricing`,
   },
 };

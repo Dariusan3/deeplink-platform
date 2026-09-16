@@ -49,11 +49,14 @@ export function Nav() {
           >
             Book a demo
           </a>
+          {/* Was "Start free →" — overclaimed open enrollment. Still routes
+              to /signup, which shows the invite-code screen to anyone
+              without a stored referral (see supabase/migrations/029). */}
           <Link
             href="/signup"
             className="btn-lift px-3 py-1.5 bg-white text-black font-medium rounded-sm hover:bg-[var(--ink)]"
           >
-            Start free →
+            Get started →
           </Link>
         </div>
       </div>
