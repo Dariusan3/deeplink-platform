@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { TAPPR_PLANS, type TapprPlan } from "@/lib/fanbasis";
+import { createClient } from "@supabase/supabase-js";
+import { type TapprPlan } from "@/lib/fanbasis";
 import { planRank } from "@/lib/plans";
 import { invalidateOwnerQuota } from "@/lib/click-quota";
 import { logAuditEvent, type AuditEventType, type AuditSeverity } from "@/lib/audit";
+import { creditPartnerForPayment } from "@/lib/partner-credit";
 
 // FanBasis webhook receiver. The exact signature header/algorithm isn't in
 // the public docs, so we accept the request if EITHER of these matches:
@@ -148,6 +149,23 @@ export async function POST(request: NextRequest) {
         existing = data ?? null;
       }
 
+      // Renewal fallback: the row is already 'active' (not 'trial') and the
+      // event may carry no subscription id, so match the buyer's most recent
+      // paid row by email. Without this a renewal can't be tied to a payer
+      // and the partner would go uncredited.
+      if (!existing && buyerEmail) {
+        const { data } = await admin
+          .from("subscriptions")
+          .select("id, team_id, plan")
+          .eq("customer_email", buyerEmail)
+          .eq("is_free", false)
+          .in("status", ["active", "expired"])
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        existing = data ?? null;
+      }
+
       // Resolve plan + payer from the matched subscription (the most
       // reliable source) before falling back to metadata. The trial row
       // already knows which plan was bought and which team owns it —
@@ -239,14 +257,12 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Credit the referring partner (if any). Only fires on the FIRST
-      // payment for the referral — the partner_referrals row goes from
-      // "pending" to "converted" and a one-time commission is logged.
-      // Renewal events skip the partner_earnings insert since the row is
-      // already "converted". Uses the resolved payer/plan so it works
-      // even when FanBasis sends empty api_metadata.
+      // Credit the referring partner (if any) on EVERY payment — first
+      // purchase and each renewal. Duplicate deliveries of the same payment
+      // are deduped inside creditPartnerForPayment. Uses the resolved
+      // payer/plan so it works even when FanBasis sends empty api_metadata.
       if (resolvedPayerUserId && resolvedPlan) {
-        await creditPartnerOnPaidSignup(admin, resolvedPayerUserId, resolvedPlan).catch((err) => {
+        await creditPartnerForPayment(admin, resolvedPayerUserId, resolvedPlan, "webhook:fanbasis").catch((err) => {
           console.error("[fanbasis-webhook] partner credit failed", err);
         });
       }
@@ -384,118 +400,3 @@ const AUDIT_MAP: Record<string, { type: AuditEventType; label: string; severity:
   "subscription.canceled":  { type: "subscription.canceled",  label: "Subscription canceled",   severity: "warning" },
   "subscription.completed": { type: "subscription.completed", label: "Subscription completed",  severity: "info"    },
 };
-
-// When a paid subscription succeeds for a user who was originally
-// referred by a partner, convert the open `partner_referrals` row and
-// log a one-time commission in `partner_earnings`. Idempotent —
-// re-running for the same referral becomes a no-op because we only
-// process rows with status="pending".
-async function creditPartnerOnPaidSignup(
-  admin: SupabaseClient,
-  payerUserId: string,
-  plan: TapprPlan
-) {
-  // Find the open referral for this buyer.
-  const { data: referral } = await admin
-    .from("partner_referrals")
-    .select("id, partner_id, status")
-    .eq("referred_user_id", payerUserId)
-    .eq("status", "pending")
-    .maybeSingle();
-
-  if (!referral) return; // not a referred signup, or already credited
-
-  const { data: partner } = await admin
-    .from("partner_profiles")
-    .select("id, commission_rate, pending_payout, total_earned")
-    .eq("id", referral.partner_id)
-    .single();
-
-  if (!partner) return;
-
-  const monthlyValueCents = TAPPR_PLANS[plan].amountCents;
-  const monthlyValue = monthlyValueCents / 100;
-  const commission = monthlyValue * Number(partner.commission_rate);
-
-  // 1. Flip the referral to its converted state. The status check
-  //    constraint allows only 'pending' | 'active' | 'churned' —
-  //    'active' is the converted state. (Using 'converted' silently
-  //    failed: the JS client returns the error in the response rather
-  //    than throwing, so the referral stayed 'pending'.)
-  const { error: updErr } = await admin
-    .from("partner_referrals")
-    .update({
-      status: "active",
-      plan,
-      monthly_value: monthlyValue,
-      converted_at: new Date().toISOString(),
-    })
-    .eq("id", referral.id);
-  if (updErr) {
-    console.error("[fanbasis-webhook] referral convert failed", updErr);
-    return;
-  }
-
-  // 2. Idempotency — skip if an earning already exists for this referral
-  //    (activate endpoint + webhook can both fire for one payment).
-  const { data: existingEarning } = await admin
-    .from("partner_earnings")
-    .select("id")
-    .eq("referral_id", referral.id)
-    .maybeSingle();
-  if (existingEarning) return;
-
-  // 3. Log the commission. period_month is the 1st of this month so we
-  //    can sum monthly earnings later for payouts.
-  const now = new Date();
-  const periodMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-    .toISOString()
-    .slice(0, 10);
-
-  await admin.from("partner_earnings").insert({
-    partner_id: partner.id,
-    referral_id: referral.id,
-    amount: commission,
-    period_month: periodMonth,
-    status: "pending",
-    type: "commission",
-  });
-
-  // 3. Recompute the partner's running totals from the earnings table.
-  //    Summing (not incrementing) keeps pending_payout / total_earned
-  //    drift-proof no matter which path credited (webhook vs
-  //    /api/billing/activate), and is idempotent on retries.
-  {
-    const { data: allEarnings } = await admin
-      .from("partner_earnings")
-      .select("amount, status")
-      .eq("partner_id", partner.id);
-    const rows = (allEarnings ?? []) as { amount: number; status: string }[];
-    const total = rows.reduce((s, e) => s + Number(e.amount), 0);
-    const pending = rows
-      .filter((e) => e.status === "pending")
-      .reduce((s, e) => s + Number(e.amount), 0);
-    await admin
-      .from("partner_profiles")
-      .update({ total_earned: total, pending_payout: pending })
-      .eq("id", partner.id);
-  }
-
-  // Audit the commission so admin sees who got paid when on the activity
-  // page (separate from the payment.succeeded event for the buyer).
-  await logAuditEvent(admin, {
-    eventType: "partner.commission_paid",
-    severity: "success",
-    description: `Partner earned €${commission.toFixed(2)} commission on ${plan} signup`,
-    targetUserId: payerUserId,
-    source: "webhook:fanbasis",
-    metadata: {
-      partner_id: partner.id,
-      referral_id: referral.id,
-      commission_amount: commission,
-      monthly_value: monthlyValue,
-      commission_rate: Number(partner.commission_rate),
-      plan,
-    },
-  });
-}

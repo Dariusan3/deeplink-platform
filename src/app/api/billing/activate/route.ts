@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSsr } from "@/lib/supabase/server";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import { TAPPR_PLANS, type TapprPlan } from "@/lib/fanbasis";
 import { invalidateOwnerQuota } from "@/lib/click-quota";
 import { logAuditEvent } from "@/lib/audit";
+import { creditPartnerForPayment } from "@/lib/partner-credit";
 
 // POST /api/billing/activate { team_id, plan }
 //
@@ -116,7 +117,7 @@ export async function POST(request: NextRequest) {
 
   // Credit the referring partner if this buyer was referred. Idempotent
   // (only processes a pending referral once).
-  await creditPartnerOnPaidSignup(admin, authData.user.id, plan).catch(() => {});
+  await creditPartnerForPayment(admin, authData.user.id, plan, "api:/billing/activate").catch(() => {});
 
   await logAuditEvent(admin, {
     eventType: "subscription.created",
@@ -132,92 +133,4 @@ export async function POST(request: NextRequest) {
   });
 
   return NextResponse.json({ ok: true, activated: true, plan });
-}
-
-// Mirror of the webhook's partner-credit logic so a referred buyer still
-// converts their partner's referral when activation happens via the
-// success redirect instead of the (broken) webhook.
-async function creditPartnerOnPaidSignup(
-  admin: SupabaseClient,
-  payerUserId: string,
-  plan: TapprPlan
-) {
-  const { data: referral } = await admin
-    .from("partner_referrals")
-    .select("id, partner_id, status")
-    .eq("referred_user_id", payerUserId)
-    .eq("status", "pending")
-    .maybeSingle();
-  if (!referral) return;
-
-  const { data: partner } = await admin
-    .from("partner_profiles")
-    .select("id, commission_rate")
-    .eq("id", referral.partner_id)
-    .single();
-  if (!partner) return;
-
-  const monthlyValue = TAPPR_PLANS[plan].amountCents / 100;
-  const commission = monthlyValue * Number(partner.commission_rate);
-
-  // Mark the referral converted. NOTE: the status check constraint only
-  // allows 'pending' | 'active' | 'churned' — 'active' IS the converted
-  // state. Using 'converted' here silently failed (the JS client returns
-  // the error in the response instead of throwing) so referrals stayed
-  // 'pending' even after a paid signup.
-  const { error: updErr } = await admin
-    .from("partner_referrals")
-    .update({
-      status: "active",
-      plan,
-      monthly_value: monthlyValue,
-      converted_at: new Date().toISOString(),
-    })
-    .eq("id", referral.id);
-  if (updErr) {
-    console.error("[billing/activate] referral convert failed", updErr);
-    return;
-  }
-
-  // Idempotency: don't double-credit if an earning already exists for
-  // this referral (e.g. webhook + activate both fire for one payment).
-  const { data: existingEarning } = await admin
-    .from("partner_earnings")
-    .select("id")
-    .eq("referral_id", referral.id)
-    .maybeSingle();
-  if (existingEarning) return;
-
-  await admin.from("partner_earnings").insert({
-    partner_id: referral.partner_id,
-    referral_id: referral.id,
-    amount: commission,
-    type: "commission",
-    status: "pending",
-    period_month: new Date().toISOString().slice(0, 10),
-  });
-
-  // Recompute the partner's running totals from the earnings table —
-  // the Overview / Earnings pages read these columns directly. Summing
-  // (rather than incrementing) keeps them drift-proof regardless of
-  // which path credited (webhook vs this endpoint).
-  await recomputePartnerTotals(admin, referral.partner_id);
-}
-
-// Sums partner_earnings into the partner_profiles running totals.
-// pending_payout = unpaid earnings, total_earned = everything earned.
-async function recomputePartnerTotals(admin: SupabaseClient, partnerId: string) {
-  const { data: earnings } = await admin
-    .from("partner_earnings")
-    .select("amount, status")
-    .eq("partner_id", partnerId);
-  const rows = (earnings ?? []) as { amount: number; status: string }[];
-  const total = rows.reduce((s, e) => s + Number(e.amount), 0);
-  const pending = rows
-    .filter((e) => e.status === "pending")
-    .reduce((s, e) => s + Number(e.amount), 0);
-  await admin
-    .from("partner_profiles")
-    .update({ total_earned: total, pending_payout: pending })
-    .eq("id", partnerId);
 }
