@@ -24,7 +24,7 @@ const NAV = [
   { name: "My Link", href: "/partner/link", icon: Link2 },
   { name: "Referrals", href: "/partner/referrals", icon: Users },
   { name: "Earnings", href: "/partner/earnings", icon: Wallet },
-  { name: "Promo Kit", href: "/partner/promo", icon: Megaphone },
+  { name: "Content Ideas", href: "/partner/promo", icon: Megaphone },
   { name: "Settings", href: "/partner/settings", icon: Settings },
 ];
 

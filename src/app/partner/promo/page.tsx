@@ -1,93 +1,127 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { usePartner } from "@/hooks/use-partner";
-import { Megaphone, Copy, Check, MessageCircle, Mail, Instagram, Linkedin } from "lucide-react";
+import { Sparkles, Copy, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-const TEMPLATES = (link: string) => [
-  {
-    icon: Instagram,
-    label: "Instagram / Facebook caption",
-    body: `I've been using Tappr to make my links smarter — geo routing, AI analytics, the works.\n\nIf you're sharing links anywhere (TikTok, IG bio, ads, email), check it out → ${link}\n\n25% off via my partner link 🎯`,
-  },
-  {
-    icon: Linkedin,
-    label: "LinkedIn post",
-    body: `For anyone running campaigns or distributing content at scale: Tappr is the link platform I've been using.\n\nSmart routing (country / device / time), AI-powered analytics, real-time anomaly alerts. Integrates with Instagram. Has an actual API.\n\nMy partner link: ${link}`,
-  },
-  {
-    icon: MessageCircle,
-    label: "DM / WhatsApp",
-    // Describes Tappr on its own terms. Partners paste this verbatim, so a
-    // competitor's trademark must not ride along in material we author.
-    body: `hey — i've been using this link platform called Tappr. it routes each click by country/device and flags bot traffic, plus AI analytics. thought you might dig it: ${link}`,
-  },
-  {
-    icon: Mail,
-    label: "Email template",
-    body: `Hey,\n\nQuick one — I've been using Tappr for link management and the analytics side has been a game-changer (AI insights, real-time anomaly detection, country/device routing).\n\nIf you're managing links for any reason — campaigns, content, internal tools — give it a look:\n${link}\n\nThis is my partner link, so it tracks back if you sign up. Let me know what you think.`,
-  },
-];
+const PLATFORMS = ["Instagram", "TikTok", "YouTube", "Site / blog", "Facebook", "LinkedIn"];
+const FORMATS = ["Reels / video scurt", "Carusel", "Story-uri", "Postare / articol", "Mesaj privat", "Email"];
+const TONES = ["direct", "educativ", "amuzant", "serios"];
 
-function CopyBlock({ icon: Icon, label, body }: { icon: typeof Instagram; label: string; body: string }) {
+const inputCls =
+  "w-full h-10 px-3 rounded-lg bg-white/[0.03] border border-white/10 focus:border-[#A855F7] focus:outline-none text-sm text-white placeholder:text-neutral-500";
+const labelCls = "block text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-1.5";
+
+export default function PartnerContentIdeasPage() {
+  const { referralUrl } = usePartner();
+  const [platform, setPlatform] = useState(PLATFORMS[0]);
+  const [format, setFormat] = useState(FORMATS[0]);
+  const [tone, setTone] = useState(TONES[0]);
+  const [niche, setNiche] = useState("");
+  const [audience, setAudience] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [ideas, setIdeas] = useState("");
   const [copied, setCopied] = useState(false);
+
+  const generate = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/partner/content-ideas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ platform, format, tone, niche, audience, link: referralUrl }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(json?.error || "Generarea a eșuat");
+        return;
+      }
+      setIdeas(json.ideas);
+    } catch {
+      toast.error("Generarea a eșuat");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const copy = () => {
-    navigator.clipboard.writeText(body);
+    navigator.clipboard.writeText(ideas);
     setCopied(true);
-    toast.success(`${label} copied`);
+    toast.success("Copiat");
     setTimeout(() => setCopied(false), 2000);
   };
-  return (
-    <Card className="glass-card border-white/5">
-      <CardHeader className="pb-3 flex flex-row items-center justify-between">
-        <CardTitle className="text-sm font-black flex items-center gap-2">
-          <Icon className="w-4 h-4 text-[#A855F7]" />
-          {label}
-        </CardTitle>
-        <Button onClick={copy} variant="outline" className="h-8 px-3 text-[10px] font-black uppercase tracking-widest border-white/10 bg-white/[0.02] hover:bg-[#A855F7]/10 hover:text-[#A855F7] gap-1.5">
-          {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-          {copied ? "Copied" : "Copy"}
-        </Button>
-      </CardHeader>
-      <CardContent>
-        <pre className="text-xs text-neutral-300 font-mono whitespace-pre-wrap leading-relaxed bg-white/[0.02] p-3 rounded-lg border border-white/5">{body}</pre>
-      </CardContent>
-    </Card>
-  );
-}
-
-export default function PartnerPromoPage() {
-  const { referralUrl } = usePartner();
-  const templates = TEMPLATES(referralUrl);
 
   return (
     <div className="p-4 md:p-6 space-y-6 pb-20">
       <PageHeader
         accent="purple"
         eyebrow="Partner Dashboard"
-        title="Promo Kit"
-        subtitle="Copy-paste templates for the platforms you use. All include your partner link automatically."
+        title="Content Ideas"
+        subtitle="Spune-ne unde postezi și cui te adresezi. AI-ul îți scrie 5 idei gata de folosit, cu link-ul tău inclus."
       />
 
-      <Card className="glass-card border-[#A855F7]/20 bg-[#A855F7]/5">
-        <CardContent className="p-4 flex items-center gap-3">
-          <Megaphone className="w-5 h-5 text-[#A855F7] shrink-0" />
-          <div>
-            <p className="text-xs font-bold text-white">Customize before you post</p>
-            <p className="text-[10px] text-neutral-400">Best results come from your own voice. Treat these as starting points, not scripts.</p>
+      <Card className="glass-card border-white/5">
+        <CardContent className="p-4 md:p-5 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className={labelCls}>Platformă</label>
+              <select className={inputCls} value={platform} onChange={(e) => setPlatform(e.target.value)}>
+                {PLATFORMS.map((p) => <option key={p} value={p} className="bg-neutral-900">{p}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Format</label>
+              <select className={inputCls} value={format} onChange={(e) => setFormat(e.target.value)}>
+                {FORMATS.map((f) => <option key={f} value={f} className="bg-neutral-900">{f}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Ton</label>
+              <select className={inputCls} value={tone} onChange={(e) => setTone(e.target.value)}>
+                {TONES.map((t) => <option key={t} value={t} className="bg-neutral-900">{t}</option>)}
+              </select>
+            </div>
           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={labelCls}>Nișa ta</label>
+              <input className={inputCls} value={niche} maxLength={200} onChange={(e) => setNiche(e.target.value)} placeholder="ex. marketing pentru restaurante" />
+            </div>
+            <div>
+              <label className={labelCls}>Cine te urmărește</label>
+              <input className={inputCls} value={audience} maxLength={200} onChange={(e) => setAudience(e.target.value)} placeholder="ex. antreprenori, 25-40 ani, România" />
+            </div>
+          </div>
+          <Button
+            onClick={generate}
+            disabled={loading}
+            className="bg-[#A855F7] hover:bg-[#A855F7]/90 text-black font-black uppercase text-[11px] tracking-widest h-10 px-5 gap-2"
+          >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            {loading ? "Generez..." : ideas ? "Generează alte idei" : "Generează idei"}
+          </Button>
         </CardContent>
       </Card>
 
-      <div className="space-y-4">
-        {templates.map((t, i) => (
-          <CopyBlock key={i} icon={t.icon} label={t.label} body={t.body} />
-        ))}
-      </div>
+      {ideas && (
+        <Card className="glass-card border-[#A855F7]/20">
+          <CardContent className="p-4 md:p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-black uppercase tracking-widest text-[#A855F7]">Ideile tale</p>
+              <Button onClick={copy} variant="outline" className="h-8 px-3 text-[10px] font-black uppercase tracking-widest border-white/10 bg-white/[0.02] hover:bg-[#A855F7]/10 hover:text-[#A855F7] gap-1.5">
+                {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                {copied ? "Copiat" : "Copiază tot"}
+              </Button>
+            </div>
+            <pre className="text-sm text-neutral-200 whitespace-pre-wrap leading-relaxed font-sans">{ideas}</pre>
+            <p className="text-[10px] text-neutral-500">Adaptează cu vocea ta înainte să postezi și menționează că e link de partener.</p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
