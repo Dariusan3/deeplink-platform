@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import Groq from "groq-sdk";
+import { AI_MODEL, AI_REASONING_EFFORT } from "@/lib/ai-model";
 import { createClient as createSsr } from "@/lib/supabase/server";
 
 // POST /api/partner/content-ideas { platform, format, niche, audience, tone, link }
 //
 // Generates ready-to-post content ideas for a partner promoting Tappr. Replaces
 // the static Promo Kit. The system prompt carries the same ground rules as
-// docs/partner-content-kit-ro.md — most importantly the list of things a partner
+// docs/partner-claude-kit-ro.md — most importantly the list of things a partner
 // must NOT claim (discounts, trials, fake numbers, unbuilt features).
 //
 // Partner-only, and rate limited per user because every call spends model tokens.
@@ -99,9 +100,10 @@ export async function POST(request: NextRequest) {
 
   try {
     const completion = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      model: AI_MODEL,
+      reasoning_effort: AI_REASONING_EFFORT,
       temperature: 0.8,
-      max_tokens: 2500,
+      max_tokens: 6000,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: userPrompt },

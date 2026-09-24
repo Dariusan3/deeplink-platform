@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Groq from "groq-sdk";
+import { AI_MODEL, AI_REASONING_EFFORT } from "@/lib/ai-model";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { hasFeature } from "@/lib/entitlements";
@@ -63,8 +64,9 @@ Be specific with numbers. Write like a human analyst, not a bot. Max 400 words.`
 
   try {
     const response = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      max_tokens: 1024,
+      model: AI_MODEL,
+      reasoning_effort: AI_REASONING_EFFORT,
+      max_tokens: 4000,
       messages: [{ role: "user", content: prompt }],
     });
 

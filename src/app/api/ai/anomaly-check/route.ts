@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Groq from "groq-sdk";
+import { AI_MODEL_FAST, AI_REASONING_EFFORT } from "@/lib/ai-model";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
@@ -81,8 +82,9 @@ For each anomaly, provide ONE likely root cause and ONE immediate action in JSON
 Reply with only the JSON, no other text.`;
 
       const aiResponse = await groq.chat.completions.create({
-        model: "llama-3.1-8b-instant",
-        max_tokens: 512,
+        model: AI_MODEL_FAST,
+        reasoning_effort: AI_REASONING_EFFORT,
+        max_tokens: 2000,
         messages: [{ role: "user", content: enhancePrompt }],
       });
 

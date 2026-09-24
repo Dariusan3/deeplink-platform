@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import Groq from "groq-sdk";
+import { AI_MODEL, AI_REASONING_EFFORT } from "@/lib/ai-model";
 import { createServerClient } from "@supabase/ssr";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
@@ -187,8 +188,9 @@ Format text answers in markdown with bullets, never JSON in your text reply. Rep
           // If it has tool_calls, run them and loop. Otherwise STREAM the
           // text answer to the client.
           const completion = await groq.chat.completions.create({
-            model: "llama-3.3-70b-versatile",
-            max_tokens: 2048,
+            model: AI_MODEL,
+            reasoning_effort: AI_REASONING_EFFORT,
+            max_tokens: 6000,
             tools: TOOLS,
             tool_choice: "auto",
             messages: conversationMessages,
