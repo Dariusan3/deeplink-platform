@@ -74,6 +74,38 @@ export function SignupForm({
       try { localStorage.setItem("tappr_ref_code", refCode); } catch {}
     }
 
+    // Referral signups skip the confirmation email: the account is created
+    // server-side (already confirmed) and we sign straight in. Without a code
+    // this is skipped and the normal signUp + confirmation path runs.
+    if (refCode) {
+      const res = await fetch("/api/auth/referral-signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, full_name: fullName, code: refCode }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(json?.error || "Could not create account");
+        setLoading(false);
+        return;
+      }
+      const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInErr) {
+        setError(signInErr.message);
+        setLoading(false);
+        return;
+      }
+      try {
+        await fetch("/api/partner/claim-referral", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: refCode }),
+        });
+      } catch {}
+      window.location.href = "/dashboard";
+      return;
+    }
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
