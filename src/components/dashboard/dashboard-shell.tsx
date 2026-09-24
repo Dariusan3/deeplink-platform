@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { FloatingChat } from "@/components/dashboard/floating-chat";
 import { ReferralClaim } from "@/components/partner/referral-claim";
+import { ReferralUpgradeBanner } from "@/components/dashboard/referral-upgrade-banner";
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -23,6 +24,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
         {/* Main content */}
         <main className="flex-1 overflow-y-auto relative z-0">
+          <ReferralUpgradeBanner />
           {children}
         </main>
 
