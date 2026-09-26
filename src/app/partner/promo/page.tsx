@@ -56,7 +56,7 @@ export default function PartnerContentIdeasPage() {
   };
 
   return (
-    <div className="p-4 md:p-6 space-y-6 pb-20">
+    <div lang="ro" translate="no" className="p-4 md:p-6 space-y-6 pb-20">
       <PageHeader
         accent="purple"
         eyebrow="Partner Dashboard"
@@ -102,7 +102,7 @@ export default function PartnerContentIdeasPage() {
             className="bg-[#A855F7] hover:bg-[#A855F7]/90 text-black font-black uppercase text-[11px] tracking-widest h-10 px-5 gap-2"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            {loading ? "Generez..." : ideas ? "Generează alte idei" : "Generează idei"}
+            <span>{loading ? "Generez..." : ideas ? "Generează alte idei" : "Generează idei"}</span>
           </Button>
         </CardContent>
       </Card>
@@ -114,7 +114,7 @@ export default function PartnerContentIdeasPage() {
               <p className="text-xs font-black uppercase tracking-widest text-[#A855F7]">Ideile tale</p>
               <Button onClick={copy} variant="outline" className="h-8 px-3 text-[10px] font-black uppercase tracking-widest border-white/10 bg-white/[0.02] hover:bg-[#A855F7]/10 hover:text-[#A855F7] gap-1.5">
                 {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                {copied ? "Copiat" : "Copiază tot"}
+                <span>{copied ? "Copiat" : "Copiază tot"}</span>
               </Button>
             </div>
             <pre className="text-sm text-neutral-200 whitespace-pre-wrap leading-relaxed font-sans">{ideas}</pre>
