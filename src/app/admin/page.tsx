@@ -73,8 +73,8 @@ export default function AdminOverviewPage() {
 
   if (loading) {
     return (
-      <div className="p-8">
-        <h1 className="text-3xl font-black text-white mb-8">Admin Overview</h1>
+      <div className="p-4 md:p-8">
+        <h1 className="text-2xl md:text-3xl font-black text-white mb-8">Admin Overview</h1>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <div key={i} className="h-28 rounded-xl bg-white/[0.02] animate-pulse" />
@@ -94,19 +94,19 @@ export default function AdminOverviewPage() {
   ];
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-4 md:p-8 space-y-6 md:space-y-8">
       <PageHeader eyebrow="Admin" title="Overview" subtitle="CRM dashboard — platform statistics at a glance" />
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
         {statCards.map((stat) => (
           <Card key={stat.label} className="glass-card border-white/5">
-            <CardContent className="p-5 flex items-center gap-4">
-              <div className={`p-2.5 rounded-xl border ${stat.bg}`}>
+            <CardContent className="p-3.5 sm:p-5 flex items-center gap-3 sm:gap-4">
+              <div className={`p-2 sm:p-2.5 rounded-xl border shrink-0 ${stat.bg}`}>
                 <stat.icon className={`w-5 h-5 ${stat.color}`} />
               </div>
-              <div>
-                <p className="text-3xl font-black text-white">{stat.value.toLocaleString()}</p>
+              <div className="min-w-0">
+                <p className="text-2xl sm:text-3xl font-black text-white">{stat.value.toLocaleString()}</p>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">{stat.label}</p>
               </div>
             </CardContent>
@@ -117,7 +117,7 @@ export default function AdminOverviewPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Plan Breakdown */}
         <Card className="glass-card border-white/5">
-          <CardContent className="p-5">
+          <CardContent className="p-4 sm:p-5">
             <h3 className="text-sm font-black text-white mb-4 flex items-center gap-2">
               <CreditCard className="w-4 h-4 text-[#00D26A]" />
               Plan Breakdown
@@ -156,7 +156,7 @@ export default function AdminOverviewPage() {
 
         {/* Recent Users */}
         <Card className="glass-card border-white/5">
-          <CardContent className="p-5">
+          <CardContent className="p-4 sm:p-5">
             <h3 className="text-sm font-black text-white mb-4 flex items-center gap-2">
               <Users className="w-4 h-4 text-blue-400" />
               Recent Signups

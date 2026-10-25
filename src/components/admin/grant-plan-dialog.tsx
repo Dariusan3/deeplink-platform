@@ -135,7 +135,7 @@ export function GrantPlanDialog({ open, onOpenChange, onGranted }: GrantPlanDial
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="glass-card bg-black/95 border-red-500/30 text-white sm:max-w-[520px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="glass-card bg-black/95 border-red-500/30 text-white sm:max-w-[520px] max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-black tracking-tight flex items-center gap-2 uppercase italic">
             <div className="p-2 rounded-lg bg-red-500/10 text-red-400 border border-red-500/30">

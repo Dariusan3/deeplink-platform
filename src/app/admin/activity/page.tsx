@@ -138,7 +138,7 @@ export default function AdminActivityPage() {
   const hasActiveFilters = prefix || severity || query.trim() || dateFrom || dateTo;
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 md:p-6 space-y-5 md:space-y-6 max-w-7xl mx-auto">
       <PageHeader
         eyebrow="Admin"
         title="Activity Log"
@@ -178,7 +178,7 @@ export default function AdminActivityPage() {
       {/* Filters row */}
       <Card className="glass-card border-white/5">
         <CardContent className="p-3 flex flex-wrap items-end gap-3">
-          <div className="flex-1 min-w-[220px] space-y-1.5">
+          <div className="flex-1 basis-full sm:basis-auto sm:min-w-[220px] space-y-1.5">
             <Label className="text-[9px] font-black uppercase tracking-widest text-neutral-500 flex items-center gap-1">
               <Search className="w-3 h-3" /> Search
             </Label>
@@ -202,7 +202,7 @@ export default function AdminActivityPage() {
             </div>
           </div>
 
-          <div className="space-y-1.5 min-w-[120px]">
+          <div className="space-y-1.5 basis-full sm:basis-auto sm:min-w-[120px]">
             <Label className="text-[9px] font-black uppercase tracking-widest text-neutral-500 flex items-center gap-1">
               <Filter className="w-3 h-3" /> Severity
             </Label>
@@ -219,12 +219,12 @@ export default function AdminActivityPage() {
             </select>
           </div>
 
-          <div className="space-y-1.5 min-w-[160px]">
+          <div className="space-y-1.5 flex-1 min-w-[140px] sm:flex-none sm:min-w-[160px]">
             <Label className="text-[9px] font-black uppercase tracking-widest text-neutral-500">From</Label>
             <DatePicker value={dateFrom} onChange={setDateFrom} placeholder="Any" />
           </div>
 
-          <div className="space-y-1.5 min-w-[160px]">
+          <div className="space-y-1.5 flex-1 min-w-[140px] sm:flex-none sm:min-w-[160px]">
             <Label className="text-[9px] font-black uppercase tracking-widest text-neutral-500">To</Label>
             <DatePicker value={dateTo} onChange={setDateTo} placeholder="Any" />
           </div>
@@ -257,7 +257,7 @@ export default function AdminActivityPage() {
         </div>
       ) : rows.length === 0 ? (
         <Card className="glass-card border-white/5 border-dashed">
-          <CardContent className="p-12 text-center">
+          <CardContent className="p-8 sm:p-12 text-center">
             <div className="w-16 h-16 rounded-2xl bg-white/[0.02] flex items-center justify-center mx-auto mb-4">
               <ScrollText className="w-8 h-8 text-neutral-600" />
             </div>
@@ -283,7 +283,7 @@ export default function AdminActivityPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-bold text-white truncate">{row.description}</p>
+                      <p className="text-sm font-bold text-white break-words min-w-0">{row.description}</p>
                       <span className={cn(
                         "px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest shrink-0",
                         style.tint, style.text
@@ -291,7 +291,7 @@ export default function AdminActivityPage() {
                         {style.label}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 mt-0.5 text-[10px] text-neutral-500 font-medium">
+                    <div className="flex items-center gap-x-2 gap-y-0.5 flex-wrap mt-0.5 text-[10px] text-neutral-500 font-medium break-all">
                       <span className="font-mono">{row.event_type}</span>
                       <span>·</span>
                       <span>{formatRelative(row.created_at)}</span>
@@ -349,7 +349,7 @@ function KV({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex gap-2">
       <span className="text-neutral-600 shrink-0">{label}:</span>
-      <span className="text-white truncate">{value}</span>
+      <span className="text-white break-all min-w-0">{value}</span>
     </div>
   );
 }

@@ -53,7 +53,7 @@ export function PageHeader({
               {eyebrow}
             </p>
           )}
-          <h1 className="text-3xl font-black tracking-tighter text-white uppercase italic leading-none">
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tighter text-white uppercase italic leading-none">
             {title}
           </h1>
           {subtitle && (

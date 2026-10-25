@@ -116,7 +116,7 @@ export default function AdminSubscriptionsPage() {
   };
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-4 md:p-8 space-y-6">
       <PageHeader
         eyebrow="Admin"
         title="Subscriptions"
@@ -139,13 +139,13 @@ export default function AdminSubscriptionsPage() {
       />
 
       {/* Filter tabs */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         {(["all", "active", "expired", "cancelled"] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
             className={cn(
-              "px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all border",
+              "px-3 sm:px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all border",
               filter === f
                 ? "bg-red-500/10 border-red-500/20 text-red-400"
                 : "border-white/5 text-neutral-500 hover:text-white"
@@ -195,14 +195,14 @@ export default function AdminSubscriptionsPage() {
 
             return (
               <Card key={sub.id} className="glass-card border-white/5">
-                <CardContent className="p-4 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-4 min-w-0 flex-1">
-                    <div className={cn("p-2 rounded-xl border", status.bg)}>
+                <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+                  <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                    <div className={cn("p-2 rounded-xl border shrink-0", status.bg)}>
                       {sub.is_free ? <Gift className="w-4 h-4 text-pink-400" /> : <CreditCard className={cn("w-4 h-4", status.text)} />}
                     </div>
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-bold text-white">{sub.team_name}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-bold text-white break-words">{sub.team_name}</p>
                         <span className={cn(
                           "text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border",
                           status.bg, status.text
@@ -218,7 +218,7 @@ export default function AdminSubscriptionsPage() {
                           </span>
                         )}
                       </div>
-                      <p className="text-[10px] text-neutral-500 mt-0.5">
+                      <p className="text-[10px] text-neutral-500 mt-0.5 break-words">
                         {sub.team_owner_email}
                         {sub.granted_by_name && <> · Granted by {sub.granted_by_name}</>}
                         {sub.notes && <> · {sub.notes}</>}
@@ -226,9 +226,9 @@ export default function AdminSubscriptionsPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 shrink-0">
+                  <div className="flex items-center justify-between sm:justify-end gap-3 sm:shrink-0 pl-11 sm:pl-0">
                     {daysLeft !== null && sub.status === "active" && (
-                      <div className="text-right">
+                      <div className="sm:text-right">
                         <p className={cn(
                           "text-sm font-black",
                           daysLeft <= 7 ? "text-amber-400" : daysLeft <= 0 ? "text-red-400" : "text-neutral-300"

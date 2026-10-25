@@ -102,7 +102,7 @@ export default function AdminPayoutsPage() {
   ];
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-4 md:p-8 space-y-6">
       <PageHeader
         eyebrow="Admin"
         title="Payouts"
@@ -111,13 +111,13 @@ export default function AdminPayoutsPage() {
       />
 
       {/* Filter tabs */}
-      <div className="flex items-center gap-1 p-1 rounded-xl bg-white/[0.02] border border-white/5 w-fit">
+      <div className="flex items-center gap-1 p-1 rounded-xl bg-white/[0.02] border border-white/5 w-fit max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {FILTERS.map(({ key, label }) => (
           <button
             key={key}
             onClick={() => setFilter(key)}
             className={cn(
-              "flex items-center gap-1.5 px-3 h-8 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+              "flex items-center gap-1.5 px-3 h-8 rounded-lg shrink-0 text-[10px] font-black uppercase tracking-widest transition-all",
               filter === key ? "bg-[#00D26A]/10 text-[#00D26A]" : "text-neutral-500 hover:text-white hover:bg-white/5"
             )}
           >
@@ -144,7 +144,7 @@ export default function AdminPayoutsPage() {
         <div className="space-y-3">
           {filtered.map((p) => (
             <Card key={p.id} className="glass-card border-white/5">
-              <CardContent className="p-5">
+              <CardContent className="p-4 sm:p-5">
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   {/* Left: who + how much */}
                   <div className="min-w-0">
@@ -160,8 +160,8 @@ export default function AdminPayoutsPage() {
                         {p.method}
                       </span>
                     </div>
-                    <p className="text-sm font-bold text-white mt-1">{p.partner_name || p.partner_email}</p>
-                    <p className="text-[11px] text-neutral-500">{p.partner_email}</p>
+                    <p className="text-sm font-bold text-white mt-1 break-words">{p.partner_name || p.partner_email}</p>
+                    <p className="text-[11px] text-neutral-500 break-all">{p.partner_email}</p>
                     <p className="text-[10px] text-neutral-600 mt-1">
                       Requested {new Date(p.created_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                       {p.paid_at && ` · Paid ${new Date(p.paid_at).toLocaleDateString()}`}
@@ -169,14 +169,14 @@ export default function AdminPayoutsPage() {
                   </div>
 
                   {/* Right: wallet to send to */}
-                  <div className="min-w-0 sm:text-right">
+                  <div className="min-w-0 w-full sm:w-auto sm:text-right">
                     <p className="text-[9px] font-black uppercase tracking-widest text-neutral-500 mb-1">
                       Send to {p.wallet_network || "—"}
                     </p>
                     {p.wallet_address ? (
                       <button
                         onClick={() => copyAddr(p.wallet_address!)}
-                        className="inline-flex items-center gap-1.5 font-mono text-xs text-white bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 hover:border-[#00D26A]/30 transition-all max-w-[280px]"
+                        className="inline-flex items-center gap-1.5 font-mono text-xs text-white bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 hover:border-[#00D26A]/30 transition-all max-w-full sm:max-w-[280px]"
                         title="Copy address"
                       >
                         <span className="truncate">{p.wallet_address}</span>
@@ -199,7 +199,7 @@ export default function AdminPayoutsPage() {
                       value={refs[p.id] ?? ""}
                       onChange={(e) => setRefs((r) => ({ ...r, [p.id]: e.target.value }))}
                       placeholder="Transaction hash (after you send crypto)"
-                      className="flex-1 min-w-[200px] h-10 bg-white/[0.02] border-white/10 font-mono text-xs"
+                      className="flex-1 min-w-0 basis-full sm:basis-auto sm:min-w-[200px] h-10 bg-white/[0.02] border-white/10 font-mono text-xs"
                     />
                     <Button
                       onClick={() => process(p.id, "paid")}

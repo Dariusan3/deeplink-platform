@@ -28,9 +28,48 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   return (
-    <div className="min-h-screen bg-black flex">
-      {/* Admin Sidebar */}
-      <div className="w-64 border-r border-white/5 bg-black/50 flex flex-col shrink-0">
+    <div className="min-h-dvh bg-black flex flex-col md:flex-row">
+      {/* Mobile top bar: brand + horizontally scrollable nav */}
+      <div className="md:hidden sticky top-0 z-30 border-b border-white/5 bg-black/95 backdrop-blur pt-[env(safe-area-inset-top)]">
+        <div className="flex items-center justify-between gap-3 px-4 py-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="p-1.5 rounded-lg bg-red-500/10 border border-red-500/20 shrink-0">
+              <Shield className="w-4 h-4 text-red-400" />
+            </div>
+            <p className="text-sm font-black text-white truncate">Admin Panel</p>
+          </div>
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-1.5 text-[10px] font-bold text-neutral-400 hover:text-white transition-colors shrink-0"
+          >
+            <ArrowLeft className="w-3 h-3" />
+            Dashboard
+          </Link>
+        </div>
+        <nav className="flex gap-1.5 overflow-x-auto px-4 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {adminNav.map((item) => {
+            const isActive = pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-2 px-3 h-9 rounded-lg text-xs font-bold whitespace-nowrap shrink-0 border transition-all",
+                  isActive
+                    ? "bg-red-500/10 text-red-400 border-red-500/20"
+                    : "text-neutral-400 border-white/5"
+                )}
+              >
+                <item.icon className="w-3.5 h-3.5" />
+                {item.name}
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Admin Sidebar (desktop) */}
+      <div className="hidden md:flex w-64 border-r border-white/5 bg-black/50 flex-col shrink-0">
         <div className="p-4 border-b border-white/5">
           <div className="flex items-center gap-2 mb-3">
             <div className="p-1.5 rounded-lg bg-red-500/10 border border-red-500/20">
@@ -73,7 +112,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Main content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 min-w-0 md:overflow-y-auto">
         {children}
       </div>
     </div>

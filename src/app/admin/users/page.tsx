@@ -283,7 +283,7 @@ export default function AdminUsersPage() {
   };
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-4 md:p-8 space-y-6">
       <PageHeader
         eyebrow="Admin"
         title="Users & Teams"
@@ -321,7 +321,7 @@ export default function AdminUsersPage() {
         <div className="space-y-2">
           {filteredUsers.map((user) => (
             <Card key={user.id} className="glass-card border-white/5">
-              <CardContent className="p-4 flex items-center justify-between gap-4">
+              <CardContent className="p-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 lg:gap-4">
                 <div className="flex items-center gap-3 min-w-0 flex-1">
                   <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center shrink-0">
                     <span className="text-sm font-black text-neutral-400">
@@ -329,8 +329,8 @@ export default function AdminUsersPage() {
                     </span>
                   </div>
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-bold text-white truncate">
+                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                      <p className="text-sm font-bold text-white truncate max-w-full">
                         {user.full_name || "No name"}
                       </p>
                       {user.is_admin && (
@@ -373,8 +373,8 @@ export default function AdminUsersPage() {
                         Set Password
                       </button>
                     </div>
-                    <p className="text-[11px] text-neutral-500 truncate">{user.email}</p>
-                    <div className="flex items-center gap-2 mt-1">
+                    <p className="text-[11px] text-neutral-500 break-all">{user.email}</p>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
                       {user.teams.map((team) => (
                         <span key={team.id} className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-white/5 text-neutral-400 border border-white/5">
                           {team.name} · {team.plan}
@@ -387,10 +387,10 @@ export default function AdminUsersPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center justify-between lg:justify-end gap-2 flex-wrap lg:shrink-0">
                   {/* Current subscription */}
                   {user.subscription ? (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className={cn(
                         "text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full border",
                         user.subscription.is_free
@@ -455,7 +455,7 @@ export default function AdminUsersPage() {
 
       {/* Grant Subscription Dialog */}
       <Dialog open={!!grantForm} onOpenChange={(open) => !open && setGrantForm(null)}>
-        <DialogContent className="glass-card bg-black/95 border-white/5 text-white sm:max-w-[420px]">
+        <DialogContent className="glass-card bg-black/95 border-white/5 text-white sm:max-w-[420px] max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lg font-black flex items-center gap-2">
               <Gift className="w-5 h-5 text-red-400" />
@@ -574,7 +574,7 @@ export default function AdminUsersPage() {
 
       {/* Set Password Dialog */}
       <Dialog open={!!pwForm} onOpenChange={(open) => !open && !settingPw && setPwForm(null)}>
-        <DialogContent className="glass-card bg-black/95 border-white/5 text-white sm:max-w-[420px]">
+        <DialogContent className="glass-card bg-black/95 border-white/5 text-white sm:max-w-[420px] max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lg font-black flex items-center gap-2">
               <KeyRound className="w-5 h-5 text-amber-400" />
@@ -646,7 +646,7 @@ export default function AdminUsersPage() {
 
       {/* Create User Dialog */}
       <Dialog open={!!createForm} onOpenChange={(open) => !open && !creatingUser && setCreateForm(null)}>
-        <DialogContent className="glass-card bg-black/95 border-white/5 text-white sm:max-w-[440px]">
+        <DialogContent className="glass-card bg-black/95 border-white/5 text-white sm:max-w-[440px] max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lg font-black flex items-center gap-2">
               <UserPlus className="w-5 h-5 text-red-400" />
